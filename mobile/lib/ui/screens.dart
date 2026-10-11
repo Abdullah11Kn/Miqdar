@@ -349,7 +349,7 @@ class HomeScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           child: Stack(children: [
             SizedBox(height: 176, width: double.infinity, child: Image.asset('assets/branding/miqdar-food.png', fit: BoxFit.cover)),
-            Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(colors: [MiqdarColors.dark.withOpacity(.88), Colors.transparent])))),
+            Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(colors: [MiqdarColors.dark.withValues(alpha: .88), Colors.transparent])))),
             Positioned(
               left: 20,
               top: 20,
@@ -461,7 +461,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   ? const AssetImage('assets/branding/miqdar-food.png')
                   : FileImage(File(image!.path)),
               fit: BoxFit.cover,
-              colorFilter: ColorFilter.mode(MiqdarColors.dark.withOpacity(.34), BlendMode.darken),
+              colorFilter: ColorFilter.mode(MiqdarColors.dark.withValues(alpha: .34), BlendMode.darken),
             ),
           ),
           child: Stack(children: [
@@ -491,7 +491,7 @@ class _ScanScreenState extends State<ScanScreen> {
           ]),
           Slider(value: weight, min: 10, max: 500, divisions: 98, label: '${weight.toStringAsFixed(0)} g', onChanged: (value) => setState(() => weight = value)),
           DropdownButtonFormField<String>(
-            value: hint,
+            initialValue: hint,
             decoration: const InputDecoration(labelText: 'Demo recognition hint'),
             items: const ['medjool dates', 'white rice', 'chicken breast', 'hummus', 'banana'].map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
             onChanged: (value) => setState(() => hint = value ?? hint),
@@ -706,7 +706,7 @@ class MealDetailScreen extends StatelessWidget {
             Text('Edit meal', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 18),
             DropdownButtonFormField<String>(
-              value: selectedType,
+              initialValue: selectedType,
               decoration: const InputDecoration(labelText: 'Meal type'),
               items: const ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Meal']
                   .map((type) => DropdownMenuItem(value: type, child: Text(type)))
@@ -1168,7 +1168,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                     ],
                   ),
                 );
-                if (confirmed == true && mounted) {
+                if (confirmed == true && context.mounted) {
                   setState(() => paired = false);
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Miqdar-015 was unpaired.')));
                 }
@@ -1397,7 +1397,7 @@ class _AlertCard extends StatelessWidget {
     final color = critical ? MiqdarColors.danger : MiqdarColors.warning;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: color.withOpacity(.1), borderRadius: BorderRadius.circular(18), border: Border.all(color: color.withOpacity(.3))),
+      decoration: BoxDecoration(color: color.withValues(alpha: .1), borderRadius: BorderRadius.circular(18), border: Border.all(color: color.withValues(alpha: .3))),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(critical ? Icons.warning_amber_rounded : Icons.notifications_active_outlined, color: color),
         const SizedBox(width: 12),

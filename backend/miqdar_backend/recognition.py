@@ -234,7 +234,7 @@ def average_hash(image_bytes: bytes) -> int | None:
         return None
     try:
         with Image.open(io.BytesIO(image_bytes)) as image:
-            pixels = list(image.convert("L").resize((8, 8)).get_flattened_data())
+            pixels = list(image.convert("L").resize((8, 8)).getdata())
     except Exception:
         return None
     mean = sum(pixels) / len(pixels)
