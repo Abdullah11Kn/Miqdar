@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# Flutter & Dart
+.dart_tool/
+**/.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+**/.packages
+build/
+**/build/
+.pub/
+**/.pub/
+.pub-cache/
+**/.pub-cache/
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/.last_build_id
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# Environment variables & secrets
+.env
+*.env
+!.env.example
+*.local
+
+# IDEs & OS
+.DS_Store
+**/.DS_Store
+.idea/
+**/.idea/
+*.iml
+**/*.iml
+.vscode/
+**/.vscode/
+
+# Project-specific downloads / generated rights
+database/reference_images/_downloads/
+database/reference_images/rights.csv

@@ -1,0 +1,32 @@
+food_id,alias,language
+food_dates_medjool,medjool dates,en
+food_dates_medjool,date,en
+food_dates_medjool,تمر,ar
+food_dates_ajwa,ajwa dates,en
+food_dates_ajwa,ajwa,en
+food_dates_ajwa,عجوة,ar
+food_rice_white_cooked,rice,en
+food_rice_white_cooked,white rice,en
+food_rice_white_cooked,أرز,ar
+food_chicken_breast_roasted,chicken breast,en
+food_chicken_breast_roasted,grilled chicken,en
+food_chicken_breast_roasted,دجاج,ar
+food_hummus_prepared,hummus,en
+food_hummus_prepared,حمص,ar
+food_banana_raw,banana,en
+food_banana_raw,موز,ar
+food_apple_raw,apple,en
+food_apple_raw,تفاح,ar
+food_cucumber_raw,cucumber,en
+food_cucumber_raw,خيار,ar
+food_tomato_raw,tomato,en
+food_tomato_raw,طماطم,ar
+food_egg_boiled,boiled egg,en
+food_egg_boiled,egg,en
+food_egg_boiled,بيض,ar
+food_almonds_raw,almonds,en
+food_almonds_raw,لوز,ar
+food_milk_whole,milk,en
+food_milk_whole,حليب,ar
+food_salmon_cooked,salmon,en
+food_salmon_cooked,سلمون,ar

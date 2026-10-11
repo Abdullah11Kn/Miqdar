@@ -1,0 +1,6 @@
+source_id,dataset,scope,license,status,recommended_use,official_url
+TEAM_CAPTURE,Miqdar controlled capture set,Saudi dishes and Saudi retail products,Team-owned with documented consent,preferred,"Training, validation and reference images",project://capture-guide
+UCI_DATES,Ajwa or Medjool,Ajwa and Medjool dates,CC BY 4.0,approved_with_attribution,"Training and validation after preserving attribution",https://archive.ics.uci.edu/dataset/879/ajwa%2Bor%2Bmedjool
+SAUDI_TRADITIONAL_HF,Saudi Traditional Food Dataset,13 Saudi food categories,CC BY-NC-ND 4.0,manual_legal_review,"Do not auto-import; confirm non-commercial and no-derivatives compatibility",https://huggingface.co/datasets/ssalahmari/Saudi_Traditional_Food_Dataset
+FOOD101,Food-101,101 international categories,License not stated on official dataset page,manual_legal_review,"Do not auto-import until image rights are confirmed",https://data.vision.ee.ethz.ch/cvl/datasets_extra/food-101/
+MENA150,MENA-150,150 Middle Eastern and North African categories,No license displayed in repository metadata,manual_legal_review,"Do not auto-import until rights are confirmed",https://zenodo.org/records/10787088
