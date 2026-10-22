@@ -75,6 +75,49 @@ class NutritionValues {
       );
 }
 
+class RecognitionCandidate {
+  const RecognitionCandidate({
+    required this.rank,
+    required this.label,
+    required this.confidence,
+    required this.selected,
+    this.foodId,
+    this.nameEn,
+    this.nameAr,
+    this.verificationStatus,
+    this.nutrients,
+  });
+
+  final int rank;
+  final String label;
+  final double confidence;
+  final bool selected;
+  final String? foodId;
+  final String? nameEn;
+  final String? nameAr;
+  final String? verificationStatus;
+  final NutritionValues? nutrients;
+
+  /// True when this AI label resolved to a record in the nutrition database.
+  bool get inDatabase => foodId != null && nutrients != null;
+
+  factory RecognitionCandidate.fromJson(Map<String, dynamic> json, int fallbackRank) {
+    final food = json['food'] as Map<String, dynamic>?;
+    final nutrients = json['nutrients'] as Map<String, dynamic>?;
+    return RecognitionCandidate(
+      rank: (json['rank'] as num?)?.toInt() ?? fallbackRank,
+      label: json['label'] as String? ?? '',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+      selected: json['selected'] as bool? ?? false,
+      foodId: food?['food_id'] as String?,
+      nameEn: food?['name_en'] as String?,
+      nameAr: food?['name_ar'] as String?,
+      verificationStatus: food?['verification_status'] as String?,
+      nutrients: nutrients == null ? null : NutritionValues.fromJson(nutrients),
+    );
+  }
+}
+
 class RecognitionResult {
   const RecognitionResult({
     required this.eventId,
@@ -90,6 +133,11 @@ class RecognitionResult {
     required this.isMock,
     required this.provider,
     this.model,
+    this.candidates = const [],
+    this.cached = false,
+    this.recognitionMs = 0,
+    this.hintUsed,
+    this.userCorrected = false,
   });
 
   final String eventId;
@@ -105,10 +153,41 @@ class RecognitionResult {
   final bool isMock;
   final String provider;
   final String? model;
+  final List<RecognitionCandidate> candidates;
+  final bool cached;
+  final int recognitionMs;
+  final String? hintUsed;
+  final bool userCorrected;
+
+  /// Returns a copy that uses [candidate] instead of the AI's first choice.
+  RecognitionResult withCandidate(RecognitionCandidate candidate) {
+    if (!candidate.inDatabase) return this;
+    return RecognitionResult(
+      eventId: eventId,
+      foodId: candidate.foodId!,
+      nameEn: candidate.nameEn ?? candidate.label,
+      nameAr: candidate.nameAr ?? '',
+      weightG: weightG,
+      confidence: candidate.confidence,
+      verificationStatus: candidate.verificationStatus ?? verificationStatus,
+      nutrients: candidate.nutrients!,
+      alertEvaluationMs: alertEvaluationMs,
+      alertSloMet: alertSloMet,
+      isMock: isMock,
+      provider: provider,
+      model: model,
+      candidates: candidates,
+      cached: cached,
+      recognitionMs: recognitionMs,
+      hintUsed: hintUsed,
+      userCorrected: candidate.foodId != candidates.where((c) => c.selected).map((c) => c.foodId).firstOrNull,
+    );
+  }
 
   factory RecognitionResult.fromJson(Map<String, dynamic> json) {
     final food = json['food'] as Map<String, dynamic>? ?? {};
     final timing = json['timing'] as Map<String, dynamic>? ?? {};
+    final rawCandidates = json['candidates'] as List<dynamic>? ?? const [];
     return RecognitionResult(
       eventId: json['event_id'] as String? ?? 'local-event',
       foodId: food['food_id'] as String? ?? 'unknown',
@@ -125,6 +204,14 @@ class RecognitionResult {
       isMock: false,
       provider: json['recognition_provider'] as String? ?? 'api',
       model: json['recognition_model'] as String?,
+      candidates: [
+        for (var i = 0; i < rawCandidates.length; i++)
+          if (rawCandidates[i] is Map<String, dynamic>)
+            RecognitionCandidate.fromJson(rawCandidates[i] as Map<String, dynamic>, i + 1),
+      ],
+      cached: json['recognition_cached'] as bool? ?? false,
+      recognitionMs: (timing['recognition_ms'] as num?)?.toInt() ?? 0,
+      hintUsed: json['hint_used'] as String?,
     );
   }
 }

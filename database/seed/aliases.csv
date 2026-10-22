@@ -1,32 +1,198 @@
 food_id,alias,language
 food_dates_medjool,medjool dates,en
+food_dates_medjool,medjool date,en
 food_dates_medjool,date,en
+food_dates_medjool,dates,en
+food_dates_medjool,تمر مجدول,ar
 food_dates_medjool,تمر,ar
 food_dates_ajwa,ajwa dates,en
+food_dates_ajwa,ajwa date,en
 food_dates_ajwa,ajwa,en
+food_dates_ajwa,تمر عجوة,ar
 food_dates_ajwa,عجوة,ar
-food_rice_white_cooked,rice,en
+food_dates_sukari,sukari dates,en
+food_dates_sukari,sukkari dates,en
+food_dates_sukari,sukkari,en
+food_dates_sukari,sukari,en
+food_dates_sukari,تمر سكري,ar
+food_dates_sukari,سكري,ar
 food_rice_white_cooked,white rice,en
+food_rice_white_cooked,cooked rice,en
+food_rice_white_cooked,white basmati rice,en
+food_rice_white_cooked,basmati rice,en
+food_rice_white_cooked,rice,en
+food_rice_white_cooked,أرز أبيض,ar
 food_rice_white_cooked,أرز,ar
+food_rice_white_cooked,رز أبيض,ar
+food_rice_white_cooked,رز,ar
 food_chicken_breast_roasted,chicken breast,en
+food_chicken_breast_roasted,roasted chicken breast,en
+food_chicken_breast_roasted,grilled chicken breast,en
 food_chicken_breast_roasted,grilled chicken,en
+food_chicken_breast_roasted,chicken,en
+food_chicken_breast_roasted,صدر دجاج مشوي,ar
+food_chicken_breast_roasted,صدر دجاج,ar
+food_chicken_breast_roasted,دجاج مشوي,ar
 food_chicken_breast_roasted,دجاج,ar
+food_hummus_prepared,hummus dip,en
 food_hummus_prepared,hummus,en
+food_hummus_prepared,حمص بالطحينة,ar
 food_hummus_prepared,حمص,ar
+food_banana_raw,fresh banana,en
 food_banana_raw,banana,en
+food_banana_raw,موز طازج,ar
 food_banana_raw,موز,ar
+food_apple_raw,fresh apple,en
+food_apple_raw,apple with skin,en
 food_apple_raw,apple,en
+food_apple_raw,تفاح بالقشر,ar
 food_apple_raw,تفاح,ar
+food_cucumber_raw,fresh cucumber,en
+food_cucumber_raw,cucumber with peel,en
 food_cucumber_raw,cucumber,en
+food_cucumber_raw,خيار بالقشر,ar
 food_cucumber_raw,خيار,ar
+food_tomato_raw,fresh tomato,en
 food_tomato_raw,tomato,en
 food_tomato_raw,طماطم,ar
+food_egg_boiled,hard boiled egg,en
 food_egg_boiled,boiled egg,en
 food_egg_boiled,egg,en
+food_egg_boiled,eggs,en
+food_egg_boiled,بيض مسلوق,ar
 food_egg_boiled,بيض,ar
+food_almonds_raw,raw almonds,en
 food_almonds_raw,almonds,en
+food_almonds_raw,almond,en
 food_almonds_raw,لوز,ar
+food_milk_whole,whole milk,en
+food_milk_whole,fresh milk,en
 food_milk_whole,milk,en
+food_milk_whole,حليب كامل الدسم,ar
 food_milk_whole,حليب,ar
+food_salmon_cooked,grilled salmon fillet,en
+food_salmon_cooked,grilled salmon,en
+food_salmon_cooked,cooked salmon,en
+food_salmon_cooked,salmon fillet,en
 food_salmon_cooked,salmon,en
+food_salmon_cooked,سلمون مشوي,ar
+food_salmon_cooked,سلمون مطبوخ,ar
 food_salmon_cooked,سلمون,ar
+food_chicken_kabsa,chicken kabsa,en
+food_chicken_kabsa,kabsa chicken,en
+food_chicken_kabsa,kabsa,en
+food_chicken_kabsa,كبسة دجاج,ar
+food_chicken_kabsa,كبسة,ar
+food_chicken_kabsa,رز كبسة دجاج,ar
+food_lamb_kabsa,lamb kabsa,en
+food_lamb_kabsa,mutton kabsa,en
+food_lamb_kabsa,beef kabsa,en
+food_lamb_kabsa,كبسة لحم,ar
+food_lamb_kabsa,رز كبسة لحم,ar
+food_chicken_mandi,chicken mandi,en
+food_chicken_mandi,mandi chicken,en
+food_chicken_mandi,mandi,en
+food_chicken_mandi,مندي دجاج,ar
+food_chicken_mandi,مندي,ar
+food_chicken_mandi,رز مندي دجاج,ar
+food_lamb_mandi,lamb mandi,en
+food_lamb_mandi,mutton mandi,en
+food_lamb_mandi,مندي لحم,ar
+food_lamb_mandi,رز مندي لحم,ar
+food_bukhari_rice,bukhari rice,en
+food_bukhari_rice,bukhari,en
+food_bukhari_rice,رز بخاري,ar
+food_bukhari_rice,أرز بخاري,ar
+food_bukhari_rice,بخاري,ar
+food_jareesh,jareesh,en
+food_jareesh,جريش,ar
+food_jareesh,الجريش,ar
+food_margoog,margoog,en
+food_margoog,marqooc,en
+food_margoog,مرقوق,ar
+food_margoog,المرقوق,ar
+food_qursan,qursan,en
+food_qursan,gursan,en
+food_qursan,قرصان,ar
+food_qursan,القرصان,ar
+food_saleeg,saleeg,en
+food_saleeg,sleeg,en
+food_saleeg,سليق,ar
+food_saleeg,السليق,ar
+food_saleeg,سليق طائفي,ar
+food_lamb_haneeth,lamb haneeth,en
+food_lamb_haneeth,haneeth,en
+food_lamb_haneeth,حنيذ لحم,ar
+food_lamb_haneeth,حنيذ,ar
+food_areeka_southern,southern areeka,en
+food_areeka_southern,areeka,en
+food_areeka_southern,arika,en
+food_areeka_southern,عريكة جنوبية,ar
+food_areeka_southern,عريكة,ar
+food_masoub,masoub,en
+food_masoub,masoob,en
+food_masoub,معصوب,ar
+food_masoub,معصوب بالموز,ar
+food_mutabbaq,mutabbaq,en
+food_mutabbaq,motabbaq,en
+food_mutabbaq,murtabak,en
+food_mutabbaq,مطبق,ar
+food_mutabbaq,مطبق مالح,ar
+food_sayadieh,sayadieh fish rice,en
+food_sayadieh,sayadieh,en
+food_sayadieh,fish sayadieh,en
+food_sayadieh,صيادية سمك,ar
+food_sayadieh,صيادية,ar
+food_chicken_shawarma,chicken shawarma wrap,en
+food_chicken_shawarma,chicken shawarma,en
+food_chicken_shawarma,shawarma wrap,en
+food_chicken_shawarma,shawarma,en
+food_chicken_shawarma,شاورما دجاج,ar
+food_chicken_shawarma,شاورما,ar
+food_chicken_shawarma,صاروخ شاورما,ar
+food_beef_shawarma,beef shawarma wrap,en
+food_beef_shawarma,beef shawarma,en
+food_beef_shawarma,meat shawarma,en
+food_beef_shawarma,شاورما لحم,ar
+food_beef_shawarma,شاورما اللحم,ar
+food_falafel_wrap,falafel wrap,en
+food_falafel_wrap,falafel sandwich,en
+food_falafel_wrap,falafel,en
+food_falafel_wrap,ساندوتش فلافل,ar
+food_falafel_wrap,ساندوتش طعمية,ar
+food_falafel_wrap,فلافل,ar
+food_falafel_wrap,طعمية,ar
+food_chicken_burger,crispy chicken burger,en
+food_chicken_burger,chicken burger,en
+food_chicken_burger,برجر دجاج مقرمش,ar
+food_chicken_burger,برجر دجاج,ar
+food_chicken_burger,برغر دجاج,ar
+food_beef_burger,beef burger,en
+food_beef_burger,hamburger,en
+food_beef_burger,cheeseburger,en
+food_beef_burger,double cheeseburger,en
+food_beef_burger,برجر لحم,ar
+food_beef_burger,برغر لحم,ar
+food_beef_burger,تشيز برجر,ar
+food_pizza_pepperoni,pizza pepperoni,en
+food_pizza_pepperoni,pepperoni pizza,en
+food_pizza_pepperoni,بيتزا ببروني,ar
+food_pizza_pepperoni,بيتزا بيبروني,ar
+food_pizza_margherita,pizza margherita,en
+food_pizza_margherita,margherita pizza,en
+food_pizza_margherita,cheese pizza,en
+food_pizza_margherita,بيتزا مارغريتا,ar
+food_pizza_margherita,بيتزا جبن,ar
+food_greek_yogurt,greek yogurt,en
+food_greek_yogurt,plain yogurt,en
+food_greek_yogurt,yogurt,en
+food_greek_yogurt,زبادي يوناني,ar
+food_greek_yogurt,زبادي طبيعي,ar
+food_greek_yogurt,زبادي,ar
+food_tuna_salad,tuna salad,en
+food_tuna_salad,سلطة تونة,ar
+food_garden_salad,green garden salad,en
+food_garden_salad,garden salad,en
+food_garden_salad,green salad,en
+food_garden_salad,سلطة خضراء,ar
+food_garden_salad,سلطة خضار,ar

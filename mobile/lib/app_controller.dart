@@ -75,32 +75,61 @@ class MiqdarController extends ChangeNotifier {
     }).fold(NutritionValues.zero(), (total, meal) => total + meal.nutrients);
   }
 
+  /// Runs AI recognition. Throws [RecognitionException] so the screen can show
+  /// the real reason for a failure instead of a misleading placeholder result.
   Future<RecognitionResult> recognize({
     required XFile? image,
     required double weightG,
-    required String hint,
+    String? hint,
   }) async {
     busy = true;
     notifyListeners();
     try {
       final result = await apiService.recognize(image: image, weightG: weightG, hint: hint);
-      final evaluation = alertService.evaluate(
-        currentTotals: todayTotals,
-        incoming: result.nutrients,
-        goals: goals,
-      );
-      alertEvaluationMs = evaluation.elapsedMs;
-      alerts = [...evaluation.alerts, ...alerts];
-      if (evaluation.alerts.isNotEmpty) {
-        await localDatabase.saveAlerts(evaluation.alerts);
-      }
-      lastRecognition = result;
-      connectionStatus = result.isMock ? 'Offline demo mode' : 'API online • Gemini recognition';
-      return result;
+      connectionStatus = result.model == null
+          ? 'API online • ${result.provider}'
+          : 'API online • ${result.model}';
+      return await _applyResult(result);
+    } on RecognitionException catch (error) {
+      if (error.serverUnreachable) connectionStatus = 'Server unreachable';
+      rethrow;
     } finally {
       busy = false;
       notifyListeners();
     }
+  }
+
+  /// Explicit, clearly-labelled offline demonstration (no AI involved).
+  Future<RecognitionResult> useOfflineDemo({required double weightG, String? hint}) async {
+    connectionStatus = 'Offline demo mode';
+    final result = apiService.offlineDemoResult(hint: hint, weightG: weightG);
+    final applied = await _applyResult(result);
+    notifyListeners();
+    return applied;
+  }
+
+  /// The user picked the AI's 2nd/3rd candidate as the correct food.
+  Future<RecognitionResult> chooseCandidate(RecognitionCandidate candidate) async {
+    final current = lastRecognition;
+    if (current == null || !candidate.inDatabase) return current ?? lastRecognition!;
+    final applied = await _applyResult(current.withCandidate(candidate), persistAlerts: false);
+    notifyListeners();
+    return applied;
+  }
+
+  Future<RecognitionResult> _applyResult(RecognitionResult result, {bool persistAlerts = true}) async {
+    final evaluation = alertService.evaluate(
+      currentTotals: todayTotals,
+      incoming: result.nutrients,
+      goals: goals,
+    );
+    alertEvaluationMs = evaluation.elapsedMs;
+    alerts = [...evaluation.alerts, ...alerts];
+    if (persistAlerts && evaluation.alerts.isNotEmpty) {
+      await localDatabase.saveAlerts(evaluation.alerts);
+    }
+    lastRecognition = result;
+    return result;
   }
 
   Future<void> saveLastRecognition() async {
@@ -109,6 +138,16 @@ class MiqdarController extends ChangeNotifier {
     final meal = await localDatabase.saveRecognition(result);
     meals = [meal, ...meals];
     notifyListeners();
+    if (connectionStatus.startsWith('API online')) {
+      try {
+        await apiService.logMeal(
+          foodId: result.foodId,
+          weightG: result.weightG,
+          confidence: result.confidence,
+          mealType: 'Meal',
+        );
+      } catch (_) {}
+    }
     unawaited(refreshRecommendations());
   }
 

@@ -86,6 +86,24 @@ def find_food_for_label(connection: sqlite3.Connection, label: str) -> dict[str,
     return dict(row) if row else None
 
 
+def recognition_labels(connection: sqlite3.Connection) -> list[str]:
+    """Canonical English names of active foods that have a nutrient profile.
+
+    These are sent to the vision model as its preferred vocabulary, so a label
+    copied verbatim always resolves through the exact-match branch of
+    ``find_food_for_label``.
+    """
+    rows = connection.execute(
+        """
+        SELECT lower(f.canonical_name_en) AS label FROM foods f
+        JOIN nutrient_profiles n ON n.food_id=f.food_id
+        WHERE f.active=1 AND f.is_packaged=0
+        ORDER BY f.canonical_name_en
+        """
+    ).fetchall()
+    return [row["label"] for row in rows]
+
+
 def scaled_nutrients(food: dict[str, Any], weight_g: float) -> dict[str, float]:
     scale = weight_g / 100.0
     mapping = {

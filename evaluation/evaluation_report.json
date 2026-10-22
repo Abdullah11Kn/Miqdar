@@ -1,0 +1,38 @@
+[
+  {
+    "model": "gemini-3.5-flash-lite",
+    "total_images": 3,
+    "success_count": 3,
+    "error_count": 0,
+    "top1_accuracy_percent": 100.0,
+    "top3_accuracy_percent": 100.0,
+    "top1_correct_count": 3,
+    "top3_correct_count": 3,
+    "average_latency_s": 4.95,
+    "min_latency_s": 3.05,
+    "max_latency_s": 8.26,
+    "average_confidence_correct": 91.7,
+    "average_confidence_incorrect": 0.0,
+    "confirmation_requested_rate_percent": 66.67,
+    "mixed_dish_rate_percent": 100.0,
+    "category_stats": {
+      "بخاري": {
+        "name_ar": "بخاري",
+        "name_en": "Bukhari Rice",
+        "total": 3,
+        "top1_correct": 3,
+        "top3_correct": 3,
+        "latencies": [
+          3.0493062079985975,
+          8.261189875003765,
+          3.5379176670030574
+        ],
+        "confidences": [
+          95,
+          90,
+          90
+        ]
+      }
+    }
+  }
+]

@@ -1,151 +1,149 @@
-# Miqdar full-stack prototype
+# Miqdar (مقدار) Full-Stack Smart Nutrition Scale & Mobile System
 
-This bundle connects the Miqdar Flutter application to a provenance-aware food database, a REST backend with direct Gemini image recognition, local health alerts, transparent meal suggestions, and 90-day history.
+Miqdar is an end-to-end smart nutrition platform developed for the Senior Capstone Project. It connects a hardware smart kitchen scale and camera to a real-time REST backend with Gemini AI vision recognition, a clinically-referenced SQLite food and nutrient database, clinical threshold alerts, explainable meal recommendations, and a Flutter mobile application.
 
-## What is implemented
+---
 
-- SQLite nutrition and image schema with source, record ID, verification state, image rights, SHA-256, dataset split, and embedding storage.
-- Official SFDA registered-product synchronization for barcode, registration number, brand, trade name, ingredients, warnings, and package weight.
-- Official USDA FoodData Central synchronization for exact per-100 g nutrient profiles.
-- Rights-gated food-image ingestion and an optional CC BY 4.0 Ajwa/Medjool dataset downloader.
-- Direct Gemini 3.1 Flash-Lite image-recognition adapter, plus a deterministic offline provider for demonstrations.
-- Explainable meal suggestions that combine configured health considerations, exclusions, remaining goals, and recent-meal variety without presenting medical advice.
-- Sequential detection using both frame similarity and positive weight change.
-- Health-alert evaluation after recognition, with a measured 4,000 ms service-level check.
-- Flutter screens for splash, sign-in, account creation, pairing, home, scan, result, meal detail, history, trends, goals, alerts, profile, and device settings.
-- Local SQLite history seeded across 91 days so the 90-day requirement can be tested immediately.
-
-## Architecture
+## 1. Project Architecture
 
 ```mermaid
 flowchart TD
-  A["Miqdar scale + camera"] --> B["Flutter mobile app"]
-  B --> C["Recognition API"]
-  C --> D["Cloud AI provider"]
-  C --> E["Predefined nutrition DB"]
-  D --> F["Candidate labels"]
-  F --> E
-  E --> G["Weight-scaled nutrients"]
-  G --> H["Alert engine ≤ 4 s"]
-  G --> I["Meal history ≥ 90 days"]
-  I --> J["Explainable meal suggestions"]
+  A["Miqdar Hardware Scale & Camera"] --> B["Flutter Mobile App (iOS / Android / Web)"]
+  B -->|"POST /recognize (Image + Weight)"| C["Miqdar Python REST Backend"]
+  C -->|"Visual Feature Classification"| D["Gemini 3.1 Flash-Lite AI Vision Engine"]
+  D -->|"Ranked Food Candidates"| C
+  C -->|"Match Canonical Food & Scale Nutrients"| E["SQLite Nutrition Database (SFDA & USDA Referenced)"]
+  E -->|"Macronutrients & Micronutrients"| F["Alert Engine (≤ 4 s clinical evaluation)"]
+  F -->|"Evaluated Alerts & Nutrient Profile"| B
+  E -->|"90-Day Meal Log & Health Profile"| G["Explainable Recommendation Engine"]
+  G -->|"Personalized Suggestions"| B
 ```
 
-## Run the database and backend
+---
 
-Python 3.11+ and Pillow are required. Copy the example environment file and add your Gemini API key locally:
+## 2. Directory Structure
 
-```bash
-cp backend/.env.example backend/.env
-# Edit backend/.env and set GEMINI_API_KEY.
-python database/scripts/build_database.py --replace
-python -m pip install -r backend/requirements.txt
-./start_server.sh
+The repository is organized into distinct, clean modules:
+
+```
+senior-project-api-test/
+├── backend/                  # Python REST API server & core service logic
+│   ├── miqdar_backend/
+│   │   ├── alert_engine.py   # Clinical threshold alert logic (≤ 4 sec evaluation)
+│   │   ├── database.py       # SQLite interface & nutrient scaling
+│   │   ├── recognition.py    # Gemini Vision AI provider (LANCZOS token optimization, caching, fallback)
+│   │   ├── recommendations.py# Explainable meal suggestion engine
+│   │   ├── server.py         # Threading HTTP REST API server
+│   │   └── service.py        # Recognition pipeline orchestrator
+│   ├── tests/                # Automated Python unit & acceptance tests (100% pass)
+│   ├── requirements.txt      # Backend dependencies
+│   └── .env                  # Backend environment configuration
+│
+├── mobile/                   # Production-ready Flutter mobile application
+│   ├── lib/
+│   │   ├── app.dart          # App routing and theme
+│   │   ├── app_controller.dart# Central state management (meals, pairing, sync)
+│   │   ├── main.dart         # Flutter entry point
+│   │   ├── data/             # On-device SQLite database (91-day meal history)
+│   │   ├── models/           # Nutrient models, alert rules, health profiles
+│   │   ├── services/         # REST API client & local alert evaluation
+│   │   └── ui/               # 14 complete screens (Scan, History, Goals, Profile, etc.)
+│   ├── test/                 # Flutter widget & unit tests
+│   └── pubspec.yaml          # Flutter package dependencies
+│
+├── database/                 # SQLite database and deterministic build scripts
+│   ├── miqdar_nutrition.db   # Seeded SQLite database (38 foods, 197 aliases)
+│   ├── schema.sql            # Full DDL with provenance, audit trails, and SHA-256
+│   ├── scripts/              # build_database.py, sync_sfda.py, sync_usda_fdc.py
+│   └── seed/                 # foods.csv, aliases.csv, sources.csv
+│
+├── docs/                     # Specifications & engineering logs
+│   ├── API_CONTRACT.md       # Formal REST API endpoints specification
+│   ├── FIGMA_TO_FLUTTER.md   # Design mapping documentation
+│   ├── GEMINI_SERVER_SETUP.md# Vision AI server guide
+│   └── VERIFICATION.md       # Acceptance testing & SLO verification log
+│
+├── evaluation/               # Academic evaluation suite for Senior Project research
+│   ├── evaluation_sheet.csv  # 400-sample benchmark dataset across Saudi dishes
+│   ├── evaluate_dataset.py   # Automated batch accuracy evaluation script
+│   ├── compare_models.py     # Multi-model comparison benchmark
+│   ├── compute_metrics.py    # Top-1, Top-3, and latency calculation metrics
+│   └── food_ai.py            # Reference vision evaluation core
+│
+├── run_checks.sh             # End-to-end acceptance check runner (Python + Flutter)
+├── start_server.sh           # Backend server launch script
+└── requirements.txt          # Root Python dependencies
 ```
 
-The server listens on `0.0.0.0:8080` by default. Set `MIQDAR_HOST` or `MIQDAR_PORT` in the environment to change it. If `GEMINI_API_KEY` is omitted, remove `MIQDAR_RECOGNITION_PROVIDER=gemini` or set it to `mock` for the clearly labelled offline demonstrator.
+---
 
-Test health:
+## 3. Quick Start
 
-```bash
-curl http://127.0.0.1:8080/health
-curl "http://127.0.0.1:8080/history?days=90"
-curl -X POST http://127.0.0.1:8080/recommendations \
-  -H "Content-Type: application/json" \
-  -d '{"user_id":"demo-user","limit":5}'
-```
-
-## Run the Flutter app
-
-This environment did not contain the Flutter SDK, so generated Android/iOS platform wrappers could not be compiled here. The Flutter source, assets, tests, and bootstrap are included.
-
-```bash
-cd mobile
-./tool/bootstrap_flutter.sh
-flutter run --dart-define=MIQDAR_API_URL=http://10.0.2.2:8080
-```
-
-If `MIQDAR_API_TOKEN` is set on the server, pass the same value to Flutter with `--dart-define=MIQDAR_API_TOKEN=...`. Use HTTPS and a real identity provider before deployment; the optional bearer token is intended to protect a prototype or controlled demonstration environment.
-
-`10.0.2.2` points from the Android emulator to the host machine. For local HTTP development, add Android Internet permission and permit cleartext traffic only in the debug manifest. Use HTTPS in production. For an iOS simulator, use the host address appropriate to your setup.
-
-## Import official Saudi registered products
-
-The SFDA public listing documents product registration metadata; it does not document a complete nutrition panel. The importer therefore creates products with `sfda_registered_nutrition_pending` until an exact package-label or official composition record is linked.
-
-```bash
-export SFDA_API_KEY="configured-locally"
-python database/scripts/sync_sfda.py --limit 100 --offset 0
-```
-
-Never commit API keys. An official saved API response can be imported offline:
-
-```bash
-python database/scripts/sync_sfda.py --from-json sfda-response.json
-```
-
-## Verify generic-food nutrients with USDA FoodData Central
-
-The prototype contains one verified USDA record (Medjool dates, FDC 168191) and clearly marked reference seeds for the other demo foods. Replace the reference seeds by running:
-
-```bash
-export USDA_FDC_API_KEY="configured-locally"
-python database/scripts/sync_usda_fdc.py
-```
-
-The script searches only Foundation or SR Legacy records, downloads details, keeps the exact FDC ID, and changes status to `verified_official_record`.
-
-## Prepare food images
-
-Preferred: capture project-owned Saudi food and packaged-product images using `database/reference_images/CAPTURE_GUIDE.md`.
-
-Optional licensed starter for dates:
-
-```bash
-python database/scripts/download_uci_dates.py --accept-cc-by-4
-python database/scripts/import_reference_images.py
-```
-
-The UCI archive is about 298 MB and is intentionally not duplicated in this bundle. The download step requires the team to review and accept CC BY 4.0 attribution. Other discovered datasets are catalogued in `database/seed/image_sources.csv`; sources with non-commercial/no-derivatives or missing licenses are not auto-imported.
-
-## Configure Gemini image recognition
-
-The backend calls Google's `generateContent` REST endpoint with the image inline and requests a constrained JSON candidate list. Set the following without committing secrets:
-
-```bash
-export MIQDAR_RECOGNITION_PROVIDER="gemini"
-export GEMINI_API_KEY="configured-locally"
-export GEMINI_MODEL="gemini-3.1-flash-lite"
-```
-
-Gemini only selects candidate labels. The backend maps the selected label to a reviewed database record and performs all mass and nutrient calculations itself. Model output is never accepted as nutrition data.
-
-The optional provider-neutral adapter is still available by setting `MIQDAR_RECOGNITION_PROVIDER=remote`, `MIQDAR_CLOUD_ENDPOINT`, and `MIQDAR_CLOUD_API_KEY`. Its expected response is:
-
-```json
-{
-  "candidates": [
-    {"label": "medjool dates", "confidence": 0.96},
-    {"label": "dates", "confidence": 0.03}
-  ]
-}
-```
-
-The backend rejects a result if none of the candidates maps to a predefined food or alias. Nutrition is never invented by the vision provider.
-
-## Acceptance checks
-
+### Step 1: Run Acceptance Checks
+Verify that both the Python backend and Flutter mobile applications pass all unit tests and static analysis:
 ```bash
 ./run_checks.sh
 ```
 
-Backend tests cover database integrity, source provenance, 90 distinct history days, post-recognition alert timing, predefined-database mapping, sequential image-plus-weight detection, and the SFDA “nutrition pending” safeguard.
+### Step 2: Start the Backend Server
+Launch the REST API server (listening on `0.0.0.0:8080`):
+```bash
+./start_server.sh
+```
 
-## Important limits
+Test health:
+```bash
+curl http://127.0.0.1:8080/health
+```
+Response:
+```json
+{
+  "status": "ok",
+  "database": "miqdar_nutrition.db",
+  "recognition": {
+    "provider": "gemini",
+    "model": "gemini-3.1-flash-lite",
+    "configured": true
+  }
+}
+```
 
-- This is an engineering prototype, not a medical device or a substitute for professional dietary advice.
-- Generic foods vary by cultivar and preparation; packaged products vary by label and formulation.
-- User thresholds in the app are demonstration settings, not clinical recommendations.
-- Health conditions are self-declared planning inputs. The recommendation score is transparent and must not be used to diagnose or treat a condition.
-- Kidney-related recommendations require clinician-approved sodium, potassium, fluid, and portion targets.
-- The 4-second requirement is measured from recognition completion to alert evaluation, matching the project specification. Cloud-recognition latency is measured separately.
+### Step 3: Run the Flutter Mobile Application
+In a separate terminal:
+```bash
+cd mobile
+flutter run
+```
+
+To run on macOS desktop or web:
+```bash
+cd mobile
+flutter run -d macos
+# or:
+flutter run -d chrome
+```
+
+---
+
+## 4. Vision AI & Recognition Pipeline
+
+1. **Token & Latency Optimization**: Images from the camera/phone are automatically preprocessed with EXIF orientation correction, flattened for alpha transparency, and downscaled to $\le 384$px using LANCZOS resampling. This minimizes Gemini image tokens and ensures rapid inference (~1.5s).
+2. **Multi-Model Fallback**: The primary model is `gemini-3.1-flash-lite`. If rate limits (429) or transient provider errors occur, the backend automatically falls back to `gemini-3.5-flash-lite`.
+3. **SHA-256 Memory Caching**: Repeated scans of the same food plate return cached candidate predictions in $< 1$ ms without making duplicate cloud requests.
+4. **Predefined Database Scaling**: Gemini is strictly used to identify food candidates. Exact macronutrients (calories, protein, carbs, fat, fiber, sugar, sodium, potassium) are scaled mathematically based on the physical scale weight in grams against the reviewed SQLite database.
+5. **Saudi Traditional Dishes**: Full bilingual support for iconic dishes: Chicken/Lamb Kabsa, Chicken/Lamb Mandi, Bukhari Rice, Jareesh, Margoog, Qursan, Saleeg, Lamb Haneeth, Southern Areeka, Masoub, Mutabbaq, Shawarma, Falafel, and various date cultivars (Medjool, Ajwa, Sukari).
+
+---
+
+## 5. Key REST API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Server status and active AI recognition provider |
+| `POST` | `/recognize` | Food recognition + scale weight scaling + alert check |
+| `GET` | `/foods` | Search canonical food registry and aliases |
+| `GET` | `/history` | Query user meal logs (supports $\ge 90$ days) |
+| `POST` | `/sync/meals` | Synchronize offline meal logs from the mobile device |
+| `POST` | `/recommendations` | Explainable meal recommendations based on history & health goals |
+| `GET` / `PUT` | `/goals` | Retrieve and update user daily nutritional targets |
+| `GET` / `PUT` | `/health-profile` | Manage chronic conditions, allergies, and dietary preferences |

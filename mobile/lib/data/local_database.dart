@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -7,43 +8,100 @@ import '../models/nutrition.dart';
 
 class LocalDatabase {
   Database? _database;
+  bool _useInMemory = false;
+
+  NutritionGoals _memGoals = const NutritionGoals(
+    calories: 2200,
+    sugar: 50,
+    sodium: 2300,
+    potassium: 3500,
+    carbohydrates: 275,
+    protein: 120,
+  );
+  HealthProfile _memHealthProfile = const HealthProfile();
+  final List<MealEntry> _memMeals = [];
+  final List<HealthAlert> _memAlerts = [];
 
   Future<void> initialize() async {
-    final root = await getDatabasesPath();
-    _database = await openDatabase(
-      p.join(root, 'miqdar_mobile.db'),
-      version: 2,
-      onCreate: (db, _) async {
-        await db.execute('''
-          CREATE TABLE goals(
-            id INTEGER PRIMARY KEY CHECK(id=1), calories REAL, sugar REAL,
-            sodium REAL, potassium REAL, carbohydrates REAL, protein REAL
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE meals(
-            id TEXT PRIMARY KEY, food_id TEXT, name_en TEXT, name_ar TEXT,
-            eaten_at TEXT, meal_type TEXT, weight_g REAL, confidence REAL,
-            calories_kcal REAL, protein_g REAL, carbohydrate_g REAL, fat_g REAL,
-            sugar_g REAL, fiber_g REAL, sodium_mg REAL, potassium_mg REAL
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE alerts(
-            id TEXT PRIMARY KEY, nutrient_key TEXT, severity TEXT,
-            current_value REAL, threshold_value REAL, message TEXT,
-            created_at TEXT, evaluation_ms INTEGER
-          )
-        ''');
-        await _createHealthProfileTable(db);
-      },
-      onUpgrade: (db, oldVersion, _) async {
-        if (oldVersion < 2) await _createHealthProfileTable(db);
-      },
-    );
-    await _seedGoals();
-    await _seedHealthProfile();
-    await _seedHistory();
+    if (kIsWeb) {
+      _useInMemory = true;
+      _seedMemoryHistory();
+      return;
+    }
+    try {
+      final root = await getDatabasesPath();
+      _database = await openDatabase(
+        p.join(root, 'miqdar_mobile.db'),
+        version: 2,
+        onCreate: (db, _) async {
+          await db.execute('''
+            CREATE TABLE goals(
+              id INTEGER PRIMARY KEY CHECK(id=1), calories REAL, sugar REAL,
+              sodium REAL, potassium REAL, carbohydrates REAL, protein REAL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE meals(
+              id TEXT PRIMARY KEY, food_id TEXT, name_en TEXT, name_ar TEXT,
+              eaten_at TEXT, meal_type TEXT, weight_g REAL, confidence REAL,
+              calories_kcal REAL, protein_g REAL, carbohydrate_g REAL, fat_g REAL,
+              sugar_g REAL, fiber_g REAL, sodium_mg REAL, potassium_mg REAL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE alerts(
+              id TEXT PRIMARY KEY, nutrient_key TEXT, severity TEXT,
+              current_value REAL, threshold_value REAL, message TEXT,
+              created_at TEXT, evaluation_ms INTEGER
+            )
+          ''');
+          await _createHealthProfileTable(db);
+        },
+        onUpgrade: (db, oldVersion, _) async {
+          if (oldVersion < 2) await _createHealthProfileTable(db);
+        },
+      );
+      await _seedGoals();
+      await _seedHealthProfile();
+      await _seedHistory();
+    } catch (_) {
+      _useInMemory = true;
+      _seedMemoryHistory();
+    }
+  }
+
+  void _seedMemoryHistory() {
+    const foods = [
+      ('food_rice_white_cooked', 'White rice', 'أرز أبيض', 180.0, 234.0, 4.8, 50.7, 0.5, 0.1, 0.7, 2.0, 63.0),
+      ('food_chicken_breast_roasted', 'Chicken breast', 'صدر دجاج', 145.0, 239.0, 45.0, 0.0, 5.2, 0.0, 0.0, 107.0, 371.0),
+      ('food_hummus_prepared', 'Hummus', 'حمص', 95.0, 158.0, 7.5, 13.6, 9.1, 0.3, 5.7, 360.0, 217.0),
+      ('food_dates_medjool', 'Medjool dates', 'تمر مجدول', 42.0, 116.0, 0.8, 31.5, 0.1, 27.9, 2.8, 0.4, 292.0),
+      ('food_salmon_cooked', 'Cooked salmon', 'سلمون مطبوخ', 130.0, 268.0, 28.7, 0.0, 16.1, 0.0, 0.0, 77.0, 499.0),
+    ];
+    final now = DateTime.now().toUtc();
+    for (var day = 0; day < 91; day++) {
+      final food = foods[day % foods.length];
+      _memMeals.add(MealEntry(
+        id: 'seed-$day',
+        foodId: food.$1,
+        nameEn: food.$2,
+        nameAr: food.$3,
+        eatenAt: now.subtract(Duration(days: day)),
+        mealType: 'Lunch',
+        weightG: food.$4,
+        confidence: 0.94,
+        nutrients: NutritionValues(
+          calories: food.$5,
+          protein: food.$6,
+          carbohydrates: food.$7,
+          fat: food.$8,
+          sugar: food.$9,
+          fiber: food.$10,
+          sodium: food.$11,
+          potassium: food.$12,
+        ),
+      ));
+    }
   }
 
   static Future<void> _createHealthProfileTable(Database db) => db.execute('''
@@ -122,6 +180,7 @@ class LocalDatabase {
   }
 
   Future<NutritionGoals> loadGoals() async {
+    if (_useInMemory) return _memGoals;
     final row = (await db.query('goals', where: 'id=1')).single;
     return NutritionGoals(
       calories: (row['calories'] as num).toDouble(),
@@ -134,6 +193,10 @@ class LocalDatabase {
   }
 
   Future<void> saveGoals(NutritionGoals goals) async {
+    if (_useInMemory) {
+      _memGoals = goals;
+      return;
+    }
     await db.update(
       'goals',
       {
@@ -149,6 +212,7 @@ class LocalDatabase {
   }
 
   Future<HealthProfile> loadHealthProfile() async {
+    if (_useInMemory) return _memHealthProfile;
     final row = (await db.query('health_profile', where: 'id=1')).single;
     List<String> split(Object? value) => value
         .toString()
@@ -165,6 +229,10 @@ class LocalDatabase {
   }
 
   Future<void> saveHealthProfile(HealthProfile profile) async {
+    if (_useInMemory) {
+      _memHealthProfile = profile;
+      return;
+    }
     await db.update(
       'health_profile',
       {
@@ -178,6 +246,15 @@ class LocalDatabase {
   }
 
   Future<List<MealEntry>> loadMeals({int days = 90}) async {
+    if (_useInMemory) {
+      final now = DateTime.now().toUtc();
+      final cutoff = DateTime.utc(now.year, now.month, now.day)
+          .subtract(Duration(days: max(0, days - 1)));
+      return _memMeals
+          .where((m) => !m.eatenAt.isBefore(cutoff))
+          .toList()
+        ..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
+    }
     final now = DateTime.now().toUtc();
     final cutoff = DateTime.utc(now.year, now.month, now.day)
         .subtract(Duration(days: max(0, days - 1)));
@@ -215,6 +292,10 @@ class LocalDatabase {
       confidence: result.confidence,
       nutrients: result.nutrients,
     );
+    if (_useInMemory) {
+      _memMeals.insert(0, meal);
+      return meal;
+    }
     await db.insert('meals', {
       'id': meal.id,
       'food_id': meal.foodId,
@@ -230,6 +311,11 @@ class LocalDatabase {
   }
 
   Future<void> updateMeal(MealEntry meal) async {
+    if (_useInMemory) {
+      final index = _memMeals.indexWhere((m) => m.id == meal.id);
+      if (index != -1) _memMeals[index] = meal;
+      return;
+    }
     await db.update(
       'meals',
       {
@@ -244,6 +330,10 @@ class LocalDatabase {
   }
 
   Future<void> deleteMeal(String id) async {
+    if (_useInMemory) {
+      _memMeals.removeWhere((m) => m.id == id);
+      return;
+    }
     await db.delete(
       'meals',
       where: 'id = ?',
@@ -252,6 +342,10 @@ class LocalDatabase {
   }
 
   Future<void> saveAlerts(List<HealthAlert> alerts) async {
+    if (_useInMemory) {
+      _memAlerts.insertAll(0, alerts);
+      return;
+    }
     final batch = db.batch();
     for (final alert in alerts) {
       batch.insert('alerts', {
@@ -269,6 +363,9 @@ class LocalDatabase {
   }
 
   Future<List<HealthAlert>> loadAlerts() async {
+    if (_useInMemory) {
+      return List.unmodifiable(_memAlerts.take(100));
+    }
     final rows = await db.query('alerts', orderBy: 'created_at DESC', limit: 100);
     return rows.map((row) => HealthAlert(
       id: row['id'] as String,

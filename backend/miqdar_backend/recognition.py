@@ -8,16 +8,53 @@ import math
 import os
 import urllib.error
 import urllib.request
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Protocol
 
-from PIL import Image, ImageStat
+from PIL import Image, ImageOps, ImageStat
 
 
 @dataclass(frozen=True)
 class Candidate:
     label: str
     confidence: float
+
+
+class _CandidateCache:
+    """Process-wide, thread-safe LRU cache of recognition results.
+
+    The provider object is re-created for every request, so the cache must live
+    at module level to be useful. Keys include the model and hint so a changed
+    image, hint, or model never returns a stale answer.
+    """
+
+    def __init__(self, max_items: int = 256) -> None:
+        self.max_items = max_items
+        self._items: OrderedDict[str, tuple[list[Candidate], str]] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def get(self, key: str) -> tuple[list[Candidate], str] | None:
+        with self._lock:
+            value = self._items.get(key)
+            if value is not None:
+                self._items.move_to_end(key)
+            return value
+
+    def put(self, key: str, candidates: list[Candidate], model: str) -> None:
+        with self._lock:
+            self._items[key] = (list(candidates), model)
+            self._items.move_to_end(key)
+            while len(self._items) > self.max_items:
+                self._items.popitem(last=False)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()
+
+
+RECOGNITION_CACHE = _CandidateCache()
 
 
 class RecognitionProvider(Protocol):
@@ -74,7 +111,8 @@ class RemoteCloudRecognitionProvider:
 
 
 class GeminiRecognitionProvider:
-    """Gemini multimodal classification with a constrained JSON response.
+    """Gemini multimodal classification with token-optimized image preparation,
+    multi-model fallback, caching, and constrained structured JSON response.
 
     Gemini supplies candidate food labels only. Nutrition always comes from the
     reviewed Miqdar database after the selected label is mapped to a food ID.
@@ -82,50 +120,99 @@ class GeminiRecognitionProvider:
 
     name = "gemini"
     canonical_labels = (
-        "medjool dates", "ajwa dates", "white rice", "chicken breast",
+        "medjool dates", "ajwa dates", "sukari dates", "white rice", "chicken breast",
         "hummus", "banana", "apple", "cucumber", "tomato", "boiled egg",
-        "almonds", "whole milk", "cooked salmon",
+        "almonds", "whole milk", "cooked salmon", "chicken kabsa", "lamb kabsa",
+        "chicken mandi", "lamb mandi", "bukhari rice", "jareesh", "margoog",
+        "qursan", "saleeg", "lamb haneeth", "southern areeka", "masoub",
+        "mutabbaq", "sayadieh fish rice", "chicken shawarma wrap",
+        "beef shawarma wrap", "falafel wrap", "crispy chicken burger",
+        "beef burger", "pizza pepperoni", "pizza margherita", "greek yogurt",
+        "tuna salad", "green garden salad",
     )
 
-    def __init__(self, api_key: str, model: str, api_base: str) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gemini-3.1-flash-lite",
+        api_base: str = "https://generativelanguage.googleapis.com",
+        fallback_models: tuple[str, ...] | None = None,
+    ) -> None:
         self.api_key = api_key
         self.model = model
-        self.endpoint = (
-            f"{api_base.rstrip('/')}/v1beta/models/{model}:generateContent"
-        )
+        self.api_base = api_base.rstrip("/")
+        self.fallback_models = fallback_models or ()
+        # Populated after each recognize() call so the API can report what happened.
+        self.last_cache_hit = False
+        self.last_model_used: str | None = None
+
+    @property
+    def endpoint(self) -> str:
+        return f"{self.api_base}/v1beta/models/{self.model}:generateContent"
+
+    def _endpoint_for_model(self, model_name: str) -> str:
+        return f"{self.api_base}/v1beta/models/{model_name}:generateContent"
 
     @staticmethod
-    def _mime_type(image_bytes: bytes) -> str:
+    def _prepare_image(image_bytes: bytes, max_side: int = 384) -> tuple[bytes, str]:
+        if not image_bytes:
+            raise ValueError("Gemini recognition requires image_base64")
         try:
-            with Image.open(io.BytesIO(image_bytes)) as image:
-                image_format = (image.format or "JPEG").upper()
+            with Image.open(io.BytesIO(image_bytes)) as img:
+                img = ImageOps.exif_transpose(img)
+                if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                    rgba = img.convert("RGBA")
+                    background = Image.new("RGB", rgba.size, (255, 255, 255))
+                    background.paste(rgba, mask=rgba.split()[-1])
+                    img = background
+                elif img.mode != "RGB":
+                    img = img.convert("RGB")
+                img.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=85)
+                return buf.getvalue(), "image/jpeg"
         except Exception as exc:
             raise ValueError("image_base64 must contain a supported image") from exc
-        return {
-            "PNG": "image/png",
-            "WEBP": "image/webp",
-            "HEIC": "image/heic",
-            "HEIF": "image/heif",
-        }.get(image_format, "image/jpeg")
 
     def recognize(self, image_bytes: bytes, hint: str | None = None) -> list[Candidate]:
         if not image_bytes:
             raise ValueError("Gemini recognition requires image_base64")
-        labels = ", ".join(self.canonical_labels)
-        hint_text = f" The user supplied this optional hint: {hint}." if hint else ""
+
+        # SHA-256 LRU cache: an identical photo + hint + model is answered instantly.
+        cache_key = hashlib.sha256(
+            image_bytes + b"\x00" + (hint or "").encode("utf-8") + b"\x00" + self.model.encode("utf-8")
+        ).hexdigest()
+        cached = RECOGNITION_CACHE.get(cache_key)
+        if cached is not None:
+            self.last_cache_hit = True
+            self.last_model_used = cached[1]
+            return list(cached[0])
+        self.last_cache_hit = False
+
+        prepared_bytes, mime_type = self._prepare_image(image_bytes)
+
+        labels = "; ".join(self.canonical_labels)
+        hint_text = (
+            f" The user typed this optional hint: {hint!r}. Treat it as weak context only; "
+            "the photo always wins." if hint else ""
+        )
         prompt = (
-            "Classify the primary food visible on the Miqdar scale. Return at most "
-            "three ranked candidates. Prefer these database labels when visually "
-            f"appropriate: {labels}.{hint_text} The hint is not authoritative. Do not "
-            "estimate nutrients, health effects, portion mass, or ingredients."
+            "You are the food-recognition step of the Miqdar smart kitchen scale used in "
+            "Saudi Arabia. Identify the primary food or dish in the photo and return up to "
+            "three ranked candidates with confidence scores between 0 and 1 (the scores "
+            "should reflect real uncertainty). When a candidate matches one of these "
+            f"database labels, copy the label exactly: {labels}. If none match, use a short "
+            "common English dish name. If the photo does not show food or drink, return a "
+            f"single candidate labelled 'not food'.{hint_text} Do not estimate nutrients, "
+            "health effects, portion mass, or ingredients."
         )
         payload = {
             "contents": [{
                 "parts": [
                     {
                         "inline_data": {
-                            "mime_type": self._mime_type(image_bytes),
-                            "data": base64.b64encode(image_bytes).decode("ascii"),
+                            "mime_type": mime_type,
+                            "data": base64.b64encode(prepared_bytes).decode("ascii"),
                         }
                     },
                     {"text": prompt},
@@ -156,40 +243,62 @@ class GeminiRecognitionProvider:
                 },
             },
         }
-        request = urllib.request.Request(
-            self.endpoint,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "x-goog-api-key": self.api_key,
-                "User-Agent": "Miqdar/2.0",
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=25) as response:
-                body = json.load(response)
-        except urllib.error.HTTPError as exc:
-            details = exc.read().decode("utf-8", errors="replace")[:500]
-            raise RuntimeError(f"Gemini API returned HTTP {exc.code}: {details}") from exc
-        except urllib.error.URLError as exc:
-            raise RuntimeError(f"Gemini API connection failed: {exc.reason}") from exc
 
-        try:
-            parts = body["candidates"][0]["content"]["parts"]
-            text = "".join(str(part.get("text", "")) for part in parts)
-            decoded = json.loads(text)
-            raw_candidates = decoded["candidates"]
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-            raise RuntimeError("Gemini returned an invalid recognition response") from exc
+        models_to_try = [self.model] + [m for m in self.fallback_models if m != self.model]
+        last_error = None
 
-        candidates = []
-        for item in raw_candidates[:3]:
-            label = str(item.get("label", "")).casefold().strip()
-            confidence = max(0.0, min(1.0, float(item.get("confidence", 0))))
-            if label:
-                candidates.append(Candidate(label, confidence))
-        return candidates
+        for model_name in models_to_try:
+            url = self._endpoint_for_model(model_name)
+            request = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": self.api_key,
+                    "User-Agent": "Miqdar/2.0",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=25) as response:
+                    body = json.load(response)
+
+                parts = body["candidates"][0]["content"]["parts"]
+                text = "".join(str(part.get("text", "")) for part in parts)
+                decoded = json.loads(text)
+                raw_candidates = decoded["candidates"]
+
+                candidates = []
+                for item in raw_candidates[:3]:
+                    label = str(item.get("label", "")).casefold().strip()
+                    confidence = max(0.0, min(1.0, float(item.get("confidence", 0))))
+                    if label:
+                        candidates.append(Candidate(label, confidence))
+
+                if candidates:
+                    RECOGNITION_CACHE.put(cache_key, candidates, model_name)
+                    self.last_model_used = model_name
+                    return candidates
+            except urllib.error.HTTPError as exc:
+                details = exc.read().decode("utf-8", errors="replace")[:500]
+                last_error = RuntimeError(f"Gemini API returned HTTP {exc.code}: {details}")
+                if exc.code in (429, 500, 502, 503, 504) and model_name != models_to_try[-1]:
+                    continue
+                raise last_error from exc
+            except urllib.error.URLError as exc:
+                last_error = RuntimeError(f"Gemini API connection failed: {exc.reason}")
+                if model_name != models_to_try[-1]:
+                    continue
+                raise last_error from exc
+            except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+                last_error = RuntimeError("Gemini returned an invalid recognition response")
+                if model_name != models_to_try[-1]:
+                    continue
+                raise last_error from exc
+
+        if last_error:
+            raise last_error
+        return []
 
 
 def configured_provider() -> RecognitionProvider:
@@ -202,12 +311,15 @@ def configured_provider() -> RecognitionProvider:
             raise RuntimeError(
                 "MIQDAR_RECOGNITION_PROVIDER=gemini requires GEMINI_API_KEY"
             )
+        raw_fallbacks = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3.5-flash-lite")
+        fallbacks = tuple(m.strip() for m in raw_fallbacks.split(",") if m.strip())
         return GeminiRecognitionProvider(
             api_key=gemini_key,
             model=os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite").strip(),
             api_base=os.environ.get(
                 "GEMINI_API_BASE", "https://generativelanguage.googleapis.com"
             ).strip(),
+            fallback_models=fallbacks,
         )
     endpoint = os.environ.get("MIQDAR_CLOUD_ENDPOINT", "").strip()
     api_key = os.environ.get("MIQDAR_CLOUD_API_KEY", "").strip()

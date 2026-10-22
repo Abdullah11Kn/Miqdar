@@ -15,9 +15,14 @@ from miqdar_backend.alert_engine import evaluate_alerts
 from miqdar_backend.database import (
     connect, health_profile_for_user, history, update_goals, update_health_profile,
 )
-from miqdar_backend.recognition import GeminiRecognitionProvider, detect_new_food
+from miqdar_backend.recognition import (
+    RECOGNITION_CACHE, GeminiRecognitionProvider, detect_new_food,
+)
 from miqdar_backend.recommendations import normalise_profile, recommend_meals
-from miqdar_backend.service import recognize_food
+from miqdar_backend.service import (
+    InvalidImageError, NotFoodError, ProviderUnavailableError,
+    UnmappedFoodError, decode_image, recognize_food,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,8 +40,12 @@ class MiqdarAcceptanceTests(unittest.TestCase):
         self.temp_dir = Path(tempfile.mkdtemp(prefix="miqdar-test-"))
         self.db_path = self.temp_dir / "test.db"
         shutil.copy2(SOURCE_DB, self.db_path)
+        RECOGNITION_CACHE.clear()
+        self._env = patch.dict("os.environ", {"MIQDAR_RECOGNITION_PROVIDER": "mock"})
+        self._env.start()
 
     def tearDown(self) -> None:
+        self._env.stop()
         shutil.rmtree(self.temp_dir)
 
     def test_database_integrity_and_provenance(self) -> None:
@@ -162,6 +171,153 @@ class MiqdarAcceptanceTests(unittest.TestCase):
         self.assertEqual(request.get_header("X-goog-api-key"), "test-key")
         self.assertIn("gemini-3.1-flash-lite:generateContent", request.full_url)
 
+    def test_saudi_dishes_database_resolution(self) -> None:
+        with connect(self.db_path) as connection:
+            test_cases = [
+                ("Chicken Kabsa", "food_chicken_kabsa", "Chicken Kabsa"),
+                ("كبسة دجاج", "food_chicken_kabsa", "Chicken Kabsa"),
+                ("Chicken Shawarma", "food_chicken_shawarma", "Chicken Shawarma Wrap"),
+                ("شاورما", "food_chicken_shawarma", "Chicken Shawarma Wrap"),
+                ("عريكة جنوبية", "food_areeka_southern", "Southern Areeka"),
+                ("Saleeg", "food_saleeg", "Saleeg"),
+                ("سليق", "food_saleeg", "Saleeg"),
+                ("Pizza Pepperoni", "food_pizza_pepperoni", "Pizza Pepperoni"),
+            ]
+            for label, expected_id, expected_name in test_cases:
+                result = recognize_food(
+                    connection,
+                    user_id="demo-user",
+                    image_bytes=image_bytes((150, 100, 50)),
+                    weight_g=250,
+                    hint=label,
+                )
+                self.assertEqual(result["food"]["food_id"], expected_id)
+                self.assertEqual(result["food"]["name_en"], expected_name)
+                self.assertGreater(result["nutrients"]["calories_kcal"], 0)
+
+    def test_gemini_image_preprocessing_and_caching(self) -> None:
+        large_img = Image.new("RGBA", (1200, 800), (200, 100, 50, 255))
+        buf = io.BytesIO()
+        large_img.save(buf, format="PNG")
+        raw_bytes = buf.getvalue()
+
+        prepared_bytes, mime = GeminiRecognitionProvider._prepare_image(raw_bytes, max_side=384)
+        self.assertEqual(mime, "image/jpeg")
+        with Image.open(io.BytesIO(prepared_bytes)) as downscaled:
+            self.assertLessEqual(max(downscaled.size), 384)
+            self.assertEqual(downscaled.mode, "RGB")
+
+        response_body = {
+            "candidates": [{
+                "content": {"parts": [{
+                    "text": json.dumps({
+                        "candidates": [
+                            {"label": "chicken kabsa", "confidence": 0.95},
+                        ]
+                    })
+                }]}
+            }]
+        }
+        provider = GeminiRecognitionProvider(
+            api_key="test-key",
+            model="gemini-3.1-flash-lite",
+            api_base="https://generativelanguage.googleapis.com",
+        )
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=lambda *a, **k: io.BytesIO(json.dumps(response_body).encode("utf-8")),
+        ) as mocked:
+            res1 = provider.recognize(raw_bytes)
+            self.assertFalse(provider.last_cache_hit)
+            # The server builds a new provider per request; the cache must survive that.
+            second_provider = GeminiRecognitionProvider(api_key="test-key")
+            res2 = second_provider.recognize(raw_bytes)
+            self.assertTrue(second_provider.last_cache_hit)
+            self.assertEqual(second_provider.last_model_used, "gemini-3.1-flash-lite")
+            self.assertEqual(mocked.call_count, 1)
+            self.assertEqual(res1[0].label, "chicken kabsa")
+            self.assertEqual(res2[0].label, "chicken kabsa")
+            # A different hint must not reuse the cached answer.
+            second_provider.recognize(raw_bytes, hint="lamb mandi")
+            self.assertEqual(mocked.call_count, 2)
+
+    def test_gemini_falls_back_to_secondary_model_on_overload(self) -> None:
+        import urllib.error
+
+        ok_body = {
+            "candidates": [{"content": {"parts": [{"text": json.dumps(
+                {"candidates": [{"label": "jareesh", "confidence": 0.9}]}
+            )}]}}]
+        }
+        calls: list[str] = []
+
+        def fake_urlopen(request, timeout=0):
+            calls.append(request.full_url)
+            if "gemini-3.1-flash-lite" in request.full_url:
+                raise urllib.error.HTTPError(request.full_url, 503, "overloaded", {}, io.BytesIO(b"busy"))
+            return io.BytesIO(json.dumps(ok_body).encode("utf-8"))
+
+        provider = GeminiRecognitionProvider(
+            api_key="k", fallback_models=("gemini-3.5-flash-lite",),
+        )
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            result = provider.recognize(image_bytes((10, 200, 10)))
+        self.assertEqual(result[0].label, "jareesh")
+        self.assertEqual(provider.last_model_used, "gemini-3.5-flash-lite")
+        self.assertEqual(len(calls), 2)
+
+    def test_top_candidates_are_mapped_with_their_own_nutrients(self) -> None:
+        with connect(self.db_path) as connection:
+            result = recognize_food(
+                connection, user_id="demo-user",
+                image_bytes=image_bytes((90, 60, 30)), weight_g=200, hint="lamb kabsa",
+            )
+        self.assertEqual(result["candidates"][0]["rank"], 1)
+        self.assertTrue(result["candidates"][0]["selected"])
+        for candidate in result["candidates"]:
+            self.assertIsNotNone(candidate["food"])
+            self.assertGreater(candidate["nutrients"]["calories_kcal"], 0)
+        self.assertEqual(result["hint_used"], "lamb kabsa")
+
+    def test_recognition_failures_are_classified(self) -> None:
+        import urllib.error
+
+        from miqdar_backend.recognition import Candidate
+
+        class FakeProvider:
+            name = "fake"
+
+            def __init__(self, labels: list[str]) -> None:
+                self.labels = labels
+
+            def recognize(self, image_bytes: bytes, hint: str | None = None):
+                return [Candidate(label, 0.5) for label in self.labels]
+
+        def run(labels: list[str]) -> None:
+            with patch("miqdar_backend.service.configured_provider", return_value=FakeProvider(labels)):
+                with connect(self.db_path) as connection:
+                    recognize_food(connection, user_id="demo-user",
+                                   image_bytes=image_bytes((1, 1, 1)), weight_g=50)
+
+        with self.assertRaises(NotFoodError):
+            run(["not food"])
+        with self.assertRaises(UnmappedFoodError) as ctx:
+            run(["pad thai", "ramen"])
+        self.assertEqual(ctx.exception.to_dict()["error"], "FOOD_NOT_IN_DATABASE")
+        self.assertEqual(len(ctx.exception.to_dict()["candidates"]), 2)
+        with self.assertRaises(InvalidImageError):
+            decode_image("%%%not-base64%%%")
+
+        env = {"MIQDAR_RECOGNITION_PROVIDER": "gemini", "GEMINI_API_KEY": "k",
+               "GEMINI_FALLBACK_MODELS": "gemini-3.5-flash-lite"}
+        with patch.dict("os.environ", env), \
+                patch("urllib.request.urlopen", side_effect=urllib.error.URLError("no network")), \
+                connect(self.db_path) as connection, \
+                self.assertRaises(ProviderUnavailableError):
+            recognize_food(connection, user_id="demo-user",
+                           image_bytes=image_bytes((5, 5, 5)), weight_g=50)
+
 
 if __name__ == "__main__":
     unittest.main()
+

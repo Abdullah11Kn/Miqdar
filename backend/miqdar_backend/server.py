@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hmac
 import json
+import mimetypes
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -16,7 +17,7 @@ from .database import (
 )
 from .recognition import configured_provider
 from .recommendations import normalise_profile, recommend_meals
-from .service import decode_image, recognize_food
+from .service import RecognitionError, decode_image, recognize_food
 
 
 DEFAULT_DB = Path(__file__).resolve().parents[2] / "database" / "miqdar_nutrition.db"
@@ -41,9 +42,10 @@ class MiqdarHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS, HEAD")
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def authorized(self) -> bool:
         expected = os.environ.get("MIQDAR_API_TOKEN", "").strip()
@@ -69,11 +71,53 @@ class MiqdarHandler(BaseHTTPRequestHandler):
         return value
 
     def do_OPTIONS(self) -> None:
-        self.send_json(204, {})
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS, HEAD")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_HEAD(self) -> None:
+        self.do_GET()
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
+
+        api_endpoints = {"/health", "/foods", "/history", "/goals", "/health-profile", "/alerts"}
+        if parsed.path not in api_endpoints:
+            web_dir = Path(__file__).resolve().parents[2] / "mobile" / "build" / "web"
+            if web_dir.is_dir():
+                clean_path = parsed.path.lstrip("/")
+                target_file = (web_dir / clean_path) if clean_path else (web_dir / "index.html")
+                if target_file.is_file() and not target_file.name.startswith("."):
+                    mime, _ = mimetypes.guess_type(str(target_file))
+                    mime = mime or "application/octet-stream"
+                    if mime.startswith("text/") or mime in ("application/javascript", "application/json"):
+                        mime += "; charset=utf-8"
+                    content = target_file.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", mime)
+                    self.send_header("Content-Length", str(len(content)))
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    if self.command != "HEAD":
+                        self.wfile.write(content)
+                    return
+                elif not clean_path.startswith("api"):
+                    target_file = web_dir / "index.html"
+                    if target_file.is_file():
+                        content = target_file.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "text/html; charset=utf-8")
+                        self.send_header("Content-Length", str(len(content)))
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.end_headers()
+                        if self.command != "HEAD":
+                            self.wfile.write(content)
+                        return
+
         if parsed.path != "/health" and not self.require_authorization():
             return
         try:
@@ -193,6 +237,10 @@ class MiqdarHandler(BaseHTTPRequestHandler):
                     self.send_json(200, result)
                 else:
                     self.send_json(404, {"error": "route_not_found"})
+        except RecognitionError as exc:
+            self.send_json(exc.http_status, exc.to_dict())
+        except KeyError as exc:
+            self.send_json(400, {"error": "MISSING_FIELD", "message": f"Missing required field: {exc.args[0]}"})
         except Exception as exc:
             self.send_json(400, {"error": type(exc).__name__, "message": str(exc)})
 

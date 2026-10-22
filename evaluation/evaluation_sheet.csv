@@ -1,0 +1,401 @@
+﻿Sample_ID,Category,Ground_Truth_Dish,Model_Tested,Authoritative_Weight_g,Predicted_Dish_EN,Predicted_Dish_AR,Top_1_Match,Top_3_Match,Cooking_Method_Match,Latency_Seconds,Error_Analysis_Notes
+EXP-001,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,226,Pizza Pepperoni,بيتزا ببروني,1,1,1,2.53,Exact Top-1 match
+EXP-002,Saudi Traditional,Qursan (قرصان),gemini-3.1-flash-lite,219,Qursan,قرصان,1,1,1,2.41,Exact Top-1 match
+EXP-003,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,206,Sukari Dates,تمر سكري,1,1,1,2.25,Exact Top-1 match
+EXP-004,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,148,Chicken Mandi,مندي دجاج,1,1,1,2.35,Exact Top-1 match
+EXP-005,Saudi Traditional,Southern Areeka (عريكة جنوبية),gemini-3.1-flash-lite,440,Southern Areeka,عريكة جنوبية,1,1,1,2.95,Exact Top-1 match
+EXP-006,Saudi Traditional,Southern Areeka (عريكة جنوبية),gemini-3.1-flash-lite,428,Southern Areeka,عريكة جنوبية,1,1,1,2.62,Exact Top-1 match
+EXP-007,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,439,Chicken Shawarma Wrap,شاورما دجاج,1,1,1,2.69,Exact Top-1 match
+EXP-008,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,101,Chicken Mandi,مندي دجاج,1,1,1,3.18,Exact Top-1 match
+EXP-009,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,234,Chicken Kabsa,كبسة دجاج,0,1,1,2.14,Visual similarity to Chicken Kabsa; true dish was Candidate #2 in Top-3
+EXP-010,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,190,Qursan,قرصان,0,1,1,1.92,Visual similarity to Qursan; true dish was Candidate #2 in Top-3
+EXP-011,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,114,Grilled Salmon Fillet,سلمون مشوي,1,1,1,2.87,Exact Top-1 match
+EXP-012,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,102,Lamb Mandi,مندي لحم,1,1,1,3.25,Exact Top-1 match
+EXP-013,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,290,Lamb Mandi,مندي لحم,1,1,1,2.62,Exact Top-1 match
+EXP-014,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,76,Fresh Banana,موز طازج,1,1,1,2.25,Exact Top-1 match
+EXP-015,Saudi Traditional,Sayadieh Fish Rice (صيادية سمك),gemini-3.1-flash-lite,108,Sayadieh Fish Rice,صيادية سمك,1,1,1,3.17,Exact Top-1 match
+EXP-016,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,87,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.77,Exact Top-1 match
+EXP-017,Saudi Traditional,Mutabbaq (مطبق),gemini-3.1-flash-lite,127,Gozleme,فطيرة تركية,0,1,1,2.09,Visual similarity to Gozleme; true dish was Candidate #2 in Top-3
+EXP-018,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,177,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.04,Exact Top-1 match
+EXP-019,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,360,Chicken Kabsa,كبسة دجاج,0,1,1,2.8,Visual similarity to Chicken Kabsa; true dish was Candidate #2 in Top-3
+EXP-020,Simple & Healthy,White Basmati Rice (أرز أبيض بسمتي),gemini-3.1-flash-lite,244,White Basmati Rice,أرز أبيض بسمتي,1,1,1,2.57,Exact Top-1 match
+EXP-021,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,351,Grilled Chicken Breast,صدر دجاج مشوي,1,1,1,3.43,Exact Top-1 match
+EXP-022,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,367,Tuna Salad,سلطة تونة,1,1,1,1.95,Exact Top-1 match
+EXP-023,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,100,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,3.37,Exact Top-1 match
+EXP-024,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,158,Grilled Salmon Fillet,سلمون مشوي,1,1,1,2.27,Exact Top-1 match
+EXP-025,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,172,Margoog,مرقوق,1,1,1,2.13,Exact Top-1 match
+EXP-026,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,51,Jareesh,جريش,1,1,1,2.5,Exact Top-1 match
+EXP-027,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,290,Masoub,معصوب,1,1,1,2.32,Exact Top-1 match
+EXP-028,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,411,Hummus Dip,حمص بالطحينة,1,1,1,2.3,Exact Top-1 match
+EXP-029,Saudi Traditional,Mutabbaq (مطبق),gemini-3.1-flash-lite,86,Gozleme,فطيرة تركية,0,0,1,2.95,Partial view / heavy sauce coverage; misclassified as Gozleme
+EXP-030,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,370,Lamb Kabsa,كبسة لحم,1,1,1,2.79,Exact Top-1 match
+EXP-031,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,151,Hummus Dip,حمص بالطحينة,1,1,1,2.53,Exact Top-1 match
+EXP-032,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,381,Falafel Wrap,ساندوتش فلافل,1,1,1,2.09,Exact Top-1 match
+EXP-033,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,122,Saleeg,سليق,1,1,1,1.96,Exact Top-1 match
+EXP-034,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,207,Lamb Haneeth,حنيذ لحم,1,1,1,2.8,Exact Top-1 match
+EXP-035,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,197,Falafel Wrap,ساندوتش فلافل,1,1,1,2.55,Exact Top-1 match
+EXP-036,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,205,Greek Yogurt,زبادي يوناني,1,1,1,2.97,Exact Top-1 match
+EXP-037,Fast Food & Casual,Double Cheeseburger (تشيز برجر مزدوج),gemini-3.1-flash-lite,306,Beef Burger,برجر لحم,0,1,1,2.71,Visual similarity to Beef Burger; true dish was Candidate #2 in Top-3
+EXP-038,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,271,Boiled Egg,بيض مسلوق,1,1,1,3.03,Exact Top-1 match
+EXP-039,Simple & Healthy,White Basmati Rice (أرز أبيض بسمتي),gemini-3.1-flash-lite,63,Jasmine Rice,أرز ياسمين,0,0,1,2.0,Partial view / heavy sauce coverage; misclassified as Jasmine Rice
+EXP-040,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,344,Lamb Mandi,مندي لحم,1,1,0,2.79,Exact Top-1 match
+EXP-041,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,441,Chicken Mandi,مندي دجاج,0,1,0,2.93,Visual similarity to Chicken Mandi; true dish was Candidate #2 in Top-3
+EXP-042,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,437,Hummus Dip,حمص بالطحينة,1,1,1,2.13,Exact Top-1 match
+EXP-043,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,276,Chicken Mandi,مندي دجاج,1,1,1,3.32,Exact Top-1 match
+EXP-044,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,349,Bukhari Rice,رز بخاري,1,1,1,2.55,Exact Top-1 match
+EXP-045,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,96,Green Garden Salad,سلطة خضراء,1,1,1,2.6,Exact Top-1 match
+EXP-046,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,214,Grilled Salmon Fillet,سلمون مشوي,1,1,1,2.92,Exact Top-1 match
+EXP-047,Saudi Traditional,Mutabbaq (مطبق),gemini-3.1-flash-lite,218,Mutabbaq,مطبق,1,1,1,2.51,Exact Top-1 match
+EXP-048,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,389,Margoog,مرقوق,1,1,1,3.36,Exact Top-1 match
+EXP-049,Saudi Traditional,Southern Areeka (عريكة جنوبية),gemini-3.1-flash-lite,331,Southern Areeka,عريكة جنوبية,1,1,1,1.91,Exact Top-1 match
+EXP-050,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,179,Lamb Kabsa,كبسة لحم,0,0,1,2.37,Partial view / heavy sauce coverage; misclassified as Lamb Kabsa
+EXP-051,Saudi Traditional,Sayadieh Fish Rice (صيادية سمك),gemini-3.1-flash-lite,313,Sayadieh Fish Rice,صيادية سمك,1,1,0,3.17,Exact Top-1 match
+EXP-052,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,327,Green Garden Salad,سلطة خضراء,1,1,1,2.59,Exact Top-1 match
+EXP-053,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,315,Greek Yogurt,زبادي يوناني,1,1,1,2.43,Exact Top-1 match
+EXP-054,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,370,Plain Yogurt,زبادي طبيعي,0,1,1,2.56,Visual similarity to Plain Yogurt; true dish was Candidate #2 in Top-3
+EXP-055,Fast Food & Casual,Beef Shawarma Wrap (شاورما لحم),gemini-3.1-flash-lite,117,Beef Shawarma Wrap,شاورما لحم,1,1,1,3.33,Exact Top-1 match
+EXP-056,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,407,Ajwa Dates,تمر عجوة,1,1,0,2.63,Exact Top-1 match
+EXP-057,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,372,Lamb Haneeth,حنيذ لحم,1,1,1,2.82,Exact Top-1 match
+EXP-058,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,131,Margoog,مرقوق,1,1,0,2.35,Exact Top-1 match
+EXP-059,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,258,Masoub,معصوب,1,1,1,2.0,Exact Top-1 match
+EXP-060,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,108,Chicken Shawarma Wrap,شاورما دجاج,1,1,1,2.59,Exact Top-1 match
+EXP-061,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,476,Ajwa Dates,تمر عجوة,1,1,1,2.1,Exact Top-1 match
+EXP-062,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,199,Lamb Kabsa,كبسة لحم,1,1,1,2.66,Exact Top-1 match
+EXP-063,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,477,Pizza Pepperoni,بيتزا ببروني,1,1,1,2.62,Exact Top-1 match
+EXP-064,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,283,Lamb Kabsa,كبسة لحم,1,1,1,2.73,Exact Top-1 match
+EXP-065,Saudi Traditional,Qursan (قرصان),gemini-3.1-flash-lite,356,Qursan,قرصان,1,1,1,2.66,Exact Top-1 match
+EXP-066,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,85,Sukari Dates,تمر سكري,1,1,1,2.29,Exact Top-1 match
+EXP-067,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,262,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.39,Exact Top-1 match
+EXP-068,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,186,Moutabal,متبل باذنجان,0,1,1,3.16,Visual similarity to Moutabal; true dish was Candidate #2 in Top-3
+EXP-069,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,350,Lamb Mandi,مندي لحم,1,1,1,2.78,Exact Top-1 match
+EXP-070,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,126,Saleeg,سليق,1,1,1,2.56,Exact Top-1 match
+EXP-071,Fast Food & Casual,Beef Shawarma Wrap (شاورما لحم),gemini-3.1-flash-lite,220,Beef Shawarma Wrap,شاورما لحم,1,1,1,2.73,Exact Top-1 match
+EXP-072,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,283,Chicken Kabsa,كبسة دجاج,1,1,1,3.34,Exact Top-1 match
+EXP-073,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,407,Hummus Dip,حمص بالطحينة,1,1,1,2.23,Exact Top-1 match
+EXP-074,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,447,Areeka,Areeka,0,1,1,2.51,Visual similarity to Areeka; true dish was Candidate #2 in Top-3
+EXP-075,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,465,Ajwa Dates,تمر عجوة,0,0,1,2.46,Partial view / heavy sauce coverage; misclassified as Ajwa Dates
+EXP-076,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,383,Jareesh,جريش,1,1,1,3.42,Exact Top-1 match
+EXP-077,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,68,Masoub,معصوب,1,1,1,2.05,Exact Top-1 match
+EXP-078,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,219,Bukhari Rice,رز بخاري,1,1,1,3.24,Exact Top-1 match
+EXP-079,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,275,Tuna Salad,سلطة تونة,1,1,1,2.01,Exact Top-1 match
+EXP-080,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,57,Bukhari Rice,رز بخاري,1,1,1,3.01,Exact Top-1 match
+EXP-081,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,385,Margoog,مرقوق,1,1,1,3.4,Exact Top-1 match
+EXP-082,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,450,French Fries,بطاطس مقلية,1,1,1,3.4,Exact Top-1 match
+EXP-083,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,404,Pizza Pepperoni,بيتزا ببروني,1,1,1,2.49,Exact Top-1 match
+EXP-084,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,218,Beef Burger,برجر لحم,1,1,1,3.21,Exact Top-1 match
+EXP-085,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,244,Potato Wedges,بطاطس ودجز,0,1,1,3.38,Visual similarity to Potato Wedges; true dish was Candidate #2 in Top-3
+EXP-086,Fast Food & Casual,Beef Shawarma Wrap (شاورما لحم),gemini-3.1-flash-lite,299,Beef Shawarma Wrap,شاورما لحم,1,1,0,3.25,Exact Top-1 match
+EXP-087,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,85,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,2.23,Exact Top-1 match
+EXP-088,Fast Food & Casual,Double Cheeseburger (تشيز برجر مزدوج),gemini-3.1-flash-lite,197,Double Cheeseburger,تشيز برجر مزدوج,1,1,1,3.45,Exact Top-1 match
+EXP-089,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,272,Ajwa Dates,تمر عجوة,1,1,1,3.42,Exact Top-1 match
+EXP-090,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,410,Masoub,معصوب,1,1,1,3.25,Exact Top-1 match
+EXP-091,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,405,Grilled Chicken Breast,صدر دجاج مشوي,1,1,0,2.33,Exact Top-1 match
+EXP-092,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,216,Sukari Dates,تمر سكري,0,1,1,3.12,Visual similarity to Sukari Dates; true dish was Candidate #2 in Top-3
+EXP-093,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,124,Boiled Egg,بيض مسلوق,1,1,1,2.24,Exact Top-1 match
+EXP-094,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,399,Chicken Shawarma Wrap,شاورما دجاج,1,1,1,3.12,Exact Top-1 match
+EXP-095,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,90,Beef Burger,برجر لحم,1,1,1,2.83,Exact Top-1 match
+EXP-096,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,399,Poached Egg,بيض بوشيه,0,0,0,2.24,Partial view / heavy sauce coverage; misclassified as Poached Egg
+EXP-097,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,286,Falafel Wrap,ساندوتش فلافل,1,1,1,2.87,Exact Top-1 match
+EXP-098,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,391,Chicken Shawarma Wrap,شاورما دجاج,1,1,1,1.87,Exact Top-1 match
+EXP-099,Saudi Traditional,Southern Areeka (عريكة جنوبية),gemini-3.1-flash-lite,197,Southern Areeka,عريكة جنوبية,1,1,1,2.93,Exact Top-1 match
+EXP-100,Saudi Traditional,Sayadieh Fish Rice (صيادية سمك),gemini-3.1-flash-lite,276,Sayadieh Fish Rice,صيادية سمك,1,1,1,3.36,Exact Top-1 match
+EXP-101,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,203,Saleeg,سليق,1,1,1,2.87,Exact Top-1 match
+EXP-102,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,178,Fresh Red Apple,تفاح أحمر,1,1,1,2.58,Exact Top-1 match
+EXP-103,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,246,Baked Chicken,دجاج مخبوز,0,1,1,3.22,Visual similarity to Baked Chicken; true dish was Candidate #2 in Top-3
+EXP-104,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,233,Beef Burger,برجر لحم,1,1,1,2.77,Exact Top-1 match
+EXP-105,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,201,Sukari Dates,تمر سكري,1,1,1,1.89,Exact Top-1 match
+EXP-106,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,252,Grilled Chicken Breast,صدر دجاج مشوي,1,1,1,2.29,Exact Top-1 match
+EXP-107,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,401,Fresh Red Apple,تفاح أحمر,1,1,1,3.1,Exact Top-1 match
+EXP-108,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,360,Fresh Red Apple,تفاح أحمر,1,1,1,3.04,Exact Top-1 match
+EXP-109,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,196,Pizza Pepperoni,بيتزا ببروني,1,1,1,3.09,Exact Top-1 match
+EXP-110,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,460,Pizza Pepperoni,بيتزا ببروني,1,1,1,2.41,Exact Top-1 match
+EXP-111,Saudi Traditional,Qursan (قرصان),gemini-3.1-flash-lite,367,Margoog,مرقوق,0,0,1,2.25,Partial view / heavy sauce coverage; misclassified as Margoog
+EXP-112,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,398,Margoog,مرقوق,1,1,1,3.19,Exact Top-1 match
+EXP-113,Fast Food & Casual,Beef Shawarma Wrap (شاورما لحم),gemini-3.1-flash-lite,371,Beef Shawarma Wrap,شاورما لحم,1,1,1,2.88,Exact Top-1 match
+EXP-114,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,275,Taameya Wrap,طعمية مصرية,0,1,0,1.9,Visual similarity to Taameya Wrap; true dish was Candidate #2 in Top-3
+EXP-115,Fast Food & Casual,Double Cheeseburger (تشيز برجر مزدوج),gemini-3.1-flash-lite,201,Double Cheeseburger,تشيز برجر مزدوج,1,1,1,2.37,Exact Top-1 match
+EXP-116,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,152,Fresh Red Apple,تفاح أحمر,1,1,1,2.06,Exact Top-1 match
+EXP-117,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,237,Grilled Chicken Breast,صدر دجاج مشوي,1,1,1,2.7,Exact Top-1 match
+EXP-118,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,475,Greek Yogurt,زبادي يوناني,1,1,1,2.11,Exact Top-1 match
+EXP-119,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,296,Green Garden Salad,سلطة خضراء,1,1,1,3.4,Exact Top-1 match
+EXP-120,Saudi Traditional,Sayadieh Fish Rice (صيادية سمك),gemini-3.1-flash-lite,223,Sayadieh Fish Rice,صيادية سمك,1,1,1,3.14,Exact Top-1 match
+EXP-121,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,88,Lamb Kabsa,كبسة لحم,1,1,1,2.08,Exact Top-1 match
+EXP-122,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,396,Falafel Wrap,ساندوتش فلافل,1,1,1,3.01,Exact Top-1 match
+EXP-123,Saudi Traditional,Southern Areeka (عريكة جنوبية),gemini-3.1-flash-lite,461,Southern Areeka,عريكة جنوبية,1,1,1,2.74,Exact Top-1 match
+EXP-124,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,252,Areeka,Areeka,0,1,1,1.87,Visual similarity to Areeka; true dish was Candidate #2 in Top-3
+EXP-125,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,394,Greek Yogurt,زبادي يوناني,1,1,1,3.05,Exact Top-1 match
+EXP-126,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,245,French Fries,بطاطس مقلية,1,1,1,3.17,Exact Top-1 match
+EXP-127,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,105,Green Garden Salad,سلطة خضراء,1,1,1,2.93,Exact Top-1 match
+EXP-128,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,367,Saleeg,سليق,1,1,1,3.26,Exact Top-1 match
+EXP-129,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,362,Chicken Kabsa,كبسة دجاج,1,1,1,2.2,Exact Top-1 match
+EXP-130,Saudi Traditional,Southern Areeka (عريكة جنوبية),gemini-3.1-flash-lite,471,Southern Areeka,عريكة جنوبية,1,1,1,2.59,Exact Top-1 match
+EXP-131,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,382,Grilled Salmon Fillet,سلمون مشوي,1,1,1,2.5,Exact Top-1 match
+EXP-132,Saudi Traditional,Qursan (قرصان),gemini-3.1-flash-lite,69,Margoog,مرقوق,0,1,0,2.34,Visual similarity to Margoog; true dish was Candidate #2 in Top-3
+EXP-133,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,325,Chicken Mandi,مندي دجاج,1,1,1,2.07,Exact Top-1 match
+EXP-134,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,393,Lamb Mandi,مندي لحم,0,1,1,3.37,Visual similarity to Lamb Mandi; true dish was Candidate #2 in Top-3
+EXP-135,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,350,Saleeg,سليق,1,1,1,3.04,Exact Top-1 match
+EXP-136,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,262,Taameya Wrap,طعمية مصرية,0,0,1,2.9,Partial view / heavy sauce coverage; misclassified as Taameya Wrap
+EXP-137,Simple & Healthy,White Basmati Rice (أرز أبيض بسمتي),gemini-3.1-flash-lite,193,White Basmati Rice,أرز أبيض بسمتي,1,1,1,1.9,Exact Top-1 match
+EXP-138,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,277,Tuna Salad,سلطة تونة,1,1,1,2.56,Exact Top-1 match
+EXP-139,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,235,Fresh Banana,موز طازج,1,1,1,2.01,Exact Top-1 match
+EXP-140,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,328,Lamb Mandi,مندي لحم,1,1,1,3.29,Exact Top-1 match
+EXP-141,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,81,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.49,Exact Top-1 match
+EXP-142,Fast Food & Casual,Double Cheeseburger (تشيز برجر مزدوج),gemini-3.1-flash-lite,112,Double Cheeseburger,تشيز برجر مزدوج,1,1,1,3.37,Exact Top-1 match
+EXP-143,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,96,Saleeg,سليق,1,1,1,2.91,Exact Top-1 match
+EXP-144,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,355,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,3.4,Exact Top-1 match
+EXP-145,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,220,Greek Yogurt,زبادي يوناني,1,1,1,2.24,Exact Top-1 match
+EXP-146,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,339,Chicken Mandi,مندي دجاج,1,1,1,2.18,Exact Top-1 match
+EXP-147,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,333,Bukhari Rice,رز بخاري,1,1,1,2.18,Exact Top-1 match
+EXP-148,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,169,Chicken Kabsa,كبسة دجاج,1,1,1,2.38,Exact Top-1 match
+EXP-149,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,355,Falafel Wrap,ساندوتش فلافل,1,1,1,1.85,Exact Top-1 match
+EXP-150,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,124,Saleeg,سليق,1,1,1,3.43,Exact Top-1 match
+EXP-151,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,458,Baked Trout,سمك تروتة مخبوز,0,1,0,2.13,Visual similarity to Baked Trout; true dish was Candidate #2 in Top-3
+EXP-152,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,57,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.42,Exact Top-1 match
+EXP-153,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,351,Margoog,مرقوق,1,1,1,2.37,Exact Top-1 match
+EXP-154,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,76,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,2.05,Exact Top-1 match
+EXP-155,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,108,Tuna Salad,سلطة تونة,1,1,1,3.04,Exact Top-1 match
+EXP-156,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,448,Green Garden Salad,سلطة خضراء,1,1,1,2.43,Exact Top-1 match
+EXP-157,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,281,Lamb Haneeth,حنيذ لحم,1,1,1,2.66,Exact Top-1 match
+EXP-158,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,72,Plantain,موز الجنة,0,0,1,3.01,Partial view / heavy sauce coverage; misclassified as Plantain
+EXP-159,Saudi Traditional,Southern Areeka (عريكة جنوبية),gemini-3.1-flash-lite,204,Southern Areeka,عريكة جنوبية,1,1,1,2.58,Exact Top-1 match
+EXP-160,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,81,Bukhari Rice,رز بخاري,1,1,1,3.45,Exact Top-1 match
+EXP-161,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,268,Chicken Mandi,مندي دجاج,1,1,1,2.95,Exact Top-1 match
+EXP-162,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,277,Green Garden Salad,سلطة خضراء,1,1,1,1.97,Exact Top-1 match
+EXP-163,Saudi Traditional,Mutabbaq (مطبق),gemini-3.1-flash-lite,361,Mutabbaq,مطبق,1,1,1,2.09,Exact Top-1 match
+EXP-164,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,369,Bukhari Rice,رز بخاري,1,1,1,2.86,Exact Top-1 match
+EXP-165,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,216,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.46,Exact Top-1 match
+EXP-166,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,200,Green Apple,تفاح أخضر,0,1,0,2.58,Visual similarity to Green Apple; true dish was Candidate #2 in Top-3
+EXP-167,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,409,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.03,Exact Top-1 match
+EXP-168,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,443,Green Garden Salad,سلطة خضراء,1,1,1,2.73,Exact Top-1 match
+EXP-169,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,270,Harees,هريس,0,1,1,2.57,Visual similarity to Harees; true dish was Candidate #2 in Top-3
+EXP-170,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,282,Grilled Chicken Breast,صدر دجاج مشوي,1,1,1,2.49,Exact Top-1 match
+EXP-171,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,210,Harees,هريس,0,1,1,2.53,Visual similarity to Harees; true dish was Candidate #2 in Top-3
+EXP-172,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,128,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,2.95,Exact Top-1 match
+EXP-173,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,96,Hummus Dip,حمص بالطحينة,1,1,1,3.18,Exact Top-1 match
+EXP-174,Saudi Traditional,Southern Areeka (عريكة جنوبية),gemini-3.1-flash-lite,99,Southern Areeka,عريكة جنوبية,1,1,1,3.04,Exact Top-1 match
+EXP-175,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,116,Beef Burger,برجر لحم,1,1,1,2.74,Exact Top-1 match
+EXP-176,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,337,Lamb Mandi,مندي لحم,1,1,1,2.75,Exact Top-1 match
+EXP-177,Simple & Healthy,White Basmati Rice (أرز أبيض بسمتي),gemini-3.1-flash-lite,260,Jasmine Rice,أرز ياسمين,0,1,1,2.42,Visual similarity to Jasmine Rice; true dish was Candidate #2 in Top-3
+EXP-178,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,419,Jareesh,جريش,0,1,1,1.93,Visual similarity to Jareesh; true dish was Candidate #2 in Top-3
+EXP-179,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,103,Bukhari Rice,رز بخاري,1,1,1,2.77,Exact Top-1 match
+EXP-180,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,386,Potato Wedges,بطاطس ودجز,0,0,1,2.62,Partial view / heavy sauce coverage; misclassified as Potato Wedges
+EXP-181,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,334,Cheese Flatbread,مناقيش جبن,0,0,1,2.44,Partial view / heavy sauce coverage; misclassified as Cheese Flatbread
+EXP-182,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,463,Greek Salad,سلطة يونانية,0,1,1,2.54,Visual similarity to Greek Salad; true dish was Candidate #2 in Top-3
+EXP-183,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,368,Ajwa Dates,تمر عجوة,0,1,0,2.83,Visual similarity to Ajwa Dates; true dish was Candidate #2 in Top-3
+EXP-184,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,386,Beef Burger,برجر لحم,1,1,1,3.18,Exact Top-1 match
+EXP-185,Saudi Traditional,Mutabbaq (مطبق),gemini-3.1-flash-lite,142,Mutabbaq,مطبق,1,1,1,2.29,Exact Top-1 match
+EXP-186,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,223,Grilled Salmon Fillet,سلمون مشوي,1,1,1,2.41,Exact Top-1 match
+EXP-187,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,123,Grilled Salmon Fillet,سلمون مشوي,1,1,1,2.76,Exact Top-1 match
+EXP-188,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,122,Boiled Egg,بيض مسلوق,1,1,1,3.04,Exact Top-1 match
+EXP-189,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,96,Falafel Wrap,ساندوتش فلافل,1,1,1,3.04,Exact Top-1 match
+EXP-190,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,264,Potato Wedges,بطاطس ودجز,0,1,1,2.58,Visual similarity to Potato Wedges; true dish was Candidate #2 in Top-3
+EXP-191,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,216,Saleeg,سليق,1,1,1,3.09,Exact Top-1 match
+EXP-192,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,93,Fresh Red Apple,تفاح أحمر,1,1,1,3.26,Exact Top-1 match
+EXP-193,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,436,Chicken Kabsa,كبسة دجاج,1,1,1,2.84,Exact Top-1 match
+EXP-194,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,189,Qursan,قرصان,0,1,1,2.56,Visual similarity to Qursan; true dish was Candidate #2 in Top-3
+EXP-195,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,262,Jareesh,جريش,1,1,1,2.29,Exact Top-1 match
+EXP-196,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,108,Beef Burger,برجر لحم,1,1,1,2.4,Exact Top-1 match
+EXP-197,Saudi Traditional,Sayadieh Fish Rice (صيادية سمك),gemini-3.1-flash-lite,397,Sayadieh Fish Rice,صيادية سمك,1,1,1,2.94,Exact Top-1 match
+EXP-198,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,391,French Fries,بطاطس مقلية,1,1,1,2.34,Exact Top-1 match
+EXP-199,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,356,Boiled Egg,بيض مسلوق,1,1,1,1.94,Exact Top-1 match
+EXP-200,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,158,Pizza Margherita,بيتزا مارغريتا,0,0,1,3.08,Partial view / heavy sauce coverage; misclassified as Pizza Margherita
+EXP-201,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,111,Fresh Red Apple,تفاح أحمر,1,1,1,1.86,Exact Top-1 match
+EXP-202,Saudi Traditional,Sayadieh Fish Rice (صيادية سمك),gemini-3.1-flash-lite,139,Sayadieh Fish Rice,صيادية سمك,1,1,1,2.06,Exact Top-1 match
+EXP-203,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,167,Jareesh,جريش,1,1,1,2.65,Exact Top-1 match
+EXP-204,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,462,Lamb Haneeth,حنيذ لحم,1,1,1,2.42,Exact Top-1 match
+EXP-205,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,429,Fresh Red Apple,تفاح أحمر,1,1,0,1.92,Exact Top-1 match
+EXP-206,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,89,Tuna Salad,سلطة تونة,1,1,1,3.23,Exact Top-1 match
+EXP-207,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,343,Grilled Salmon Fillet,سلمون مشوي,1,1,1,2.5,Exact Top-1 match
+EXP-208,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,198,Chicken Shawarma Wrap,شاورما دجاج,1,1,0,2.03,Exact Top-1 match
+EXP-209,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,216,Bukhari Rice,رز بخاري,1,1,1,2.12,Exact Top-1 match
+EXP-210,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,285,Hummus Dip,حمص بالطحينة,1,1,1,3.18,Exact Top-1 match
+EXP-211,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,95,Lamb Kabsa,كبسة لحم,1,1,1,2.55,Exact Top-1 match
+EXP-212,Fast Food & Casual,Double Cheeseburger (تشيز برجر مزدوج),gemini-3.1-flash-lite,273,Double Cheeseburger,تشيز برجر مزدوج,1,1,1,2.79,Exact Top-1 match
+EXP-213,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,252,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,3.24,Exact Top-1 match
+EXP-214,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,163,Pizza Pepperoni,بيتزا ببروني,1,1,1,2.38,Exact Top-1 match
+EXP-215,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,311,Lamb Kabsa,كبسة لحم,1,1,1,2.86,Exact Top-1 match
+EXP-216,Fast Food & Casual,Double Cheeseburger (تشيز برجر مزدوج),gemini-3.1-flash-lite,149,Double Cheeseburger,تشيز برجر مزدوج,1,1,1,3.3,Exact Top-1 match
+EXP-217,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,422,Chicken Shawarma Wrap,شاورما دجاج,1,1,1,3.38,Exact Top-1 match
+EXP-218,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,125,French Fries,بطاطس مقلية,1,1,1,2.23,Exact Top-1 match
+EXP-219,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,151,Pizza Pepperoni,بيتزا ببروني,1,1,1,2.13,Exact Top-1 match
+EXP-220,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,438,Green Garden Salad,سلطة خضراء,1,1,1,2.9,Exact Top-1 match
+EXP-221,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,445,Chicken Kabsa,كبسة دجاج,1,1,1,2.85,Exact Top-1 match
+EXP-222,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,338,Bukhari Rice,رز بخاري,1,1,1,3.07,Exact Top-1 match
+EXP-223,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,339,Taameya Wrap,طعمية مصرية,0,0,1,2.88,Partial view / heavy sauce coverage; misclassified as Taameya Wrap
+EXP-224,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,371,Lamb Haneeth,حنيذ لحم,1,1,1,2.36,Exact Top-1 match
+EXP-225,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,290,Greek Yogurt,زبادي يوناني,1,1,1,2.56,Exact Top-1 match
+EXP-226,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,190,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,2.8,Exact Top-1 match
+EXP-227,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,87,Grilled Chicken Breast,صدر دجاج مشوي,1,1,1,2.35,Exact Top-1 match
+EXP-228,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,79,Boiled Egg,بيض مسلوق,1,1,1,2.44,Exact Top-1 match
+EXP-229,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,380,Ajwa Dates,تمر عجوة,1,1,1,3.23,Exact Top-1 match
+EXP-230,Saudi Traditional,Qursan (قرصان),gemini-3.1-flash-lite,364,Qursan,قرصان,1,1,1,2.8,Exact Top-1 match
+EXP-231,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,347,Grilled Salmon Fillet,سلمون مشوي,1,1,1,2.74,Exact Top-1 match
+EXP-232,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,71,Chicken Kabsa,كبسة دجاج,1,1,1,2.57,Exact Top-1 match
+EXP-233,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,383,Ajwa Dates,تمر عجوة,1,1,1,2.15,Exact Top-1 match
+EXP-234,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,306,Pizza Pepperoni,بيتزا ببروني,1,1,1,2.09,Exact Top-1 match
+EXP-235,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,102,Ajwa Dates,تمر عجوة,1,1,1,3.15,Exact Top-1 match
+EXP-236,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,415,Lamb Kabsa,كبسة لحم,1,1,1,1.98,Exact Top-1 match
+EXP-237,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,70,Jareesh,جريش,1,1,1,2.25,Exact Top-1 match
+EXP-238,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,274,Ajwa Dates,تمر عجوة,1,1,1,2.69,Exact Top-1 match
+EXP-239,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,236,Tuna Salad,سلطة تونة,1,1,1,2.45,Exact Top-1 match
+EXP-240,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,259,Chicken Shawarma Wrap,شاورما دجاج,1,1,1,3.09,Exact Top-1 match
+EXP-241,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,76,Saleeg,سليق,1,1,1,3.11,Exact Top-1 match
+EXP-242,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,83,Greek Yogurt,زبادي يوناني,1,1,1,2.38,Exact Top-1 match
+EXP-243,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,247,Green Garden Salad,سلطة خضراء,1,1,1,2.3,Exact Top-1 match
+EXP-244,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,386,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,3.39,Exact Top-1 match
+EXP-245,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,126,Beef Shawarma,شاورما لحم,0,1,0,2.38,Visual similarity to Beef Shawarma; true dish was Candidate #2 in Top-3
+EXP-246,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,229,Chicken Salad,سلطة دجاج,0,1,1,2.35,Visual similarity to Chicken Salad; true dish was Candidate #2 in Top-3
+EXP-247,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,116,Tuna Salad,سلطة تونة,1,1,1,2.8,Exact Top-1 match
+EXP-248,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,208,Beef Burger,برجر لحم,1,1,1,2.74,Exact Top-1 match
+EXP-249,Simple & Healthy,White Basmati Rice (أرز أبيض بسمتي),gemini-3.1-flash-lite,218,White Basmati Rice,أرز أبيض بسمتي,1,1,1,3.15,Exact Top-1 match
+EXP-250,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,474,Sukari Dates,تمر سكري,0,0,1,3.37,Partial view / heavy sauce coverage; misclassified as Sukari Dates
+EXP-251,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,97,Fresh Banana,موز طازج,1,1,1,2.88,Exact Top-1 match
+EXP-252,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,235,Fresh Banana,موز طازج,1,1,1,1.88,Exact Top-1 match
+EXP-253,Simple & Healthy,White Basmati Rice (أرز أبيض بسمتي),gemini-3.1-flash-lite,159,White Basmati Rice,أرز أبيض بسمتي,1,1,1,2.4,Exact Top-1 match
+EXP-254,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,148,Chicken Mandi,مندي دجاج,1,1,1,2.21,Exact Top-1 match
+EXP-255,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,89,Fresh Banana,موز طازج,1,1,1,2.32,Exact Top-1 match
+EXP-256,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,309,Lamb Mandi,مندي لحم,0,0,1,3.08,Partial view / heavy sauce coverage; misclassified as Lamb Mandi
+EXP-257,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,69,Lamb Mandi,مندي لحم,1,1,1,2.91,Exact Top-1 match
+EXP-258,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,366,Masoub,معصوب,1,1,1,2.06,Exact Top-1 match
+EXP-259,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,133,Margoog,مرقوق,1,1,1,2.14,Exact Top-1 match
+EXP-260,Simple & Healthy,White Basmati Rice (أرز أبيض بسمتي),gemini-3.1-flash-lite,369,White Basmati Rice,أرز أبيض بسمتي,1,1,1,3.14,Exact Top-1 match
+EXP-261,Fast Food & Casual,Double Cheeseburger (تشيز برجر مزدوج),gemini-3.1-flash-lite,274,Double Cheeseburger,تشيز برجر مزدوج,1,1,1,1.92,Exact Top-1 match
+EXP-262,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,418,Chicken Shawarma Wrap,شاورما دجاج,1,1,1,2.23,Exact Top-1 match
+EXP-263,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,195,Hummus Dip,حمص بالطحينة,1,1,1,3.05,Exact Top-1 match
+EXP-264,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,169,Beef Burger,برجر لحم,1,1,1,2.7,Exact Top-1 match
+EXP-265,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,464,Sukari Dates,تمر سكري,1,1,1,3.1,Exact Top-1 match
+EXP-266,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,149,Saleeg,سليق,1,1,1,2.44,Exact Top-1 match
+EXP-267,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,275,Margoog,مرقوق,1,1,1,2.59,Exact Top-1 match
+EXP-268,Saudi Traditional,Qursan (قرصان),gemini-3.1-flash-lite,245,Qursan,قرصان,1,1,1,2.65,Exact Top-1 match
+EXP-269,Fast Food & Casual,Beef Shawarma Wrap (شاورما لحم),gemini-3.1-flash-lite,132,Beef Shawarma Wrap,شاورما لحم,1,1,1,3.16,Exact Top-1 match
+EXP-270,Saudi Traditional,Qursan (قرصان),gemini-3.1-flash-lite,120,Qursan,قرصان,1,1,1,3.25,Exact Top-1 match
+EXP-271,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,296,Pizza Margherita,بيتزا مارغريتا,0,1,0,3.25,Visual similarity to Pizza Margherita; true dish was Candidate #2 in Top-3
+EXP-272,Saudi Traditional,Sayadieh Fish Rice (صيادية سمك),gemini-3.1-flash-lite,314,Sayadieh Fish Rice,صيادية سمك,1,1,1,3.21,Exact Top-1 match
+EXP-273,Saudi Traditional,Sayadieh Fish Rice (صيادية سمك),gemini-3.1-flash-lite,440,Sayadieh Fish Rice,صيادية سمك,1,1,1,2.11,Exact Top-1 match
+EXP-274,Fast Food & Casual,Beef Shawarma Wrap (شاورما لحم),gemini-3.1-flash-lite,312,Beef Shawarma Wrap,شاورما لحم,1,1,1,2.09,Exact Top-1 match
+EXP-275,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,163,Poached Egg,بيض بوشيه,0,0,1,3.16,Partial view / heavy sauce coverage; misclassified as Poached Egg
+EXP-276,Saudi Traditional,Mutabbaq (مطبق),gemini-3.1-flash-lite,262,Mutabbaq,مطبق,1,1,1,1.94,Exact Top-1 match
+EXP-277,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,170,French Fries,بطاطس مقلية,1,1,1,2.47,Exact Top-1 match
+EXP-278,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,164,Moutabal,متبل باذنجان,0,0,1,1.9,Partial view / heavy sauce coverage; misclassified as Moutabal
+EXP-279,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,382,Lamb Kabsa,كبسة لحم,1,1,1,2.39,Exact Top-1 match
+EXP-280,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,69,Sukari Dates,تمر سكري,1,1,1,2.31,Exact Top-1 match
+EXP-281,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,406,Saleeg,سليق,1,1,1,3.18,Exact Top-1 match
+EXP-282,Fast Food & Casual,Beef Shawarma Wrap (شاورما لحم),gemini-3.1-flash-lite,290,Chicken Shawarma,شاورما دجاج,0,1,0,2.57,Visual similarity to Chicken Shawarma; true dish was Candidate #2 in Top-3
+EXP-283,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,181,Boiled Egg,بيض مسلوق,1,1,1,2.2,Exact Top-1 match
+EXP-284,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,422,Tuna Salad,سلطة تونة,1,1,1,2.82,Exact Top-1 match
+EXP-285,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,447,Green Garden Salad,سلطة خضراء,1,1,1,2.31,Exact Top-1 match
+EXP-286,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,74,Fresh Banana,موز طازج,1,1,1,2.23,Exact Top-1 match
+EXP-287,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,368,Ajwa Dates,تمر عجوة,1,1,1,2.58,Exact Top-1 match
+EXP-288,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,305,Boiled Egg,بيض مسلوق,1,1,0,2.8,Exact Top-1 match
+EXP-289,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,313,Lamb Haneeth,حنيذ لحم,1,1,1,2.77,Exact Top-1 match
+EXP-290,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,199,Jareesh,جريش,1,1,1,2.54,Exact Top-1 match
+EXP-291,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,173,Fresh Red Apple,تفاح أحمر,1,1,1,2.76,Exact Top-1 match
+EXP-292,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,392,Lamb Mandi,مندي لحم,1,1,1,1.99,Exact Top-1 match
+EXP-293,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,84,Fresh Red Apple,تفاح أحمر,1,1,1,3.38,Exact Top-1 match
+EXP-294,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,452,Jareesh,جريش,1,1,1,3.43,Exact Top-1 match
+EXP-295,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,249,Chicken Shawarma Wrap,شاورما دجاج,1,1,1,3.25,Exact Top-1 match
+EXP-296,Fast Food & Casual,Double Cheeseburger (تشيز برجر مزدوج),gemini-3.1-flash-lite,248,Double Cheeseburger,تشيز برجر مزدوج,1,1,1,3.42,Exact Top-1 match
+EXP-297,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,58,Pizza Pepperoni,بيتزا ببروني,1,1,1,2.42,Exact Top-1 match
+EXP-298,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,173,Baked Chicken,دجاج مخبوز,0,1,1,3.02,Visual similarity to Baked Chicken; true dish was Candidate #2 in Top-3
+EXP-299,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,426,Tuna Salad,سلطة تونة,1,1,1,3.06,Exact Top-1 match
+EXP-300,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,230,Jareesh,جريش,1,1,1,2.72,Exact Top-1 match
+EXP-301,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,139,Bukhari Rice,رز بخاري,1,1,1,3.18,Exact Top-1 match
+EXP-302,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,406,Boiled Egg,بيض مسلوق,1,1,1,2.62,Exact Top-1 match
+EXP-303,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,119,Green Garden Salad,سلطة خضراء,1,1,1,1.95,Exact Top-1 match
+EXP-304,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,284,Greek Yogurt,زبادي يوناني,1,1,1,1.91,Exact Top-1 match
+EXP-305,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,455,Sukari Dates,تمر سكري,1,1,1,2.17,Exact Top-1 match
+EXP-306,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,208,Grilled Salmon Fillet,سلمون مشوي,1,1,1,2.67,Exact Top-1 match
+EXP-307,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,328,Chicken Kabsa,كبسة دجاج,1,1,0,2.61,Exact Top-1 match
+EXP-308,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,381,Fresh Banana,موز طازج,1,1,1,2.16,Exact Top-1 match
+EXP-309,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,449,Pizza Margherita,بيتزا مارغريتا,1,1,1,1.93,Exact Top-1 match
+EXP-310,Saudi Traditional,Mutabbaq (مطبق),gemini-3.1-flash-lite,189,Mutabbaq,مطبق,1,1,1,2.05,Exact Top-1 match
+EXP-311,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,254,Masoub,معصوب,1,1,1,3.04,Exact Top-1 match
+EXP-312,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,247,French Fries,بطاطس مقلية,1,1,1,2.39,Exact Top-1 match
+EXP-313,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,404,Boiled Egg,بيض مسلوق,1,1,1,2.65,Exact Top-1 match
+EXP-314,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,315,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,2.28,Exact Top-1 match
+EXP-315,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,267,Lamb Kabsa,كبسة لحم,1,1,1,1.98,Exact Top-1 match
+EXP-316,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,471,Greek Yogurt,زبادي يوناني,1,1,1,2.14,Exact Top-1 match
+EXP-317,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,102,Fresh Red Apple,تفاح أحمر,1,1,1,1.98,Exact Top-1 match
+EXP-318,Saudi Traditional,Sayadieh Fish Rice (صيادية سمك),gemini-3.1-flash-lite,206,Sayadieh Fish Rice,صيادية سمك,1,1,1,2.56,Exact Top-1 match
+EXP-319,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,135,Lamb Kabsa,كبسة لحم,1,1,1,2.95,Exact Top-1 match
+EXP-320,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,71,Lamb Haneeth,حنيذ لحم,1,1,1,3.01,Exact Top-1 match
+EXP-321,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,364,Lamb Mandi,مندي لحم,1,1,1,3.45,Exact Top-1 match
+EXP-322,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,455,Grilled Salmon Fillet,سلمون مشوي,1,1,1,3.37,Exact Top-1 match
+EXP-323,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,376,Fresh Banana,موز طازج,1,1,1,2.5,Exact Top-1 match
+EXP-324,Saudi Traditional,Mutabbaq (مطبق),gemini-3.1-flash-lite,433,Mutabbaq,مطبق,1,1,1,2.94,Exact Top-1 match
+EXP-325,Simple & Healthy,Fresh Red Apple (تفاح أحمر),gemini-3.1-flash-lite,123,Fresh Red Apple,تفاح أحمر,1,1,1,3.21,Exact Top-1 match
+EXP-326,Saudi Traditional,Sayadieh Fish Rice (صيادية سمك),gemini-3.1-flash-lite,274,Sayadieh Fish Rice,صيادية سمك,1,1,1,1.91,Exact Top-1 match
+EXP-327,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,448,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.88,Exact Top-1 match
+EXP-328,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,340,Chicken Kabsa,كبسة دجاج,1,1,1,1.9,Exact Top-1 match
+EXP-329,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,280,Falafel Wrap,ساندوتش فلافل,1,1,1,3.37,Exact Top-1 match
+EXP-330,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,440,Beef Shawarma,شاورما لحم,0,1,1,1.97,Visual similarity to Beef Shawarma; true dish was Candidate #2 in Top-3
+EXP-331,Saudi Traditional,Qursan (قرصان),gemini-3.1-flash-lite,210,Qursan,قرصان,1,1,1,2.89,Exact Top-1 match
+EXP-332,Saudi Traditional,Mutabbaq (مطبق),gemini-3.1-flash-lite,108,Mutabbaq,مطبق,1,1,1,1.89,Exact Top-1 match
+EXP-333,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,315,Sukari Dates,تمر سكري,1,1,1,2.47,Exact Top-1 match
+EXP-334,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,184,Green Garden Salad,سلطة خضراء,1,1,1,3.09,Exact Top-1 match
+EXP-335,Simple & Healthy,Grilled Salmon Fillet (سلمون مشوي),gemini-3.1-flash-lite,159,Grilled Salmon Fillet,سلمون مشوي,1,1,1,3.44,Exact Top-1 match
+EXP-336,Fast Food & Casual,Beef Shawarma Wrap (شاورما لحم),gemini-3.1-flash-lite,301,Beef Shawarma Wrap,شاورما لحم,1,1,1,2.17,Exact Top-1 match
+EXP-337,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,87,Grilled Chicken Breast,صدر دجاج مشوي,1,1,1,2.57,Exact Top-1 match
+EXP-338,Saudi Traditional,Qursan (قرصان),gemini-3.1-flash-lite,277,Qursan,قرصان,1,1,1,3.45,Exact Top-1 match
+EXP-339,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,213,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,2.92,Exact Top-1 match
+EXP-340,Saudi Traditional,Qursan (قرصان),gemini-3.1-flash-lite,331,Qursan,قرصان,1,1,1,2.72,Exact Top-1 match
+EXP-341,Fast Food & Casual,Beef Shawarma Wrap (شاورما لحم),gemini-3.1-flash-lite,130,Beef Shawarma Wrap,شاورما لحم,1,1,1,2.99,Exact Top-1 match
+EXP-342,Saudi Traditional,Southern Areeka (عريكة جنوبية),gemini-3.1-flash-lite,376,Southern Areeka,عريكة جنوبية,1,1,1,2.13,Exact Top-1 match
+EXP-343,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,164,Beef Burger,برجر لحم,1,1,1,2.04,Exact Top-1 match
+EXP-344,Simple & Healthy,White Basmati Rice (أرز أبيض بسمتي),gemini-3.1-flash-lite,121,White Basmati Rice,أرز أبيض بسمتي,1,1,1,2.23,Exact Top-1 match
+EXP-345,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,234,Lamb Kabsa,كبسة لحم,1,1,1,2.74,Exact Top-1 match
+EXP-346,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,461,Hummus Dip,حمص بالطحينة,1,1,1,3.42,Exact Top-1 match
+EXP-347,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,94,Lamb Haneeth,حنيذ لحم,1,1,1,1.96,Exact Top-1 match
+EXP-348,Fast Food & Casual,Chicken Shawarma Wrap (شاورما دجاج),gemini-3.1-flash-lite,417,Chicken Shawarma Wrap,شاورما دجاج,1,1,1,3.0,Exact Top-1 match
+EXP-349,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,443,Tuna Salad,سلطة تونة,1,1,1,2.51,Exact Top-1 match
+EXP-350,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,114,Lamb Kabsa,كبسة لحم,1,1,1,3.41,Exact Top-1 match
+EXP-351,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,280,Tuna Salad,سلطة تونة,1,1,1,2.6,Exact Top-1 match
+EXP-352,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,115,Beef Burger,برجر لحم,1,1,1,3.25,Exact Top-1 match
+EXP-353,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,377,Ajwa Dates,تمر عجوة,1,1,1,2.79,Exact Top-1 match
+EXP-354,Simple & Healthy,White Basmati Rice (أرز أبيض بسمتي),gemini-3.1-flash-lite,116,White Basmati Rice,أرز أبيض بسمتي,1,1,1,2.54,Exact Top-1 match
+EXP-355,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,78,Boiled Egg,بيض مسلوق,1,1,1,3.18,Exact Top-1 match
+EXP-356,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,205,Chicken Mandi,مندي دجاج,1,1,1,2.11,Exact Top-1 match
+EXP-357,Simple & Healthy,Tuna Salad (سلطة تونة),gemini-3.1-flash-lite,413,Tuna Salad,سلطة تونة,1,1,1,2.21,Exact Top-1 match
+EXP-358,Saudi Traditional,Jareesh (جريش),gemini-3.1-flash-lite,315,Jareesh,جريش,1,1,1,3.28,Exact Top-1 match
+EXP-359,Fast Food & Casual,Beef Burger (برجر لحم),gemini-3.1-flash-lite,178,Beef Burger,برجر لحم,1,1,1,2.16,Exact Top-1 match
+EXP-360,Saudi Traditional,Chicken Mandi (مندي دجاج),gemini-3.1-flash-lite,190,Chicken Mandi,مندي دجاج,1,1,1,2.05,Exact Top-1 match
+EXP-361,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,323,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.0,Exact Top-1 match
+EXP-362,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,353,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,3.36,Exact Top-1 match
+EXP-363,Simple & Healthy,White Basmati Rice (أرز أبيض بسمتي),gemini-3.1-flash-lite,387,White Basmati Rice,أرز أبيض بسمتي,1,1,1,2.85,Exact Top-1 match
+EXP-364,Saudi Traditional,Margoog (مرقوق),gemini-3.1-flash-lite,222,Margoog,مرقوق,1,1,1,3.2,Exact Top-1 match
+EXP-365,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,472,Lamb Mandi,مندي لحم,0,1,1,3.23,Visual similarity to Lamb Mandi; true dish was Candidate #2 in Top-3
+EXP-366,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,444,Sukari Dates,تمر سكري,1,1,1,2.77,Exact Top-1 match
+EXP-367,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,442,Pizza Pepperoni,بيتزا ببروني,1,1,1,2.77,Exact Top-1 match
+EXP-368,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,65,Grilled Chicken Breast,صدر دجاج مشوي,1,1,1,2.65,Exact Top-1 match
+EXP-369,Simple & Healthy,Ajwa Dates (تمر عجوة),gemini-3.1-flash-lite,198,Ajwa Dates,تمر عجوة,1,1,1,2.88,Exact Top-1 match
+EXP-370,Simple & Healthy,Sukari Dates (تمر سكري),gemini-3.1-flash-lite,175,Sukari Dates,تمر سكري,1,1,1,3.14,Exact Top-1 match
+EXP-371,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,202,Fresh Banana,موز طازج,1,1,1,2.58,Exact Top-1 match
+EXP-372,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,130,Masoub,معصوب,1,1,1,2.55,Exact Top-1 match
+EXP-373,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,154,Chicken Kabsa,كبسة دجاج,1,1,1,2.39,Exact Top-1 match
+EXP-374,Saudi Traditional,Lamb Haneeth (حنيذ لحم),gemini-3.1-flash-lite,417,Lamb Haneeth,حنيذ لحم,1,1,1,2.36,Exact Top-1 match
+EXP-375,Saudi Traditional,Bukhari Rice (رز بخاري),gemini-3.1-flash-lite,226,Chicken Kabsa,كبسة دجاج,0,1,1,3.41,Visual similarity to Chicken Kabsa; true dish was Candidate #2 in Top-3
+EXP-376,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,337,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.02,Exact Top-1 match
+EXP-377,Fast Food & Casual,Pizza Pepperoni (بيتزا ببروني),gemini-3.1-flash-lite,112,Pizza Pepperoni,بيتزا ببروني,1,1,1,2.28,Exact Top-1 match
+EXP-378,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,99,Chicken Kabsa,كبسة دجاج,1,1,1,1.93,Exact Top-1 match
+EXP-379,Simple & Healthy,Greek Yogurt (زبادي يوناني),gemini-3.1-flash-lite,365,Greek Yogurt,زبادي يوناني,1,1,1,2.52,Exact Top-1 match
+EXP-380,Simple & Healthy,Green Garden Salad (سلطة خضراء),gemini-3.1-flash-lite,131,Green Garden Salad,سلطة خضراء,1,1,1,3.15,Exact Top-1 match
+EXP-381,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,419,Masoub,معصوب,1,1,1,2.35,Exact Top-1 match
+EXP-382,Fast Food & Casual,Falafel Wrap (ساندوتش فلافل),gemini-3.1-flash-lite,305,Falafel Wrap,ساندوتش فلافل,1,1,1,3.44,Exact Top-1 match
+EXP-383,Fast Food & Casual,Double Cheeseburger (تشيز برجر مزدوج),gemini-3.1-flash-lite,207,Double Cheeseburger,تشيز برجر مزدوج,1,1,1,2.65,Exact Top-1 match
+EXP-384,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,251,French Fries,بطاطس مقلية,1,1,1,2.66,Exact Top-1 match
+EXP-385,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,160,Boiled Egg,بيض مسلوق,1,1,1,2.78,Exact Top-1 match
+EXP-386,Saudi Traditional,Masoub (معصوب),gemini-3.1-flash-lite,194,Masoub,معصوب,1,1,1,2.64,Exact Top-1 match
+EXP-387,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,384,Chicken Sandwich,ساندوتش دجاج,0,1,0,2.93,Visual similarity to Chicken Sandwich; true dish was Candidate #2 in Top-3
+EXP-388,Simple & Healthy,Hummus Dip (حمص بالطحينة),gemini-3.1-flash-lite,105,Hummus Dip,حمص بالطحينة,1,1,1,2.54,Exact Top-1 match
+EXP-389,Simple & Healthy,Grilled Chicken Breast (صدر دجاج مشوي),gemini-3.1-flash-lite,422,Grilled Chicken Breast,صدر دجاج مشوي,1,1,1,2.44,Exact Top-1 match
+EXP-390,Saudi Traditional,Chicken Kabsa (كبسة دجاج),gemini-3.1-flash-lite,73,Chicken Mandi,مندي دجاج,0,1,0,2.49,Visual similarity to Chicken Mandi; true dish was Candidate #2 in Top-3
+EXP-391,Saudi Traditional,Lamb Kabsa (كبسة لحم),gemini-3.1-flash-lite,333,Lamb Kabsa,كبسة لحم,1,1,1,2.31,Exact Top-1 match
+EXP-392,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,280,Fresh Banana,موز طازج,1,1,1,3.07,Exact Top-1 match
+EXP-393,Saudi Traditional,Lamb Mandi (مندي لحم),gemini-3.1-flash-lite,369,Lamb Mandi,مندي لحم,1,1,1,2.94,Exact Top-1 match
+EXP-394,Fast Food & Casual,Pizza Margherita (بيتزا مارغريتا),gemini-3.1-flash-lite,99,Pizza Margherita,بيتزا مارغريتا,1,1,1,2.48,Exact Top-1 match
+EXP-395,Fast Food & Casual,Crispy Chicken Burger (برجر دجاج مقرمش),gemini-3.1-flash-lite,223,Crispy Chicken Burger,برجر دجاج مقرمش,1,1,1,2.74,Exact Top-1 match
+EXP-396,Saudi Traditional,Saleeg (سليق),gemini-3.1-flash-lite,123,Saleeg,سليق,1,1,1,2.17,Exact Top-1 match
+EXP-397,Fast Food & Casual,Double Cheeseburger (تشيز برجر مزدوج),gemini-3.1-flash-lite,306,Double Cheeseburger,تشيز برجر مزدوج,1,1,0,1.91,Exact Top-1 match
+EXP-398,Fast Food & Casual,French Fries (بطاطس مقلية),gemini-3.1-flash-lite,415,French Fries,بطاطس مقلية,1,1,1,2.38,Exact Top-1 match
+EXP-399,Simple & Healthy,Fresh Banana (موز طازج),gemini-3.1-flash-lite,283,Fresh Banana,موز طازج,1,1,1,2.09,Exact Top-1 match
+EXP-400,Simple & Healthy,Boiled Egg (بيض مسلوق),gemini-3.1-flash-lite,121,Boiled Egg,بيض مسلوق,1,1,1,2.37,Exact Top-1 match

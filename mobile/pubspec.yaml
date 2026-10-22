@@ -26,3 +26,4 @@ flutter:
   assets:
     - assets/branding/miqdar-logo.png
     - assets/branding/miqdar-food.png
+    - assets/demo/kabsa.jpg

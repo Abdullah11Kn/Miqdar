@@ -49,3 +49,7 @@ build/
 # Project-specific downloads / generated rights
 database/reference_images/_downloads/
 database/reference_images/rights.csv
+
+# Archives and workspace configs
+*.zip
+*.code-workspace

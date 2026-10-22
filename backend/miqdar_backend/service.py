@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import sqlite3
 import time
 import uuid
@@ -9,8 +10,50 @@ from pathlib import Path
 from typing import Any
 
 from .alert_engine import evaluate_alerts
-from .database import find_food_for_label, scaled_nutrients
-from .recognition import configured_provider, detect_new_food, image_sha256
+from .database import find_food_for_label, recognition_labels, scaled_nutrients
+from .recognition import Candidate, configured_provider, detect_new_food, image_sha256
+
+
+class RecognitionError(Exception):
+    """A classified recognition failure the API can report to the app.
+
+    ``code`` is a stable machine-readable value the Flutter app can switch on;
+    ``http_status`` is what the REST layer returns.
+    """
+
+    code = "RECOGNITION_FAILED"
+    http_status = 500
+
+    def __init__(self, message: str, *, candidates: list[Candidate] | None = None) -> None:
+        super().__init__(message)
+        self.candidates = candidates or []
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "error": self.code,
+            "message": str(self),
+            "candidates": [candidate.__dict__ for candidate in self.candidates],
+        }
+
+
+class InvalidImageError(RecognitionError):
+    code = "INVALID_IMAGE"
+    http_status = 400
+
+
+class NotFoodError(RecognitionError):
+    code = "NOT_FOOD"
+    http_status = 422
+
+
+class UnmappedFoodError(RecognitionError):
+    code = "FOOD_NOT_IN_DATABASE"
+    http_status = 422
+
+
+class ProviderUnavailableError(RecognitionError):
+    code = "AI_PROVIDER_UNAVAILABLE"
+    http_status = 502
 
 
 def decode_image(value: str | None) -> bytes:
@@ -18,7 +61,20 @@ def decode_image(value: str | None) -> bytes:
         return b""
     if "," in value and value.lstrip().startswith("data:"):
         value = value.split(",", 1)[1]
-    return base64.b64decode(value, validate=True)
+    try:
+        return base64.b64decode(value, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise InvalidImageError("image_base64 is not valid base64") from exc
+
+
+def _food_summary(food: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "food_id": food["food_id"],
+        "name_en": food["canonical_name_en"],
+        "name_ar": food["canonical_name_ar"],
+        "category": food["category"],
+        "verification_status": food["verification_status"],
+    }
 
 
 def recognize_food(
@@ -29,22 +85,40 @@ def recognize_food(
 ) -> dict[str, Any]:
     if weight_g <= 0:
         raise ValueError("weight_g must be greater than zero")
-    recognition_start = time.perf_counter()
+    hint = (hint or "").strip() or None
+
     provider = configured_provider()
-    candidates = provider.recognize(image_bytes, hint=hint)
+    if hasattr(provider, "canonical_labels"):
+        # Keep the AI's label vocabulary in sync with whatever is in the database.
+        labels = recognition_labels(connection)
+        if labels:
+            provider.canonical_labels = tuple(labels)  # type: ignore[attr-defined]
+
+    recognition_start = time.perf_counter()
+    try:
+        candidates = provider.recognize(image_bytes, hint=hint)
+    except ValueError as exc:
+        raise InvalidImageError(str(exc)) from exc
+    except RuntimeError as exc:
+        raise ProviderUnavailableError(str(exc)) from exc
     recognition_ms = round((time.perf_counter() - recognition_start) * 1000)
     if not candidates:
-        raise LookupError("Recognition provider returned no candidates")
+        raise ProviderUnavailableError("Recognition provider returned no candidates")
+    if candidates[0].label in {"not food", "no food", "non-food"}:
+        raise NotFoodError("No food was detected in the photo", candidates=candidates)
 
-    matched = None
-    selected = None
-    for candidate in candidates:
-        matched = find_food_for_label(connection, candidate.label)
-        if matched:
-            selected = candidate
-            break
+    # Map every candidate to the database so the app can offer Top-2/Top-3 as
+    # one-tap corrections without another AI call.
+    mapped: list[tuple[Candidate, dict[str, Any] | None]] = [
+        (candidate, find_food_for_label(connection, candidate.label)) for candidate in candidates
+    ]
+    selected, matched = next(((c, f) for c, f in mapped if f), (None, None))
     if not matched or not selected:
-        raise LookupError("No candidate maps to a predefined nutrition record")
+        raise UnmappedFoodError(
+            "The AI recognised the food, but none of its candidates exist in the "
+            "Miqdar nutrition database",
+            candidates=candidates,
+        )
 
     new_food, similarity, weight_delta = detect_new_food(
         current_bytes=image_bytes,
@@ -75,24 +149,36 @@ def recognize_food(
         ),
     )
     connection.commit()
+
+    candidate_payload = []
+    for rank, (candidate, food) in enumerate(mapped, start=1):
+        entry: dict[str, Any] = {
+            "rank": rank,
+            "label": candidate.label,
+            "confidence": candidate.confidence,
+            "selected": candidate is selected,
+            "food": _food_summary(food) if food else None,
+        }
+        if food:
+            entry["nutrients"] = scaled_nutrients(food, effective_weight)
+        candidate_payload.append(entry)
+
     return {
         "event_id": event_id,
         "recognition_provider": provider.name,
-        "recognition_model": getattr(provider, "model", None),
+        "recognition_model": getattr(provider, "last_model_used", None) or getattr(provider, "model", None),
+        "recognition_cached": bool(getattr(provider, "last_cache_hit", False)),
+        "hint_used": hint,
         "new_food_detected": new_food,
         "frame_similarity": similarity,
         "weight_delta_g": weight_delta,
         "food": {
-            "food_id": matched["food_id"],
-            "name_en": matched["canonical_name_en"],
-            "name_ar": matched["canonical_name_ar"],
-            "category": matched["category"],
-            "verification_status": matched["verification_status"],
+            **_food_summary(matched),
             "nutrient_verification_status": matched["verification_status"],
         },
         "weight_g": round(effective_weight, 2),
         "confidence": selected.confidence,
-        "candidates": [candidate.__dict__ for candidate in candidates],
+        "candidates": candidate_payload,
         "nutrients": nutrients,
         "alerts": alerts,
         "timing": {

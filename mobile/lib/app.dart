@@ -29,6 +29,15 @@ class MiqdarApp extends StatelessWidget {
           title: 'Miqdar',
           debugShowCheckedModeBanner: false,
           theme: miqdarTheme(),
+          builder: (context, child) => ColoredBox(
+            color: const Color(0xFFE7ECE8),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Material(elevation: 6, child: child ?? const SizedBox.shrink()),
+              ),
+            ),
+          ),
           home: const SplashScreen(),
         ),
       );

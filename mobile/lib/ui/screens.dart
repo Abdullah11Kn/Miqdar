@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../app.dart';
 import '../app_controller.dart';
 import '../models/nutrition.dart';
+import '../services/api_service.dart';
 import '../theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -334,7 +335,7 @@ class HomeScreen extends StatelessWidget {
             const Text('Daily progress', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: MiqdarColors.dark)),
             const SizedBox(height: 18),
             Row(children: [
-              _ProgressRing(value: totals.calories / goals.calories, center: '${totals.calories.toStringAsFixed(0)}\nkcal'),
+              _ProgressRing(value: goals.calories > 0 ? totals.calories / goals.calories : 0.0, center: '${totals.calories.toStringAsFixed(0)}\nkcal'),
               const SizedBox(width: 22),
               Expanded(child: Column(children: [
                 _ProgressLine(label: 'Protein', value: totals.protein, target: goals.protein, unit: 'g'),
@@ -408,6 +409,7 @@ class ScanScreen extends StatefulWidget {
 class _ScanScreenState extends State<ScanScreen> {
   final picker = ImagePicker();
   XFile? image;
+  Uint8List? imageBytes;
   String hint = 'medjool dates';
   double weight = 120;
 
@@ -422,7 +424,12 @@ class _ScanScreenState extends State<ScanScreen> {
       final response = await picker.retrieveLostData();
       final files = response.files;
       if (!response.isEmpty && files != null && files.isNotEmpty && mounted) {
-        setState(() => image = files.first);
+        final bytes = await files.first.readAsBytes();
+        if (!mounted) return;
+        setState(() {
+          image = files.first;
+          imageBytes = bytes;
+        });
       }
     } catch (_) {
       // The presentation flow still has a bundled demonstration image.
@@ -432,7 +439,13 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> pick(ImageSource source) async {
     try {
       final selected = await picker.pickImage(source: source, imageQuality: 85, maxWidth: 1600);
-      if (selected != null) setState(() => image = selected);
+      if (selected == null) return;
+      final bytes = await selected.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        image = selected;
+        imageBytes = bytes;
+      });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -444,6 +457,7 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = MiqdarScope.of(context);
+    final online = controller.connectionStatus.startsWith('API online');
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
       children: [
@@ -457,20 +471,20 @@ class _ScanScreenState extends State<ScanScreen> {
             color: MiqdarColors.dark,
             borderRadius: BorderRadius.circular(26),
             image: DecorationImage(
-              image: image == null
-                  ? const AssetImage('assets/branding/miqdar-food.png')
-                  : FileImage(File(image!.path)),
+              image: imageBytes == null
+                  ? const AssetImage(ApiService.demoImageAsset)
+                  : MemoryImage(imageBytes!) as ImageProvider,
               fit: BoxFit.cover,
               colorFilter: ColorFilter.mode(MiqdarColors.dark.withValues(alpha: .34), BlendMode.darken),
             ),
           ),
           child: Stack(children: [
-            if (image == null) const Positioned(
+            Positioned(
               left: 18,
               top: 18,
               child: Chip(
-                avatar: Icon(Icons.auto_awesome, size: 17, color: MiqdarColors.primary),
-                label: Text('Demo image ready'),
+                avatar: Icon(image == null ? Icons.restaurant : Icons.check_circle, size: 17, color: MiqdarColors.primary),
+                label: Text(image == null ? 'Sample dish: Kabsa' : 'Your photo is ready'),
               ),
             ),
             Center(child: Container(width: 220, height: 160, decoration: BoxDecoration(border: Border.all(color: MiqdarColors.lime, width: 3), borderRadius: BorderRadius.circular(24)))),
@@ -490,23 +504,87 @@ class _ScanScreenState extends State<ScanScreen> {
             Text('${weight.toStringAsFixed(0)} g', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: MiqdarColors.primary)),
           ]),
           Slider(value: weight, min: 10, max: 500, divisions: 98, label: '${weight.toStringAsFixed(0)} g', onChanged: (value) => setState(() => weight = value)),
-          DropdownButtonFormField<String>(
-            initialValue: hint,
-            decoration: const InputDecoration(labelText: 'Demo recognition hint'),
-            items: const ['medjool dates', 'white rice', 'chicken breast', 'hummus', 'banana'].map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
-            onChanged: (value) => setState(() => hint = value ?? hint),
-          ),
-          const SizedBox(height: 8),
-          const Text('The hint is used only in offline/demo mode. A configured cloud provider ignores it or treats it as optional context.', style: TextStyle(fontSize: 11)),
+          if (online)
+            Row(children: [
+              const Icon(Icons.auto_awesome, size: 16, color: MiqdarColors.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Photo is analysed by ${controller.connectionStatus.replaceFirst('API online • ', '')}; nutrients come from the Miqdar database scaled to this weight.', style: const TextStyle(fontSize: 12))),
+            ])
+          else ...[
+            DropdownButtonFormField<String>(
+              initialValue: hint,
+              decoration: const InputDecoration(labelText: 'Offline demo food'),
+              items: const ['medjool dates', 'white rice', 'chicken breast', 'hummus', 'banana'].map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
+              onChanged: (value) => setState(() => hint = value ?? hint),
+            ),
+            const SizedBox(height: 8),
+            const Text('Server is unreachable, so this choice is used instead of AI recognition.', style: TextStyle(fontSize: 11)),
+          ],
         ])),
         const SizedBox(height: 18),
         FilledButton.icon(
-          onPressed: controller.busy ? null : () async {
-            final result = await controller.recognize(image: image, weightG: weight, hint: hint);
-            if (!context.mounted) return;
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => RecognitionResultScreen(result: result)));
-          },
-          icon: controller.busy ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.auto_awesome),
+          onPressed: controller.busy
+              ? null
+              : () async {
+                  try {
+                    final result = await controller.recognize(
+                      image: image,
+                      weightG: weight,
+                      hint: hint,
+                    );
+                    if (!context.mounted) return;
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => RecognitionResultScreen(result: result),
+                      ),
+                    );
+                  } on RecognitionException catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: MiqdarColors.danger,
+                        duration: const Duration(seconds: 5),
+                        content: Text('${e.title}: ${e.message}'),
+                        action: e.serverUnreachable
+                            ? SnackBarAction(
+                                label: 'Offline Demo',
+                                textColor: Colors.white,
+                                onPressed: () async {
+                                  final demo = await controller.useOfflineDemo(
+                                    weightG: weight,
+                                    hint: hint,
+                                  );
+                                  if (!context.mounted) return;
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          RecognitionResultScreen(result: demo),
+                                    ),
+                                  );
+                                },
+                              )
+                            : null,
+                      ),
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: MiqdarColors.danger,
+                        content: Text('Recognition error: $e'),
+                      ),
+                    );
+                  }
+                },
+          icon: controller.busy
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.auto_awesome),
           label: Text(controller.busy ? 'Recognizing…' : 'Recognize food'),
         ),
       ],
@@ -554,6 +632,50 @@ class RecognitionResultScreen extends StatelessWidget {
           if (controller.alerts.isNotEmpty) ...[
             const SizedBox(height: 18),
             _AlertCard(alert: controller.alerts.first),
+          ],
+          if (result.candidates.where((c) => c.foodId != result.foodId && c.inDatabase).isNotEmpty) ...[
+            const SizedBox(height: 18),
+            _SurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.alt_route, size: 20, color: MiqdarColors.primary),
+                      SizedBox(width: 8),
+                      Text('Alternative AI Matches (Top-3)', style: TextStyle(fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ...result.candidates
+                      .where((c) => c.foodId != result.foodId && c.inDatabase)
+                      .map((c) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: OutlinedButton(
+                              onPressed: () async {
+                                final updated = await controller.chooseCandidate(c);
+                                if (!context.mounted) return;
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (_) => RecognitionResultScreen(result: updated),
+                                  ),
+                                );
+                              },
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${c.nameEn ?? c.label} • ${(c.confidence * 100).toStringAsFixed(0)}%',
+                                    ),
+                                  ),
+                                  const Text('Select', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          )),
+                ],
+              ),
+            ),
           ],
           const SizedBox(height: 24),
           FilledButton(
@@ -1283,7 +1405,17 @@ class _ProgressRing extends StatelessWidget {
         width: 112,
         height: 112,
         child: Stack(alignment: Alignment.center, children: [
-          SizedBox(width: 112, height: 112, child: CircularProgressIndicator(value: value.clamp(0.0, 1.0).toDouble(), strokeWidth: 11, backgroundColor: MiqdarColors.softGreen, color: MiqdarColors.primary, strokeCap: StrokeCap.round)),
+          SizedBox(
+            width: 112,
+            height: 112,
+            child: CircularProgressIndicator(
+              value: (value.isNaN || value.isInfinite) ? 0.0 : value.clamp(0.0, 1.0).toDouble(),
+              strokeWidth: 11,
+              backgroundColor: MiqdarColors.softGreen,
+              color: MiqdarColors.primary,
+              strokeCap: StrokeCap.round,
+            ),
+          ),
           Text(center, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, color: MiqdarColors.dark)),
         ]),
       );
@@ -1302,7 +1434,12 @@ class _ProgressLine extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [Expanded(child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))), Text('${value.toStringAsFixed(0)}/${target.toStringAsFixed(0)} $unit', style: const TextStyle(fontSize: 11))]),
           const SizedBox(height: 6),
-          LinearProgressIndicator(value: (value / target).clamp(0.0, 1.0).toDouble(), minHeight: 8, borderRadius: BorderRadius.circular(8), backgroundColor: MiqdarColors.softGreen),
+          LinearProgressIndicator(
+            value: (target > 0 && !value.isNaN) ? (value / target).clamp(0.0, 1.0).toDouble() : 0.0,
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(8),
+            backgroundColor: MiqdarColors.softGreen,
+          ),
         ]),
       );
 }

@@ -1,39 +1,97 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../models/nutrition.dart';
 
+String _defaultBaseUrl() {
+  const envUrl = String.fromEnvironment('MIQDAR_API_URL');
+  if (envUrl.isNotEmpty) return envUrl;
+  if (kIsWeb) {
+    if (Uri.base.hasAuthority && Uri.base.scheme.startsWith('http')) {
+      return Uri.base.origin;
+    }
+    return 'http://127.0.0.1:8080';
+  }
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    return 'http://10.0.2.2:8080';
+  }
+  return 'http://127.0.0.1:8080';
+}
+
+class ApiException implements Exception {
+  const ApiException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+/// A recognition failure that should be shown to the user, never hidden.
+class RecognitionException implements Exception {
+  const RecognitionException(this.code, this.message, {this.candidates = const []});
+
+  /// Stable code from the backend (e.g. NOT_FOOD, FOOD_NOT_IN_DATABASE,
+  /// AI_PROVIDER_UNAVAILABLE) or SERVER_UNREACHABLE when the API is down.
+  final String code;
+  final String message;
+
+  /// Raw AI labels, when the server returned them (e.g. food not in database).
+  final List<String> candidates;
+
+  bool get serverUnreachable => code == 'SERVER_UNREACHABLE';
+
+  String get title => switch (code) {
+        'NOT_FOOD' => 'No food detected',
+        'FOOD_NOT_IN_DATABASE' => 'Food not in the Miqdar database',
+        'INVALID_IMAGE' => 'Photo could not be read',
+        'AI_PROVIDER_UNAVAILABLE' => 'AI recognition is unavailable',
+        'SERVER_UNREACHABLE' => 'Cannot reach the Miqdar server',
+        _ => 'Recognition failed',
+      };
+
+  @override
+  String toString() => 'RecognitionException($code): $message';
+}
+
 class ApiService {
   ApiService({
-    this.baseUrl = const String.fromEnvironment(
-      'MIQDAR_API_URL',
-      defaultValue: 'http://10.0.2.2:8080',
-    ),
+    String? baseUrl,
     this.apiToken = const String.fromEnvironment('MIQDAR_API_TOKEN'),
     http.Client? client,
-  }) : _client = client ?? http.Client();
+  })  : baseUrl = baseUrl ?? _defaultBaseUrl(),
+        _client = client ?? http.Client();
 
   final String baseUrl;
   final String apiToken;
   final http.Client _client;
   static const requestTimeout = Duration(seconds: 25);
+  static const demoImageAsset = 'assets/demo/kabsa.jpg';
 
   Map<String, String> get _jsonHeaders => {
         'Content-Type': 'application/json',
         if (apiToken.isNotEmpty) 'Authorization': 'Bearer $apiToken',
       };
 
+  /// Sends the photo + scale weight to the backend AI pipeline.
+  ///
+  /// Throws [RecognitionException] on any failure so the UI can explain what
+  /// went wrong. [hint] is optional; pass null to let the AI decide alone.
   Future<RecognitionResult> recognize({
     required XFile? image,
     required double weightG,
-    required String hint,
+    String? hint,
   }) async {
+    final List<int> imageBytes = image != null
+        ? await image.readAsBytes()
+        : (await rootBundle.load(demoImageAsset)).buffer.asUint8List();
+    final trimmedHint = hint?.trim();
+    final http.Response response;
     try {
-      final imageBytes = image == null ? <int>[] : await File(image.path).readAsBytes();
-      final response = await _client
+      response = await _client
           .post(
             Uri.parse('$baseUrl/recognize'),
             headers: _jsonHeaders,
@@ -41,27 +99,55 @@ class ApiService {
               'user_id': 'demo-user',
               'image_base64': base64Encode(imageBytes),
               'weight_g': weightG,
-              'hint': hint,
+              if (trimmedHint != null && trimmedHint.isNotEmpty) 'hint': trimmedHint,
             }),
           )
           .timeout(requestTimeout);
-      if (response.statusCode != 200) {
-        throw HttpException('Recognition failed: ${response.body}');
-      }
-      return RecognitionResult.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
+    } on TimeoutException {
+      throw RecognitionException(
+        'SERVER_UNREACHABLE',
+        'The server at $baseUrl did not answer within ${requestTimeout.inSeconds} s.',
       );
-    } catch (_) {
-      return _offlineResult(hint, weightG);
+    } catch (error) {
+      if (error is RecognitionException) rethrow;
+      throw RecognitionException('SERVER_UNREACHABLE', 'Cannot connect to $baseUrl ($error).');
     }
+
+    final Map<String, dynamic> body;
+    try {
+      body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    } catch (_) {
+      throw RecognitionException(
+        'BAD_RESPONSE',
+        'The server returned HTTP ${response.statusCode} with an unreadable body.',
+      );
+    }
+    if (response.statusCode != 200) {
+      final candidates = (body['candidates'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map((item) => item['label'] as String? ?? '')
+          .where((label) => label.isNotEmpty)
+          .toList();
+      throw RecognitionException(
+        body['error'] as String? ?? 'HTTP_${response.statusCode}',
+        body['message'] as String? ?? 'The server returned HTTP ${response.statusCode}.',
+        candidates: candidates,
+      );
+    }
+    return RecognitionResult.fromJson(body);
   }
+
+  /// Clearly-labelled offline demonstration result. Only used when the user
+  /// explicitly chooses it after the server could not be reached.
+  RecognitionResult offlineDemoResult({required String? hint, required double weightG}) =>
+      _offlineResult(hint ?? 'medjool dates', weightG);
 
   Future<Map<String, dynamic>> health() async {
     final response = await _client
         .get(Uri.parse('$baseUrl/health'), headers: _jsonHeaders)
         .timeout(const Duration(seconds: 5));
     if (response.statusCode != 200) {
-      throw HttpException('Server health check failed: ${response.body}');
+      throw ApiException('Server health check failed: ${response.body}');
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -75,8 +161,33 @@ class ApiService {
         )
         .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) {
-      throw HttpException('Health profile could not be saved: ${response.body}');
+      throw ApiException('Health profile could not be saved: ${response.body}');
     }
+  }
+
+  Future<Map<String, dynamic>> logMeal({
+    required String foodId,
+    required double weightG,
+    double confidence = 1.0,
+    String mealType = 'Meal',
+  }) async {
+    final response = await _client
+        .post(
+          Uri.parse('$baseUrl/meals'),
+          headers: _jsonHeaders,
+          body: jsonEncode({
+            'user_id': 'demo-user',
+            'food_id': foodId,
+            'weight_g': weightG,
+            'confidence': confidence,
+            'meal_type': mealType,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode != 201) {
+      throw ApiException('Meal could not be logged on server: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   Future<RecommendationResponse> recommendMeals({
@@ -99,7 +210,7 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) {
-        throw HttpException('Recommendations failed: ${response.body}');
+        throw ApiException('Recommendations failed: ${response.body}');
       }
       return RecommendationResponse.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>,
