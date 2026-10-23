@@ -25,20 +25,48 @@ class MiqdarApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MiqdarScope(
         controller: controller,
-        child: MaterialApp(
-          title: 'Miqdar',
-          debugShowCheckedModeBanner: false,
-          theme: miqdarTheme(),
-          builder: (context, child) => ColoredBox(
-            color: const Color(0xFFE7ECE8),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: Material(elevation: 6, child: child ?? const SizedBox.shrink()),
-              ),
-            ),
-          ),
-          home: const SplashScreen(),
+        child: ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) {
+            final isAr = controller.isAr;
+            final isDark = controller.isDark;
+            return MaterialApp(
+              title: isAr ? 'مقدار • Miqdar' : 'Miqdar • مقدار',
+              debugShowCheckedModeBanner: false,
+              locale: controller.locale,
+              themeMode: controller.themeMode,
+              theme: miqdarTheme(isDark: false),
+              darkTheme: miqdarTheme(isDark: true),
+              builder: (context, child) {
+                final directionalChild = Directionality(
+                  textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                  child: child ?? const SizedBox.shrink(),
+                );
+                if (!controller.forceMobileFrameOnDesktop) {
+                  return directionalChild;
+                }
+                return ColoredBox(
+                  color: isDark ? const Color(0xFF050A08) : const Color(0xFFE2EAE5),
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 460),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(32),
+                          child: Material(
+                            elevation: 14,
+                            child: directionalChild,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              home: const SplashScreen(),
+            );
+          },
         ),
       );
 }

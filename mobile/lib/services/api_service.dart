@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
+import '../data/food_catalog.dart';
 import '../models/nutrition.dart';
 
 String _defaultBaseUrl() {
@@ -44,13 +45,36 @@ class RecognitionException implements Exception {
 
   bool get serverUnreachable => code == 'SERVER_UNREACHABLE';
 
-  String get title => switch (code) {
-        'NOT_FOOD' => 'No food detected',
-        'FOOD_NOT_IN_DATABASE' => 'Food not in the Miqdar database',
-        'INVALID_IMAGE' => 'Photo could not be read',
-        'AI_PROVIDER_UNAVAILABLE' => 'AI recognition is unavailable',
-        'SERVER_UNREACHABLE' => 'Cannot reach the Miqdar server',
-        _ => 'Recognition failed',
+  String get title => localizedTitle(false);
+
+  String localizedTitle(bool isAr) => switch (code) {
+        'NOT_FOOD' => isAr ? 'لم يتم اكتشاف طعام في الصورة' : 'No food detected in photo',
+        'FOOD_NOT_IN_DATABASE' => isAr
+            ? 'الطعام غير موجود في قاعدة بيانات مقدار'
+            : 'Food not in the Miqdar database',
+        'INVALID_IMAGE' => isAr ? 'تعذّر قراءة ملف الصورة' : 'Photo could not be read',
+        'AI_PROVIDER_UNAVAILABLE' => isAr
+            ? 'خدمة الذكاء الاصطناعي غير متاحة حالياً'
+            : 'AI recognition service unavailable',
+        'SERVER_UNREACHABLE' => isAr
+            ? 'تعذّر الاتصال بخادم مقدار'
+            : 'Cannot reach the Miqdar server',
+        _ => isAr ? 'تعذّر إتمام التعرّف' : 'Recognition could not complete',
+      };
+
+  String recoveryAdvice(bool isAr) => switch (code) {
+        'NOT_FOOD' => isAr
+            ? 'التقط صورة واضحة للطبق مع إضاءة جيدة، أو اختر الطعام يدوياً من الدليل الغذائي.'
+            : 'Retake a clear photo centered on the dish, or choose the food from the catalog.',
+        'FOOD_NOT_IN_DATABASE' => isAr
+            ? 'تعرّف الذكاء الاصطناعي على الطبق ولكنه غير مسجل بعد. يمكنك اختيار أقرب صنف من الدليل أو إضافة طعام مخصص.'
+            : 'The AI identified labels not yet mapped in the catalog. Search the food catalog or create a custom entry.',
+        'SERVER_UNREACHABLE' => isAr
+            ? 'تحقق من تشغيل الخادم المحلي، أو استخدم وضع المعاينة التجريبية أو البحث في الدليل المحلي.'
+            : 'Ensure the backend server is running, or continue with the Offline Demo or local Food Catalog.',
+        _ => isAr
+            ? 'تم حفظ الوزن والصورة في المسودة. يمكنك المحاولة مرة أخرى أو اختيار الطعام يدوياً.'
+            : 'Your portion weight and photo are preserved. Retry or select the food manually.',
       };
 
   @override
@@ -77,17 +101,22 @@ class ApiService {
       };
 
   /// Sends the photo + scale weight to the backend AI pipeline.
-  ///
-  /// Throws [RecognitionException] on any failure so the UI can explain what
-  /// went wrong. [hint] is optional; pass null to let the AI decide alone.
   Future<RecognitionResult> recognize({
     required XFile? image,
+    Uint8List? customImageBytes,
+    String? assetPath,
     required double weightG,
     String? hint,
+    PortionSource portionSource = PortionSource.scale,
   }) async {
-    final List<int> imageBytes = image != null
-        ? await image.readAsBytes()
-        : (await rootBundle.load(demoImageAsset)).buffer.asUint8List();
+    final Uint8List imageBytes;
+    if (customImageBytes != null) {
+      imageBytes = customImageBytes;
+    } else if (image != null) {
+      imageBytes = await image.readAsBytes();
+    } else {
+      imageBytes = (await rootBundle.load(assetPath ?? demoImageAsset)).buffer.asUint8List();
+    }
     final trimmedHint = hint?.trim();
     final http.Response response;
     try {
@@ -134,13 +163,102 @@ class ApiService {
         candidates: candidates,
       );
     }
-    return RecognitionResult.fromJson(body);
+    final parsed = RecognitionResult.fromJson(body);
+    return RecognitionResult(
+      eventId: parsed.eventId,
+      foodId: parsed.foodId,
+      nameEn: parsed.nameEn,
+      nameAr: parsed.nameAr,
+      weightG: parsed.weightG,
+      confidence: parsed.confidence,
+      verificationStatus: parsed.verificationStatus,
+      nutrients: parsed.nutrients,
+      alertEvaluationMs: parsed.alertEvaluationMs,
+      alertSloMet: parsed.alertSloMet,
+      isMock: parsed.isMock,
+      provider: parsed.provider,
+      model: parsed.model,
+      candidates: parsed.candidates,
+      cached: parsed.cached,
+      recognitionMs: parsed.recognitionMs,
+      hintUsed: parsed.hintUsed,
+      userCorrected: parsed.userCorrected,
+      portionSource: portionSource,
+      basisPer100g: parsed.resolvedBasisPer100g,
+      imageBytes: imageBytes,
+    );
   }
 
   /// Clearly-labelled offline demonstration result. Only used when the user
-  /// explicitly chooses it after the server could not be reached.
-  RecognitionResult offlineDemoResult({required String? hint, required double weightG}) =>
-      _offlineResult(hint ?? 'medjool dates', weightG);
+  /// explicitly chooses it after the server could not be reached or in Demo Workspace.
+  RecognitionResult offlineDemoResult({
+    required String? hint,
+    required double weightG,
+    PortionSource portionSource = PortionSource.scale,
+    Uint8List? imageBytes,
+  }) {
+    final primary = MiqdarFoodCatalog.findByIdOrLabel(hint ?? 'chicken kabsa') ??
+        MiqdarFoodCatalog.findByIdOrLabel('medjool dates')!;
+
+    // Pick 2 related alternatives so Top-3 candidate switching can be demonstrated offline.
+    final sameCategory = MiqdarFoodCatalog.builtInFoods
+        .where((f) => f.foodId != primary.foodId && f.category == primary.category)
+        .take(2)
+        .toList();
+    final fallbackAlts = MiqdarFoodCatalog.builtInFoods
+        .where((f) => f.foodId != primary.foodId && !sameCategory.contains(f))
+        .take(2 - sameCategory.length)
+        .toList();
+    final alts = [...sameCategory, ...fallbackAlts];
+
+    final candidates = <RecognitionCandidate>[
+      RecognitionCandidate(
+        rank: 1,
+        label: primary.nameEn.toLowerCase(),
+        confidence: 0.93,
+        selected: true,
+        foodId: primary.foodId,
+        nameEn: primary.nameEn,
+        nameAr: primary.nameAr,
+        verificationStatus: primary.verificationStatus,
+        nutrients: primary.per100g.forPortionGrams(weightG),
+      ),
+      for (var i = 0; i < alts.length; i++)
+        RecognitionCandidate(
+          rank: i + 2,
+          label: alts[i].nameEn.toLowerCase(),
+          confidence: i == 0 ? 0.78 : 0.64,
+          selected: false,
+          foodId: alts[i].foodId,
+          nameEn: alts[i].nameEn,
+          nameAr: alts[i].nameAr,
+          verificationStatus: alts[i].verificationStatus,
+          nutrients: alts[i].per100g.forPortionGrams(weightG),
+        ),
+    ];
+
+    return RecognitionResult(
+      eventId: 'offline-${DateTime.now().microsecondsSinceEpoch}',
+      foodId: primary.foodId,
+      nameEn: primary.nameEn,
+      nameAr: primary.nameAr,
+      weightG: weightG,
+      confidence: 0.93,
+      verificationStatus: primary.verificationStatus,
+      nutrients: primary.per100g.forPortionGrams(weightG),
+      basisPer100g: primary.per100g,
+      alertEvaluationMs: 1,
+      alertSloMet: true,
+      isMock: true,
+      provider: 'offline-demo',
+      model: 'demo-catalog-v3',
+      candidates: candidates,
+      recognitionMs: 42,
+      hintUsed: hint,
+      portionSource: portionSource,
+      imageBytes: imageBytes,
+    );
+  }
 
   Future<Map<String, dynamic>> health() async {
     final response = await _client
@@ -162,6 +280,27 @@ class ApiService {
         .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) {
       throw ApiException('Health profile could not be saved: ${response.body}');
+    }
+  }
+
+  Future<void> saveGoalsOnServer(NutritionGoals goals) async {
+    final response = await _client
+        .put(
+          Uri.parse('$baseUrl/goals'),
+          headers: _jsonHeaders,
+          body: jsonEncode({
+            'user_id': 'demo-user',
+            'calories_kcal': goals.calories,
+            'sugar_g': goals.sugar,
+            'sodium_mg': goals.sodium,
+            'potassium_mg': goals.potassium,
+            'carbohydrate_g': goals.carbohydrates,
+            'protein_g': goals.protein,
+          }),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) {
+      throw ApiException('Goals could not be saved: ${response.body}');
     }
   }
 
@@ -193,7 +332,7 @@ class ApiService {
   Future<RecommendationResponse> recommendMeals({
     required HealthProfile profile,
     required List<MealEntry> recentMeals,
-    int limit = 5,
+    int limit = 6,
     bool offlineOnly = false,
   }) async {
     if (offlineOnly) return _offlineRecommendations(profile, recentMeals, limit);
@@ -220,52 +359,11 @@ class ApiService {
     }
   }
 
-  RecognitionResult _offlineResult(String hint, double weightG) {
-    const profiles = <String, (String, String, String, List<double>)>{
-      'medjool dates': ('food_dates_medjool', 'Medjool dates', 'تمر مجدول', [277, 1.81, 74.97, .15, 66.47, 6.7, 1, 696]),
-      'white rice': ('food_rice_white_cooked', 'White rice', 'أرز أبيض', [130, 2.69, 28.17, .28, .05, .4, 1, 35]),
-      'chicken breast': ('food_chicken_breast_roasted', 'Chicken breast', 'صدر دجاج', [165, 31.02, 0, 3.57, 0, 0, 74, 256]),
-      'hummus': ('food_hummus_prepared', 'Hummus', 'حمص', [166, 7.9, 14.3, 9.6, .3, 6, 379, 228]),
-      'banana': ('food_banana_raw', 'Banana', 'موز', [89, 1.09, 22.84, .33, 12.23, 2.6, 1, 358]),
-    };
-    final profile = profiles[hint] ?? profiles['medjool dates']!;
-    final n = profile.$4;
-    final factor = weightG / 100;
-    double scaled(int index) => n[index] * factor;
-    return RecognitionResult(
-      eventId: 'offline-${DateTime.now().microsecondsSinceEpoch}',
-      foodId: profile.$1,
-      nameEn: profile.$2,
-      nameAr: profile.$3,
-      weightG: weightG,
-      confidence: .92,
-      verificationStatus: hint == 'medjool dates' ? 'verified_official_record' : 'reference_seed',
-      nutrients: NutritionValues(
-        calories: scaled(0), protein: scaled(1), carbohydrates: scaled(2),
-        fat: scaled(3), sugar: scaled(4), fiber: scaled(5),
-        sodium: scaled(6), potassium: scaled(7),
-      ),
-      alertEvaluationMs: 0,
-      alertSloMet: true,
-      isMock: true,
-      provider: 'mock-offline',
-    );
-  }
-
   RecommendationResponse _offlineRecommendations(
     HealthProfile profile,
     List<MealEntry> recentMeals,
     int limit,
   ) {
-    const raw = <(String, String, String, double, List<double>)>[
-      ('food_chicken_breast_roasted', 'Chicken breast', 'صدر دجاج', 140, [165, 31.02, 0, 3.57, 0, 0, 74, 256]),
-      ('food_hummus_prepared', 'Hummus', 'حمص', 150, [166, 7.9, 14.3, 9.6, .3, 6, 379, 228]),
-      ('food_cucumber_raw', 'Cucumber', 'خيار', 150, [15, .65, 3.63, .11, 1.67, .5, 2, 147]),
-      ('food_tomato_raw', 'Tomato', 'طماطم', 150, [18, .88, 3.89, .2, 2.63, 1.2, 5, 237]),
-      ('food_egg_boiled', 'Boiled egg', 'بيض مسلوق', 100, [155, 12.58, 1.12, 10.61, 1.12, 0, 124, 126]),
-      ('food_salmon_cooked', 'Cooked salmon', 'سلمون مطبوخ', 140, [206, 22.1, 0, 12.35, 0, 0, 59, 384]),
-      ('food_apple_raw', 'Apple', 'تفاح', 120, [52, .26, 13.81, .17, 10.39, 2.4, 1, 107]),
-    ];
     final recentCounts = <String, int>{};
     final cutoff = DateTime.now().subtract(const Duration(days: 14));
     for (final meal in recentMeals.where((meal) => meal.eatenAt.isAfter(cutoff))) {
@@ -278,61 +376,87 @@ class ApiService {
     final conditions = profile.conditions.toSet();
     final preferences = profile.dietaryPreferences.toSet();
     final suggestions = <MealSuggestion>[];
-    for (final item in raw) {
-      final name = item.$2.toLowerCase();
-      if (exclusions.any((value) => name.contains(value))) continue;
+
+    for (final item in MiqdarFoodCatalog.builtInFoods) {
+      final name = item.nameEn.toLowerCase();
+      final nameAr = item.nameAr;
+      if (exclusions.any((value) => name.contains(value) || nameAr.contains(value))) continue;
       if (exclusions.contains('nuts') && name.contains('almond')) continue;
-      if (preferences.contains('vegetarian') && (name.contains('chicken') || name.contains('salmon'))) continue;
-      if (preferences.contains('vegan') && (name.contains('chicken') || name.contains('salmon') || name.contains('egg'))) continue;
-      final factor = item.$4 / 100;
-      final values = item.$5;
-      final nutrients = NutritionValues(
-        calories: values[0] * factor,
-        protein: values[1] * factor,
-        carbohydrates: values[2] * factor,
-        fat: values[3] * factor,
-        sugar: values[4] * factor,
-        fiber: values[5] * factor,
-        sodium: values[6] * factor,
-        potassium: values[7] * factor,
-      );
-      var score = 70.0 - (recentCounts[item.$1] ?? 0) * 5;
+      if ((exclusions.contains('dairy') || exclusions.contains('milk')) && item.category == 'Dairy') continue;
+      if ((exclusions.contains('fish') || exclusions.contains('seafood')) &&
+          (name.contains('salmon') || name.contains('tuna') || name.contains('fish'))) {
+        continue;
+      }
+      final isMeatOrFish = name.contains('chicken') ||
+          name.contains('lamb') ||
+          name.contains('beef') ||
+          name.contains('salmon') ||
+          name.contains('tuna') ||
+          name.contains('fish') ||
+          name.contains('haneeth') ||
+          name.contains('shawarma') ||
+          name.contains('kabsa') ||
+          name.contains('mandi');
+      if (preferences.contains('vegetarian') && isMeatOrFish) continue;
+      if (preferences.contains('vegan') &&
+          (isMeatOrFish || item.category == 'Dairy' || name.contains('egg') || name.contains('honey'))) {
+        continue;
+      }
+
+      final portionG = item.servings.isNotEmpty ? item.servings.first.grams : 150.0;
+      final nutrients = item.per100g.forPortionGrams(portionG);
+      var score = 74.0 - (recentCounts[item.foodId] ?? 0) * 5;
       final why = <String>[];
-      if ((recentCounts[item.$1] ?? 0) == 0) why.add('Adds variety compared with the last 14 days');
+
+      if ((recentCounts[item.foodId] ?? 0) == 0) {
+        why.add('Adds variety compared with the last 14 days');
+      }
       if (conditions.contains('diabetes')) {
-        score += nutrients.sugar <= 8 ? 10 : -nutrients.sugar;
-        if (nutrients.sugar <= 8) why.add('Lower-sugar option in the local food set');
+        score += nutrients.sugar <= 8 ? 12 : -nutrients.sugar * 0.6;
+        if (nutrients.sugar <= 8) why.add('Lower-sugar option (${nutrients.sugar.toStringAsFixed(1)} g sugar)');
       }
       if (conditions.contains('hypertension')) {
-        score += nutrients.sodium <= 200 ? 10 : -nutrients.sodium / 30;
-        if (nutrients.sodium <= 200) why.add('Lower sodium for the suggested portion');
+        score += nutrients.sodium <= 220 ? 12 : -nutrients.sodium / 35;
+        if (nutrients.sodium <= 220) why.add('Moderate/low sodium (${nutrients.sodium.toStringAsFixed(0)} mg)');
       }
-      if (conditions.contains('weight_management') && values[0] <= 170) {
+      if (conditions.contains('weight_management') && item.per100g.calories <= 175) {
+        score += 9;
+        why.add('Balanced energy density (${item.per100g.calories.toStringAsFixed(0)} kcal/100g)');
+      }
+      if (conditions.contains('high_cholesterol') && nutrients.fat <= 8) {
         score += 8;
-        why.add('Lower energy density among available foods');
+        why.add('Lower total fat per portion (${nutrients.fat.toStringAsFixed(1)} g)');
       }
       if (conditions.contains('kidney_disease')) {
-        score -= nutrients.potassium > 250 ? 12 : 0;
-        why.add('Use only with clinician-approved sodium and potassium targets');
+        score -= nutrients.potassium > 260 ? 14 : 0;
+        why.add('Compare against clinician-supplied sodium & potassium targets');
       }
-      if (why.isEmpty) why.add('Balances variety with the configured nutrition profile');
+      if (nutrients.protein >= 15) {
+        score += 5;
+        why.add('Provides ${nutrients.protein.toStringAsFixed(1)} g protein per serving');
+      }
+      if (why.isEmpty) {
+        why.add('Balances variety with your configured nutrition targets');
+      }
+
       suggestions.add(MealSuggestion(
-        foodId: item.$1,
-        nameEn: item.$2,
-        nameAr: item.$3,
-        portionG: item.$4,
-        score: score.clamp(0, 100).toDouble(),
+        foodId: item.foodId,
+        nameEn: item.nameEn,
+        nameAr: item.nameAr,
+        portionG: portionG,
+        score: score.clamp(10, 99).toDouble(),
         nutrients: nutrients,
         why: why.take(3).toList(),
-        recentOccurrences: recentCounts[item.$1] ?? 0,
-        verificationStatus: 'offline_reference',
+        recentOccurrences: recentCounts[item.foodId] ?? 0,
+        verificationStatus: item.verificationStatus,
       ));
     }
     suggestions.sort((a, b) => b.score.compareTo(a.score));
     return RecommendationResponse(
       suggestions: suggestions.take(limit).toList(),
-      disclaimer: 'Offline suggestions use local reference data and general configured preferences. They are not medical advice.',
-      method: 'offline_transparent_scoring_v1',
+      disclaimer:
+          'General planning ideas based on your configured exclusions, targets, and 14-day meal history. Not a medical prescription or allergy guarantee.',
+      method: 'transparent_catalog_scoring_v3',
       offline: true,
     );
   }

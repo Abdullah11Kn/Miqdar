@@ -17,10 +17,133 @@ class LocalDatabase {
     potassium: 3500,
     carbohydrates: 275,
     protein: 120,
+    fat: 70,
+    fiber: 28,
   );
-  HealthProfile _memHealthProfile = const HealthProfile();
+  HealthProfile _memHealthProfile = const HealthProfile(
+    conditions: ['weight_management'],
+    dietaryPreferences: [],
+    allergens: [],
+    dislikedFoods: [],
+  );
   final List<MealEntry> _memMeals = [];
   final List<HealthAlert> _memAlerts = [];
+  final List<FoodCatalogItem> _memCustomFoods = [];
+
+  static const _seedFoodDefs = [
+    (
+      'food_chicken_kabsa',
+      'Chicken Kabsa',
+      'كبسة دجاج',
+      'Lunch',
+      280.0,
+      'reference_seed',
+      185.0,
+      12.5,
+      21.0,
+      5.5,
+      0.5,
+      1.2,
+      320.0,
+      210.0,
+    ),
+    (
+      'food_dates_medjool',
+      'Dates - Medjool',
+      'تمر مجدول',
+      'Snack',
+      48.0,
+      'verified_official_record',
+      277.0,
+      1.81,
+      74.97,
+      0.15,
+      66.47,
+      6.7,
+      1.0,
+      696.0,
+    ),
+    (
+      'food_chicken_breast_roasted',
+      'Chicken breast - roasted',
+      'صدر دجاج مشوي',
+      'Dinner',
+      165.0,
+      'reference_seed',
+      165.0,
+      31.02,
+      0.0,
+      3.57,
+      0.0,
+      0.0,
+      74.0,
+      256.0,
+    ),
+    (
+      'food_hummus_prepared',
+      'Hummus - prepared',
+      'حمص محضر',
+      'Breakfast',
+      110.0,
+      'reference_seed',
+      166.0,
+      7.9,
+      14.3,
+      9.6,
+      0.3,
+      6.0,
+      379.0,
+      228.0,
+    ),
+    (
+      'food_salmon_cooked',
+      'Salmon - cooked',
+      'سلمون مطبوخ',
+      'Dinner',
+      150.0,
+      'reference_seed',
+      206.0,
+      22.1,
+      0.0,
+      12.35,
+      0.0,
+      0.0,
+      59.0,
+      384.0,
+    ),
+    (
+      'food_jareesh',
+      'Jareesh',
+      'جريش',
+      'Lunch',
+      240.0,
+      'reference_seed',
+      140.0,
+      6.2,
+      18.0,
+      4.8,
+      1.5,
+      2.8,
+      310.0,
+      180.0,
+    ),
+    (
+      'food_greek_yogurt',
+      'Greek Yogurt',
+      'زبادي يوناني',
+      'Breakfast',
+      170.0,
+      'reference_seed',
+      97.0,
+      9.0,
+      4.0,
+      5.0,
+      4.0,
+      0.0,
+      45.0,
+      140.0,
+    ),
+  ];
 
   Future<void> initialize() async {
     if (kIsWeb) {
@@ -71,36 +194,41 @@ class LocalDatabase {
   }
 
   void _seedMemoryHistory() {
-    const foods = [
-      ('food_rice_white_cooked', 'White rice', 'أرز أبيض', 180.0, 234.0, 4.8, 50.7, 0.5, 0.1, 0.7, 2.0, 63.0),
-      ('food_chicken_breast_roasted', 'Chicken breast', 'صدر دجاج', 145.0, 239.0, 45.0, 0.0, 5.2, 0.0, 0.0, 107.0, 371.0),
-      ('food_hummus_prepared', 'Hummus', 'حمص', 95.0, 158.0, 7.5, 13.6, 9.1, 0.3, 5.7, 360.0, 217.0),
-      ('food_dates_medjool', 'Medjool dates', 'تمر مجدول', 42.0, 116.0, 0.8, 31.5, 0.1, 27.9, 2.8, 0.4, 292.0),
-      ('food_salmon_cooked', 'Cooked salmon', 'سلمون مطبوخ', 130.0, 268.0, 28.7, 0.0, 16.1, 0.0, 0.0, 77.0, 499.0),
-    ];
+    if (_memMeals.isNotEmpty) return;
     final now = DateTime.now().toUtc();
     for (var day = 0; day < 91; day++) {
-      final food = foods[day % foods.length];
-      _memMeals.add(MealEntry(
-        id: 'seed-$day',
-        foodId: food.$1,
-        nameEn: food.$2,
-        nameAr: food.$3,
-        eatenAt: now.subtract(Duration(days: day)),
-        mealType: 'Lunch',
-        weightG: food.$4,
-        confidence: 0.94,
-        nutrients: NutritionValues(
-          calories: food.$5,
-          protein: food.$6,
-          carbohydrates: food.$7,
-          fat: food.$8,
-          sugar: food.$9,
-          fiber: food.$10,
-          sodium: food.$11,
-          potassium: food.$12,
-        ),
-      ));
+      // Today and recent days get 2 meals so daily progress and charts look rich and realistic!
+      final mealsCount = day < 7 ? 2 : 1;
+      for (var m = 0; m < mealsCount; m++) {
+        final def = _seedFoodDefs[(day + m * 3) % _seedFoodDefs.length];
+        final weight = def.$5;
+        final basis = NutritionValues(
+          calories: def.$7,
+          protein: def.$8,
+          carbohydrates: def.$9,
+          fat: def.$10,
+          sugar: def.$11,
+          fiber: def.$12,
+          sodium: def.$13,
+          potassium: def.$14,
+        );
+        final scaled = basis.forPortionGrams(weight);
+        _memMeals.add(MealEntry(
+          id: m == 0 ? 'seed-$day' : 'seed-$day-$m',
+          foodId: def.$1,
+          nameEn: def.$2,
+          nameAr: def.$3,
+          eatenAt: now.subtract(Duration(days: day, hours: m * 5 + 1)),
+          mealType: def.$4,
+          weightG: weight,
+          confidence: 0.94,
+          nutrients: scaled,
+          basisPer100g: basis,
+          verificationStatus: def.$6,
+          portionSource: m == 0 ? PortionSource.scale : PortionSource.manual,
+          syncStatus: 'synced',
+        ));
+      }
     }
   }
 
@@ -137,7 +265,7 @@ class LocalDatabase {
     if (Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM health_profile')) != 0) return;
     await db.insert('health_profile', {
       'id': 1,
-      'conditions': '',
+      'conditions': 'weight_management',
       'dietary_preferences': '',
       'allergens': '',
       'disliked_foods': '',
@@ -146,34 +274,32 @@ class LocalDatabase {
 
   Future<void> _seedHistory() async {
     if (Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM meals')) != 0) return;
-    const foods = [
-      ('food_rice_white_cooked', 'White rice', 'أرز أبيض', 180.0, 234.0, 4.8, 50.7, 0.5, 0.1, 0.7, 2.0, 63.0),
-      ('food_chicken_breast_roasted', 'Chicken breast', 'صدر دجاج', 145.0, 239.0, 45.0, 0.0, 5.2, 0.0, 0.0, 107.0, 371.0),
-      ('food_hummus_prepared', 'Hummus', 'حمص', 95.0, 158.0, 7.5, 13.6, 9.1, 0.3, 5.7, 360.0, 217.0),
-      ('food_dates_medjool', 'Medjool dates', 'تمر مجدول', 42.0, 116.0, 0.8, 31.5, 0.1, 27.9, 2.8, 0.4, 292.0),
-      ('food_salmon_cooked', 'Cooked salmon', 'سلمون مطبوخ', 130.0, 268.0, 28.7, 0.0, 16.1, 0.0, 0.0, 77.0, 499.0),
-    ];
     final now = DateTime.now().toUtc();
     final batch = db.batch();
     for (var day = 0; day < 91; day++) {
-      final food = foods[day % foods.length];
+      final def = _seedFoodDefs[day % _seedFoodDefs.length];
+      final weight = def.$5;
+      final basis = NutritionValues(
+        calories: def.$7,
+        protein: def.$8,
+        carbohydrates: def.$9,
+        fat: def.$10,
+        sugar: def.$11,
+        fiber: def.$12,
+        sodium: def.$13,
+        potassium: def.$14,
+      );
+      final scaled = basis.forPortionGrams(weight);
       batch.insert('meals', {
         'id': 'seed-$day',
-        'food_id': food.$1,
-        'name_en': food.$2,
-        'name_ar': food.$3,
+        'food_id': def.$1,
+        'name_en': def.$2,
+        'name_ar': def.$3,
         'eaten_at': now.subtract(Duration(days: day)).toIso8601String(),
-        'meal_type': 'Lunch',
-        'weight_g': food.$4,
+        'meal_type': def.$4,
+        'weight_g': weight,
         'confidence': 0.94,
-        'calories_kcal': food.$5,
-        'protein_g': food.$6,
-        'carbohydrate_g': food.$7,
-        'fat_g': food.$8,
-        'sugar_g': food.$9,
-        'fiber_g': food.$10,
-        'sodium_mg': food.$11,
-        'potassium_mg': food.$12,
+        ...scaled.toDatabase(),
       });
     }
     await batch.commit(noResult: true);
@@ -189,14 +315,17 @@ class LocalDatabase {
       potassium: (row['potassium'] as num).toDouble(),
       carbohydrates: (row['carbohydrates'] as num).toDouble(),
       protein: (row['protein'] as num).toDouble(),
+      fat: _memGoals.fat,
+      fiber: _memGoals.fiber,
+      goalTypes: _memGoals.goalTypes,
+      source: _memGoals.source,
+      trackingOnly: _memGoals.trackingOnly,
     );
   }
 
   Future<void> saveGoals(NutritionGoals goals) async {
-    if (_useInMemory) {
-      _memGoals = goals;
-      return;
-    }
+    _memGoals = goals;
+    if (_useInMemory) return;
     await db.update(
       'goals',
       {
@@ -229,10 +358,8 @@ class LocalDatabase {
   }
 
   Future<void> saveHealthProfile(HealthProfile profile) async {
-    if (_useInMemory) {
-      _memHealthProfile = profile;
-      return;
-    }
+    _memHealthProfile = profile;
+    if (_useInMemory) return;
     await db.update(
       'health_profile',
       {
@@ -267,46 +394,95 @@ class LocalDatabase {
     return rows.map(_mealFromRow).toList();
   }
 
-  MealEntry _mealFromRow(Map<String, Object?> row) => MealEntry(
-        id: row['id'] as String,
-        foodId: row['food_id'] as String,
-        nameEn: row['name_en'] as String,
-        nameAr: row['name_ar'] as String,
-        eatenAt: DateTime.parse(row['eaten_at'] as String),
-        mealType: row['meal_type'] as String,
-        weightG: (row['weight_g'] as num).toDouble(),
-        confidence: (row['confidence'] as num).toDouble(),
-        nutrients: NutritionValues.fromJson(row.cast<String, dynamic>()),
-      );
+  MealEntry _mealFromRow(Map<String, Object?> row) {
+    final weightG = (row['weight_g'] as num).toDouble();
+    final nutrients = NutritionValues.fromJson(row.cast<String, dynamic>());
+    return MealEntry(
+      id: row['id'] as String,
+      foodId: row['food_id'] as String,
+      nameEn: row['name_en'] as String,
+      nameAr: row['name_ar'] as String,
+      eatenAt: DateTime.parse(row['eaten_at'] as String),
+      mealType: row['meal_type'] as String,
+      weightG: weightG,
+      confidence: (row['confidence'] as num).toDouble(),
+      nutrients: nutrients,
+      basisPer100g: weightG > 0 ? nutrients.scaledBy(100.0 / weightG) : nutrients,
+      verificationStatus: (row['food_id'] as String) == 'food_dates_medjool'
+          ? 'verified_official_record'
+          : 'reference_seed',
+    );
+  }
 
-  Future<MealEntry> saveRecognition(RecognitionResult result) async {
-    final stamp = DateTime.now().toUtc();
+  Future<MealEntry> saveRecognition(
+    RecognitionResult result, {
+    String mealType = 'Meal',
+    DateTime? eatenAt,
+    String notes = '',
+    String syncStatus = 'saved_locally',
+  }) async {
+    final stamp = (eatenAt ?? DateTime.now()).toUtc();
+    final totalNutrients = result.totalNutrients;
+    final totalWeight = result.totalWeightG;
     final meal = MealEntry(
       id: 'local-${stamp.microsecondsSinceEpoch}',
       foodId: result.foodId,
-      nameEn: result.nameEn,
-      nameAr: result.nameAr,
+      nameEn: result.additionalItems.isEmpty
+          ? result.nameEn
+          : '${result.nameEn} + ${result.additionalItems.length} item(s)',
+      nameAr: result.additionalItems.isEmpty
+          ? result.nameAr
+          : '${result.nameAr} + ${result.additionalItems.length}',
       eatenAt: stamp,
-      mealType: 'Meal',
-      weightG: result.weightG,
+      mealType: mealType,
+      weightG: totalWeight,
       confidence: result.confidence,
-      nutrients: result.nutrients,
+      nutrients: totalNutrients,
+      portionSource: result.portionSource,
+      verificationStatus: result.verificationStatus,
+      syncStatus: syncStatus,
+      notes: notes,
+      basisPer100g: totalWeight > 0 ? totalNutrients.scaledBy(100.0 / totalWeight) : totalNutrients,
+      items: [
+        MealItemEntry(
+          id: 'item-main-${stamp.microsecondsSinceEpoch}',
+          foodId: result.foodId,
+          nameEn: result.nameEn,
+          nameAr: result.nameAr,
+          weightG: result.weightG,
+          nutrients: result.nutrients,
+          basisPer100g: result.resolvedBasisPer100g,
+          portionSource: result.portionSource,
+          verificationStatus: result.verificationStatus,
+        ),
+        ...result.additionalItems,
+      ],
     );
+    return insertMealEntry(meal);
+  }
+
+  Future<MealEntry> insertMealEntry(MealEntry meal) async {
     if (_useInMemory) {
+      _memMeals.removeWhere((m) => m.id == meal.id);
       _memMeals.insert(0, meal);
+      _memMeals.sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
       return meal;
     }
-    await db.insert('meals', {
-      'id': meal.id,
-      'food_id': meal.foodId,
-      'name_en': meal.nameEn,
-      'name_ar': meal.nameAr,
-      'eaten_at': meal.eatenAt.toIso8601String(),
-      'meal_type': meal.mealType,
-      'weight_g': meal.weightG,
-      'confidence': meal.confidence,
-      ...meal.nutrients.toDatabase(),
-    });
+    await db.insert(
+      'meals',
+      {
+        'id': meal.id,
+        'food_id': meal.foodId,
+        'name_en': meal.nameEn,
+        'name_ar': meal.nameAr,
+        'eaten_at': meal.eatenAt.toUtc().toIso8601String(),
+        'meal_type': meal.mealType,
+        'weight_g': meal.weightG,
+        'confidence': meal.confidence,
+        ...meal.nutrients.toDatabase(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return meal;
   }
 
@@ -367,15 +543,24 @@ class LocalDatabase {
       return List.unmodifiable(_memAlerts.take(100));
     }
     final rows = await db.query('alerts', orderBy: 'created_at DESC', limit: 100);
-    return rows.map((row) => HealthAlert(
-      id: row['id'] as String,
-      nutrientKey: row['nutrient_key'] as String,
-      severity: row['severity'] as String,
-      currentValue: (row['current_value'] as num).toDouble(),
-      thresholdValue: (row['threshold_value'] as num).toDouble(),
-      message: row['message'] as String,
-      createdAt: DateTime.parse(row['created_at'] as String),
-      evaluationMs: row['evaluation_ms'] as int,
-    )).toList();
+    return rows
+        .map((row) => HealthAlert(
+              id: row['id'] as String,
+              nutrientKey: row['nutrient_key'] as String,
+              severity: row['severity'] as String,
+              currentValue: (row['current_value'] as num).toDouble(),
+              thresholdValue: (row['threshold_value'] as num).toDouble(),
+              message: row['message'] as String,
+              createdAt: DateTime.parse(row['created_at'] as String),
+              evaluationMs: row['evaluation_ms'] as int,
+            ))
+        .toList();
+  }
+
+  List<FoodCatalogItem> get customFoods => List.unmodifiable(_memCustomFoods);
+
+  void addCustomFood(FoodCatalogItem item) {
+    _memCustomFoods.removeWhere((f) => f.foodId == item.foodId);
+    _memCustomFoods.insert(0, item);
   }
 }
