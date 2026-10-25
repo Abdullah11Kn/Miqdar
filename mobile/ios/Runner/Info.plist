@@ -43,14 +43,18 @@
 					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
 					<key>UISceneStoryboardFile</key>
 					<string>Main</string>
-					<key>NSCameraUsageDescription</key>
-	<string>Miqdar uses the camera to recognize food.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Miqdar can analyze a food photo selected by you.</string>
-</dict>
+				</dict>
 			</array>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Miqdar uses the camera to recognize food.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Miqdar can analyze a food photo selected by you.</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

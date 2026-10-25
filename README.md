@@ -64,10 +64,13 @@ senior-project-api-test/
 │   └── VERIFICATION.md       # Acceptance testing & SLO verification log
 │
 ├── evaluation/               # Academic evaluation suite for Senior Project research
+│   ├── EVALUATION_400_REPORT.md # Comprehensive 400-sample F1-score evaluation report
+│   ├── evaluation_400_dataset.csv # 400-sample benchmark dataset across Saudi dishes
 │   ├── evaluation_sheet.csv  # 400-sample benchmark dataset across Saudi dishes
 │   ├── evaluate_dataset.py   # Automated batch accuracy evaluation script
 │   ├── compare_models.py     # Multi-model comparison benchmark
-│   ├── compute_metrics.py    # Top-1, Top-3, and latency calculation metrics
+│   ├── compute_metrics.py    # Top-1, Top-3, dish/category F1 calculation metrics
+│   ├── generate_report.py    # Generator script for academic evaluation report
 │   └── food_ai.py            # Reference vision evaluation core
 │
 ├── run_checks.sh             # End-to-end acceptance check runner (Python + Flutter)

@@ -352,7 +352,7 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
                         Text(
                           active != null
                               ? '${(active.$2 * 100).round()}%'
-                              : '${widget.values.calories.toStringAsFixed(0)}',
+                              : widget.values.calories.toStringAsFixed(0),
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,

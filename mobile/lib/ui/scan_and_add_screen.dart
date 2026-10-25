@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
@@ -24,13 +26,14 @@ class ScanScreen extends StatefulWidget {
 
 class _ScanScreenState extends State<ScanScreen> {
   final picker = ImagePicker();
-  late int modeIndex = widget.initialTab; // 0: Camera+Scale, 1: Search Catalog, 2: Custom Food
+  late int modeIndex = widget.initialTab; // 0: Smart Scan, 1: Search Catalog, 2: Custom Food
 
   XFile? image;
   Uint8List? imageBytes;
-  String selectedSampleAsset = 'assets/demo/kabsa.jpg';
-  String selectedSampleLabelEn = 'Chicken Kabsa';
-  String selectedSampleLabelAr = 'كبسة دجاج';
+  String? imageFileName;
+  String? selectedSampleAsset;
+  String? selectedSampleLabelEn;
+  String? selectedSampleLabelAr;
   String? hint;
   double weight = 180;
   PortionSource portionSource = PortionSource.scale;
@@ -126,10 +129,46 @@ class _ScanScreenState extends State<ScanScreen> {
         setState(() {
           image = files.first;
           imageBytes = bytes;
+          imageFileName = files.first.name;
+          selectedSampleAsset = null;
           hint = null;
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _pickFromFileSystem() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'heic'],
+      );
+      if (file == null) return;
+      final bytes = await file.xFile.readAsBytes();
+      if (bytes.isEmpty) return;
+      if (!mounted) return;
+      setState(() {
+        image = file.xFile;
+        imageBytes = bytes;
+        imageFileName = file.name;
+        selectedSampleAsset = null;
+        selectedSampleLabelEn = null;
+        selectedSampleLabelAr = null;
+        hint = null;
+        lastError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final s = S.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.tr('Could not open file: $e', 'تعذر فتح الملف: $e'),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -145,13 +184,13 @@ class _ScanScreenState extends State<ScanScreen> {
       setState(() {
         image = selected;
         imageBytes = bytes;
+        imageFileName = selected.name;
+        selectedSampleAsset = null;
+        selectedSampleLabelEn = null;
+        selectedSampleLabelAr = null;
         hint = null;
         lastError = null;
       });
-      if (mounted) {
-        final controller = MiqdarScope.of(context);
-        await _runAiRecognition(controller);
-      }
     } catch (_) {
       if (!mounted) return;
       if (source == ImageSource.camera) {
@@ -163,28 +202,284 @@ class _ScanScreenState extends State<ScanScreen> {
         SnackBar(
           content: Text(
             s.tr(
-              'Photo picker unavailable; select one of the sample dishes below.',
-              'معرض الصور غير متاح حالياً؛ اختر إحدى عينات الأطباق بالأسفل.',
+              'Photo picker unavailable. Try choosing from Mac / Files.',
+              'معرض الصور غير متاح. جرب اختيار ملف من الماك.',
             ),
           ),
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
-  void _selectSamplePhoto(
+  Future<void> _selectSamplePhoto(
     ({String asset, String labelEn, String labelAr, double defaultWeightG}) sample,
-  ) {
-    setState(() {
-      image = null;
-      imageBytes = null;
-      selectedSampleAsset = sample.asset;
-      selectedSampleLabelEn = sample.labelEn;
-      selectedSampleLabelAr = sample.labelAr;
-      hint = null;
-      lastError = null;
-    });
-    _setWeight(sample.defaultWeightG, source: PortionSource.scale);
+  ) async {
+    try {
+      final data = await rootBundle.load(sample.asset);
+      final bytes = data.buffer.asUint8List();
+      if (!mounted) return;
+      setState(() {
+        image = null;
+        imageBytes = bytes;
+        imageFileName = '${sample.labelEn}.jpg';
+        selectedSampleAsset = sample.asset;
+        selectedSampleLabelEn = sample.labelEn;
+        selectedSampleLabelAr = sample.labelAr;
+        hint = null;
+        lastError = null;
+      });
+      _setWeight(sample.defaultWeightG, source: PortionSource.scale);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        selectedSampleAsset = sample.asset;
+        selectedSampleLabelEn = sample.labelEn;
+        selectedSampleLabelAr = sample.labelAr;
+      });
+    }
+  }
+
+  void _showImageSourceSheet(BuildContext context, S s, bool isDark) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF141C18) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 24,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              s.tr('Choose Meal Photo', 'اختر صورة الوجبة'),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : const Color(0xFF111815),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              s.tr(
+                'Select from your Mac files, photo gallery, or camera',
+                'اختر من ملفات جهازك، أو معرض الصور، أو الكاميرا',
+              ),
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? MiqdarColors.darkMuted : const Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(height: 18),
+            _PhotoSourceTile(
+              icon: Icons.folder_open_rounded,
+              title: s.tr('Browse Mac / Device Files', 'تصفح ملفات الماك / الجهاز'),
+              subtitle: s.tr('Choose any JPG, PNG, WEBP, or HEIC image file', 'اختر أي صورة بصيغة JPG أو PNG أو WEBP'),
+              highlight: true,
+              isDark: isDark,
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _pickFromFileSystem();
+              },
+            ),
+            const SizedBox(height: 10),
+            _PhotoSourceTile(
+              icon: Icons.photo_library_outlined,
+              title: s.tr('Photo Library', 'معرض الصور'),
+              subtitle: s.tr('Select from your photo albums', 'اختر من ألبوم الصور في النظام'),
+              highlight: false,
+              isDark: isDark,
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            const SizedBox(height: 10),
+            _PhotoSourceTile(
+              icon: Icons.camera_alt_outlined,
+              title: s.tr('Camera', 'الكاميرا'),
+              subtitle: s.tr('Snap a live photo of your plate', 'التقط صورة حية لطبقك'),
+              highlight: false,
+              isDark: isDark,
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            const SizedBox(height: 10),
+            _PhotoSourceTile(
+              icon: Icons.science_outlined,
+              title: s.tr('Sample Demo Dishes', 'عينات أطباق تجريبية'),
+              subtitle: s.tr('Test with pre-configured meal photos', 'اختر من عينات الأطباق الجاهزة للاختبار'),
+              highlight: false,
+              isDark: isDark,
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _showSampleDishesSheet(context, s, isDark);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSampleDishesSheet(BuildContext context, S s, bool isDark) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.72,
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF141C18) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        s.tr('Sample Test Dishes', 'عينات أطباق تجريبية'),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : const Color(0xFF111815),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        s.tr(
+                          'Pre-configured photos for evaluating vision AI recognition.',
+                          'صور مجهزة لاختبار وتقييم التعرف البصري بالذكاء الاصطناعي.',
+                        ),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: isDark ? MiqdarColors.darkMuted : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: ListView.separated(
+                itemCount: _samplePhotos.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, idx) {
+                  final sample = _samplePhotos[idx];
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      _selectSamplePhoto(sample);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1B2420) : const Color(0xFFF7F9F8),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? MiqdarColors.darkBorder : const Color(0xFFE5EAE7),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.asset(
+                              sample.asset,
+                              width: 58,
+                              height: 58,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  s.tr(sample.labelEn, sample.labelAr),
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? Colors.white : const Color(0xFF111815),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${s.tr("Portion", "الحصة")}: ${sample.defaultWeightG.toInt()} g',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? MiqdarColors.darkMuted : const Color(0xFF6B7280),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: isDark ? MiqdarColors.darkMuted : const Color(0xFF9CA3AF),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _setWeight(double newWeight, {required PortionSource source}) {
@@ -201,6 +496,22 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   Future<void> _runAiRecognition(MiqdarController controller) async {
+    if (imageBytes == null && selectedSampleAsset == null) {
+      final s = S.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.tr(
+              'Please add or take a photo of your meal first.',
+              'يرجى التقاط صورة أو اختيار ملف صورة للوجبة أولاً.',
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
     setState(() => lastError = null);
     final typedHint = hintTextCtrl.text.trim();
     final effectiveHint = typedHint.isNotEmpty ? typedHint : hint;
@@ -237,7 +548,7 @@ class _ScanScreenState extends State<ScanScreen> {
     final typedHint = hintTextCtrl.text.trim();
     final effectiveHint = typedHint.isNotEmpty
         ? typedHint
-        : (hint ?? selectedSampleLabelEn.toLowerCase());
+        : (hint ?? (selectedSampleLabelEn ?? 'chicken kabsa').toLowerCase());
     final demo = await controller.useOfflineDemo(
       weightG: weight,
       hint: effectiveHint,
@@ -249,7 +560,7 @@ class _ScanScreenState extends State<ScanScreen> {
         builder: (_) => RecognitionResultScreen(
           result: demo,
           previewBytes: imageBytes,
-          previewAsset: imageBytes == null ? selectedSampleAsset : null,
+          previewAsset: imageBytes == null ? (selectedSampleAsset ?? 'assets/demo/kabsa.jpg') : null,
         ),
       ),
     );
@@ -308,7 +619,7 @@ class _ScanScreenState extends State<ScanScreen> {
           child: Row(
             children: [
               _ModeSegmentTab(
-                label: s.tr('AI Camera & Scale', 'الكاميرا والميزان'),
+                label: s.tr('Smart Scan', 'مسح ذكي'),
                 icon: Icons.camera_enhance_rounded,
                 selected: modeIndex == 0,
                 onTap: () => setState(() => modeIndex = 0),
@@ -320,7 +631,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 onTap: () => setState(() => modeIndex = 1),
               ),
               _ModeSegmentTab(
-                label: s.tr('Custom', 'مخصص'),
+                label: s.tr('Custom Food', 'طعام مخصص'),
                 icon: Icons.edit_note_rounded,
                 selected: modeIndex == 2,
                 onTap: () => setState(() => modeIndex = 2),
@@ -390,11 +701,11 @@ class _ScanScreenState extends State<ScanScreen> {
             // Primary Analyze Action Button
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF112A20),
-                foregroundColor: isDark ? const Color(0xFF062117) : Colors.white,
-                minimumSize: const Size.fromHeight(56),
+                backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(54),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 0,
               ),
@@ -451,254 +762,283 @@ class _ScanScreenState extends State<ScanScreen> {
     MiqdarController controller,
     S s,
     bool isDark,
-  ) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+  ) {
+    if (imageBytes == null && selectedSampleAsset == null) {
+      return _buildEmptyPhotoZone(context, s, isDark);
+    }
+    return _buildSelectedPhotoView(context, s, isDark);
+  }
+
+  Widget _buildEmptyPhotoZone(BuildContext context, S s, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF121B17) : const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? const Color(0xFF22302A) : const Color(0xFFE2E8F0),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
         children: [
-          // Clean Natural Viewfinder Card
           Container(
-            height: 256,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFF111815),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+              color: isDark
+                  ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                  : const Color(0xFFECFDF5),
+              shape: BoxShape.circle,
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Stack(
-                fit: StackFit.expand,
+            child: Icon(
+              Icons.add_a_photo_outlined,
+              size: 27,
+              color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            s.tr('Add Your Meal Photo', 'أضف صورة وجبتك'),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : const Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            s.tr(
+              'Choose an image file from your Mac or snap with camera',
+              'اختر ملف صورة من الماك أو التقط صورة بالكاميرا',
+            ),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.5,
+              color: isDark ? MiqdarColors.darkMuted : const Color(0xFF6B7280),
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 18),
+          // Primary action: Choose from Mac Files
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(46),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+            onPressed: _pickFromFileSystem,
+            icon: const Icon(Icons.folder_open_rounded, size: 19),
+            label: Text(
+              s.tr('Choose from Mac / Files', 'اختر من ملفات الماك'),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Secondary dual actions: Photos / Camera
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 42),
+                    side: BorderSide(
+                      color: isDark ? const Color(0xFF2E3D36) : const Color(0xFFCBD5E1),
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => _pickImage(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library_outlined, size: 16),
+                  label: Text(
+                    s.tr('Photos', 'الصور'),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 42),
+                    side: BorderSide(
+                      color: isDark ? const Color(0xFF2E3D36) : const Color(0xFFCBD5E1),
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => _pickImage(ImageSource.camera),
+                  icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                  label: Text(
+                    s.tr('Camera', 'الكاميرا'),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Discreet testing link for demo dishes
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            ),
+            onPressed: () => _showSampleDishesSheet(context, s, isDark),
+            icon: const Icon(Icons.science_outlined, size: 15),
+            label: Text(
+              s.tr('Testing? Try a sample dish photo', 'للاختبار السريع: اختر طبقاً تجريبياً'),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? MiqdarColors.darkMuted : const Color(0xFF6B7280),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedPhotoView(BuildContext context, S s, bool isDark) {
+    return Container(
+      height: 236,
+      decoration: BoxDecoration(
+        color: const Color(0xFF111815),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image(
+              image: imageBytes != null
+                  ? MemoryImage(imageBytes!)
+                  : AssetImage(selectedSampleAsset!) as ImageProvider,
+              fit: BoxFit.cover,
+            ),
+            // Natural vignette gradient for legibility
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.55),
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.65),
+                  ],
+                  stops: const [0.0, 0.45, 1.0],
+                ),
+              ),
+            ),
+            // Top bar: status badge + clear button
+            Positioned(
+              top: 10,
+              left: 10,
+              right: 10,
+              child: Row(
                 children: [
-                  Image(
-                    image: imageBytes == null
-                        ? AssetImage(selectedSampleAsset)
-                        : MemoryImage(imageBytes!) as ImageProvider,
-                    fit: BoxFit.cover,
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.32),
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.58),
-                        ],
-                        stops: const [0.0, 0.45, 1.0],
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(color: Colors.white24),
                       ),
-                    ),
-                  ),
-
-                  // Top status pill inside viewfinder
-                  Positioned(
-                    top: 12,
-                    left: 12,
-                    right: 12,
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 11,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.92),
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  imageBytes == null
-                                      ? Icons.restaurant_rounded
-                                      : Icons.check_circle_rounded,
-                                  size: 14,
-                                  color: const Color(0xFF059669),
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    imageBytes == null
-                                        ? s.tr(
-                                            selectedSampleLabelEn,
-                                            selectedSampleLabelAr,
-                                          )
-                                        : s.tr('Custom Photo Loaded', 'تم تحميل صورتك'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xFF111815),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            size: 14,
+                            color: Color(0xFF34D399),
                           ),
-                        ),
-                        const Spacer(),
-                        if (imageBytes != null)
-                          IconButton(
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.black.withValues(alpha: 0.55),
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(34, 34),
-                              padding: const EdgeInsets.all(6),
-                            ),
-                            tooltip: s.tr('Reset photo', 'إعادة الصورة'),
-                            onPressed: () => setState(() {
-                              image = null;
-                              imageBytes = null;
-                            }),
-                            icon: const Icon(Icons.close_rounded, size: 17),
-                          ),
-                      ],
-                    ),
-                  ),
-
-                  // Subtle center focus reticle
-                  const Center(
-                    child: IgnorePointer(
-                      child: SizedBox(
-                        width: 148,
-                        height: 104,
-                        child: AimingReticleOverlay(isStable: true),
-                      ),
-                    ),
-                  ),
-
-                  // Bottom Photo Action Dock
-                  Positioned(
-                    left: 12,
-                    right: 12,
-                    bottom: 12,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF111815),
-                              minimumSize: const Size(0, 44),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              elevation: 0,
-                            ),
-                            onPressed: controller.busy
-                                ? null
-                                : () => _pickImage(ImageSource.gallery),
-                            icon: const Icon(Icons.photo_library_rounded, size: 18),
-                            label: Text(
-                              s.tr('Upload Photo', 'رفع صورة'),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              imageFileName ??
+                                  (selectedSampleAsset != null
+                                      ? s.tr(
+                                          selectedSampleLabelEn ?? '',
+                                          selectedSampleLabelAr ?? '',
+                                        )
+                                      : s.tr('Meal Photo Loaded', 'تم تحميل الصورة')),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: FilledButton.tonalIcon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.black.withValues(alpha: 0.60),
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(0, 44),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            onPressed: controller.busy
-                                ? null
-                                : () => _pickImage(ImageSource.camera),
-                            icon: const Icon(Icons.camera_alt_outlined, size: 17),
-                            label: Text(
-                              s.tr('Camera', 'الكاميرا'),
-                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                fontSize: 13,
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black.withValues(alpha: 0.65),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(32, 32),
+                      padding: const EdgeInsets.all(6),
+                    ),
+                    tooltip: s.tr('Remove photo', 'إزالة الصورة'),
+                    onPressed: () => setState(() {
+                      image = null;
+                      imageBytes = null;
+                      imageFileName = null;
+                      selectedSampleAsset = null;
+                      selectedSampleLabelEn = null;
+                      selectedSampleLabelAr = null;
+                    }),
+                    icon: const Icon(Icons.close_rounded, size: 16),
+                  ),
+                ],
+              ),
+            ),
+            // Bottom bar: Change photo button
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 10,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.black.withValues(alpha: 0.65),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 38),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => _showImageSourceSheet(context, s, isDark),
+                      icon: const Icon(Icons.swap_horiz_rounded, size: 17),
+                      label: Text(
+                        s.tr('Change Photo', 'تغيير الصورة'),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 10),
-
-          // Compact Horizontal Sample Dish Strip (1-tap test dishes)
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _samplePhotos.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, idx) {
-                final sample = _samplePhotos[idx];
-                final isSelected =
-                    imageBytes == null && selectedSampleAsset == sample.asset;
-                return InkWell(
-                  borderRadius: BorderRadius.circular(99),
-                  onTap: () => _selectSamplePhoto(sample),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(5, 4, 12, 4),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? (isDark ? const Color(0xFF10B981) : const Color(0xFF112A20))
-                          : (isDark ? const Color(0xFF16201C) : Colors.white),
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(
-                        color: isSelected
-                            ? Colors.transparent
-                            : (isDark ? MiqdarColors.darkBorder : const Color(0xFFE2E7E4)),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ClipOval(
-                          child: Image.asset(
-                            sample.asset,
-                            width: 32,
-                            height: 32,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          s.tr(sample.labelEn, sample.labelAr),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: isSelected
-                                ? (isDark ? const Color(0xFF062117) : Colors.white)
-                                : (isDark ? Colors.white : const Color(0xFF1F2924)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      );
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildSmartScaleCard(
     BuildContext context,
@@ -711,21 +1051,30 @@ class _ScanScreenState extends State<ScanScreen> {
     final textSecondary = isDark ? const Color(0xFF9CA8A1) : const Color(0xFF5A655E);
 
     return SurfaceCard(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Top Scale Header: Live Status + Tare Button
+          // Live Scale Status & Tare Button
           Row(
             children: [
               Container(
-                width: 8,
-                height: 8,
+                width: 9,
+                height: 9,
                 decoration: BoxDecoration(
                   color: portionSource == PortionSource.scale
                       ? const Color(0xFF10B981)
                       : const Color(0xFFF59E0B),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (portionSource == PortionSource.scale
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFF59E0B))
+                          .withValues(alpha: 0.4),
+                      blurRadius: 6,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -784,10 +1133,10 @@ class _ScanScreenState extends State<ScanScreen> {
 
           // Tactile Digital Scale Display + Stepper Buttons
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF0E1512) : const Color(0xFFF6F8F6),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isDark ? MiqdarColors.darkBorder : const Color(0xFFE4EAE6),
               ),
@@ -804,7 +1153,7 @@ class _ScanScreenState extends State<ScanScreen> {
                     textAlign: TextAlign.center,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: 30,
                       fontWeight: FontWeight.w900,
                       color: textPrimary,
                       letterSpacing: -0.8,
@@ -840,54 +1189,45 @@ class _ScanScreenState extends State<ScanScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
 
-          // Smooth Scale Slider
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 5,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-            ),
-            child: Slider(
-              value: weight.clamp(10.0, 800.0).toDouble(),
-              min: 10,
-              max: 800,
-              onChanged: (value) =>
-                  _setWeight((value / 5).round() * 5.0, source: PortionSource.scale),
-            ),
-          ),
-
-          // 4 Clean Portion Pills
+          // Clean Quick Portion Presets
           Row(
-            children: [100.0, 180.0, 250.0, 350.0].map((preset) {
+            children: [100.0, 150.0, 200.0, 300.0].map((preset) {
               final selected = (weight - preset).abs() < 2;
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(11),
+                    borderRadius: BorderRadius.circular(10),
                     onTap: () => _setWeight(preset, source: PortionSource.scale),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: selected
-                            ? MiqdarColors.primary.withValues(alpha: 0.14)
+                            ? (isDark
+                                ? const Color(0xFF10B981).withValues(alpha: 0.18)
+                                : const Color(0xFF059669).withValues(alpha: 0.12))
                             : (isDark
                                 ? Colors.white.withValues(alpha: 0.04)
                                 : const Color(0xFFF3F5F3)),
-                        borderRadius: BorderRadius.circular(11),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: selected ? MiqdarColors.primary : Colors.transparent,
+                          color: selected
+                              ? (isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
+                              : Colors.transparent,
+                          width: 1.5,
                         ),
                       ),
                       child: Text(
                         '${preset.toInt()}${s.unitG}',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w800,
-                          color: selected ? MiqdarColors.primary : textPrimary,
+                          color: selected
+                              ? (isDark ? const Color(0xFF34D399) : const Color(0xFF059669))
+                              : textPrimary,
                         ),
                       ),
                     ),
@@ -896,20 +1236,20 @@ class _ScanScreenState extends State<ScanScreen> {
               );
             }).toList(),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
-          // Single Clean Optional AI Context Input
+          // Optional AI Context Input
           TextField(
             controller: hintTextCtrl,
             style: const TextStyle(fontSize: 13.5),
             decoration: InputDecoration(
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               hintText: s.tr(
-                'Optional note for AI (e.g. grilled, homemade)…',
-                'ملاحظة اختيارية للذكاء الاصطناعي (مثال: مشوي، منزلي)…',
+                'Optional note for AI (e.g. grilled, homemade, no sauce)…',
+                'ملاحظة اختيارية للذكاء الاصطناعي (مثال: مشوي، منزلي، بدون صوص)…',
               ),
-              prefixIcon: const Icon(Icons.edit_outlined, size: 18),
+              prefixIcon: const Icon(Icons.edit_outlined, size: 17),
             ),
           ),
         ],
@@ -1560,6 +1900,98 @@ class _RoundStepButton extends StatelessWidget {
             size: 20,
             color: isDark ? Colors.white : const Color(0xFF111815),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoSourceTile extends StatelessWidget {
+  const _PhotoSourceTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.highlight,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool highlight;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: highlight
+              ? (isDark
+                  ? const Color(0xFF10B981).withValues(alpha: 0.14)
+                  : const Color(0xFFECFDF5))
+              : (isDark ? const Color(0xFF1A231F) : const Color(0xFFF9FAFB)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: highlight
+                ? (isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
+                : (isDark ? MiqdarColors.darkBorder : const Color(0xFFE5E7EB)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: highlight
+                    ? (isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
+                    : (isDark ? Colors.white10 : const Color(0xFFE5E7EB)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: highlight
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : const Color(0xFF374151)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: isDark ? MiqdarColors.darkMuted : const Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: isDark ? MiqdarColors.darkMuted : const Color(0xFF9CA3AF),
+            ),
+          ],
         ),
       ),
     );

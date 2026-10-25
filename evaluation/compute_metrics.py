@@ -98,11 +98,44 @@ def calculate_metrics(csv_path: str):
     print("\n[4] Engineering Defense Takeaway:")
     print("  ✓ 73% of errors were visual ambiguities where the correct dish was Candidate #2.")
     print("  ✓ This justifies the IoT architecture's human-in-the-loop confirmation UI on the scale app.")
+    # Dish level calculation
+    def clean_name(gt):
+        return gt.split('(')[0].strip()
+
+    all_dishes = sorted(list(set(clean_name(r['Ground_Truth_Dish']) for r in rows)))
+    tp = defaultdict(int)
+    fp = defaultdict(int)
+    fn = defaultdict(int)
+    total_dish = defaultdict(int)
+    for r in rows:
+        gt = clean_name(r['Ground_Truth_Dish'])
+        pred = r['Predicted_Dish_EN'].strip()
+        total_dish[gt] += 1
+        if r['Top_1_Match'] == '1':
+            tp[gt] += 1
+        else:
+            fn[gt] += 1
+            fp[pred] += 1
+
+    dish_f1s = []
+    for d in all_dishes:
+        c_tp, c_fp, c_fn = tp[d], fp[d], fn[d]
+        prec = c_tp / (c_tp + c_fp) if (c_tp + c_fp) > 0 else 0.0
+        rec = c_tp / (c_tp + c_fn) if (c_tp + c_fn) > 0 else 0.0
+        f1 = (2 * prec * rec) / (prec + rec) if (prec + rec) > 0 else 0.0
+        dish_f1s.append((d, total_dish[d], f1))
+
+    macro_f1_dish = sum(x[2] for x in dish_f1s) / len(dish_f1s)
+    weighted_f1_dish = sum(x[2] * x[1] for x in dish_f1s) / total
+    print(f"  • Dish-Level Macro F1-Score (35 dishes) : {macro_f1_dish * 100:.2f}%")
+    print(f"  • Dish-Level Weighted F1-Score         : {weighted_f1_dish * 100:.2f}%")
     print("=" * 76 + "\n")
 
 
 if __name__ == "__main__":
+    import os
+    default_csv = "evaluation/evaluation_400_dataset.csv" if os.path.exists("evaluation/evaluation_400_dataset.csv") else "evaluation_400_dataset.csv"
     parser = argparse.ArgumentParser(description="Calculate precision, recall, F1 from evaluation sheet.")
-    parser.add_argument("--csv", default="evaluation_400_dataset.csv", help="CSV path")
+    parser.add_argument("--csv", default=default_csv, help="CSV path")
     args = parser.parse_args()
     calculate_metrics(args.csv)

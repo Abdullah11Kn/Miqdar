@@ -18,7 +18,9 @@ ENV/
 .flutter-plugins-dependencies
 .packages
 **/.packages
+build
 build/
+**/build
 **/build/
 .pub/
 **/.pub/
