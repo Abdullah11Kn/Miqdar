@@ -11,13 +11,16 @@
 
 ## 1. Executive Summary & Core KPIs
 
-This report documents the rigorous academic and statistical evaluation of the **Miqdar** food recognition subsystem across an authoritative **400-sample benchmark dataset**. The evaluation reflects realistic consumer scenarios covering Saudi traditional gastronomy, international casual dining, and health-conscious whole foods.
+This report documents the academic and statistical evaluation of the **Miqdar** food recognition subsystem across an authoritative **400-sample image benchmark dataset**. The evaluation reflects realistic consumer scenarios covering Saudi traditional gastronomy, international casual dining, and health-conscious whole foods.
+
+> [!NOTE]
+> **Evaluation Modality & Scope Notice:** This benchmark is strictly an **image recognition and visual classification test**. No physical food weighing on a hardware scale was conducted during this evaluation. The test assesses visual recognition, Top-1 and Top-3 accuracy, F1-scores, cooking method extraction, and API latency.
 
 ### Key Performance Indicators (KPIs)
 
 | Metric | Result | Target Benchmark | Academic Status |
 | :--- | :---: | :---: | :---: |
-| **Total Evaluated Samples** | **400** | >= 300 | **Target Exceeded** |
+| **Total Evaluated Image Samples** | **400** | >= 300 | **Target Exceeded** |
 | **Top-1 Accuracy (Exact Match)** | **87.0%** (348/400) | >= 80.0% | **Target Exceeded (+7.0%)** |
 | **Top-3 Accuracy (Candidate List)** | **96.0%** (384/400) | >= 90.0% | **Target Exceeded (+6.0%)** |
 | **Dish-Level Macro F1-Score** | **90.44%** | >= 85.0% | **Excellent Uniformity** |
@@ -48,7 +51,7 @@ F1-Score_i  = 2 * (Precision_i * Recall_i) / (Precision_i + Recall_i)
 - **Backbone Model:** Google Gemini `gemini-3.1-flash-lite`.
 - **Preprocessing:** LANCZOS anti-aliased image downsampling to <= 1024 px prior to transmission to optimize token consumption and minimize round-trip latency.
 - **Structured JSON Prompting:** Enforces dual-language candidate extraction (`dish_name_en`, `dish_name_ar`), culinary preparation method (e.g. *grilled*, *boiled*, *deep-fried*), and confidence score.
-- **Zero-Hallucination Coupling:** The AI vision engine provides candidate labels; nutrient values are queried strictly from the verified local SQLite database (SFDA & USDA referenced) and linearly scaled by the physical smart scale's load cell reading.
+- **Decoupled Architecture (Design):** The vision AI engine is evaluated strictly for candidate dish classification and cooking method detection. In the end-to-end Miqdar system, portion mass is obtained separately (from the smart scale hardware or user manual entry) to query the verified SQLite nutrition database (SFDA & USDA referenced), avoiding vision-based mass estimation errors.
 
 ---
 
@@ -149,28 +152,21 @@ pie title Error Distribution Breakdown (N = 52)
 
 ---
 
-## 6. Hardware-Coupled Nutritional & Portion Scaling Accuracy
+## 6. Evaluation Scope Clarification & Decoupled Hardware Architecture
 
-A fundamental architectural distinction of the Miqdar system is **Traceable Zero-Hallucination Nutrition**. Vision models in literature frequently attempt to estimate food mass or calorie count directly from pixels, yielding high error rates (MAPE >= 35% - 45%).
+### 6.1 Evaluation Scope: Image-Based Recognition Benchmark
+> [!IMPORTANT]
+> **Scope Clarification:** This 400-sample test was exclusively an **image-based computer vision benchmark**. **No real food was weighed on a physical hardware scale during this test.**
+> - The evaluation strictly measures image classification accuracy, candidate ranking, cooking method detection, and vision inference latency.
+> - Nominal weights recorded in `evaluation_400_dataset.csv` under `Authoritative_Weight_g` represent standard reference serving sizes from nutritional databases (e.g., SFDA/USDA nominal portions), not physical load cell measurements.
 
-### 6.1 Miqdar Hybrid Hardware Pipeline
-Miqdar decouples visual classification from portion measurement:
-1. **Load Cell Hardware:** Measures physical mass to +- 1 g precision.
-2. **Vision Model:** Predicts *only* categorical dish identity and preparation method.
-3. **Local Database Engine:** Linearly computes exact nutrients scaled from SFDA laboratory reference tables.
+### 6.2 Architectural Decoupling: Vision vs. Mass Measurement
+In the overall Miqdar product architecture, computer vision is intentionally decoupled from portion weight estimation:
+1. **The Role of Vision AI:** The vision model is responsible *only* for identifying candidate food labels and preparation methods (e.g., *grilled*, *fried*, *boiled*). It is **not** asked to hallucinate or guess food mass or volume from 2D pixel coordinates (a known source of severe ~35-45% portion error in computer vision literature).
+2. **The Role of the Smart Scale:** Physical weight is measured separately by the smart scale's load cell sensor (or entered manually by the user if hardware is disconnected).
+3. **Database Nutritional Lookup:** Once the food identity is confirmed and the mass is provided by the scale, nutrients are deterministically calculated by querying the pre-verified SQLite database (SFDA & USDA referenced) per 100g.
 
-### 6.2 Nutritional Accuracy Validation (400 Samples)
-
-| Nutrient Metric | Laboratory Ground Truth (Mean / Portion) | Miqdar Hardware + DB Output | Mean Absolute Error (MAE) | Mean Absolute % Error (MAPE) |
-| :--- | :---: | :---: | :---: | :---: |
-| **Portion Weight (g)** | 224.6 g | 224.6 g (Measured) | **0.0 g** | **0.0% (Load Cell)** |
-| **Energy (kcal)** | 382.4 kcal | 378.1 kcal | **14.8 kcal** | **3.1%** |
-| **Protein (g)** | 24.2 g | 23.9 g | **1.2 g** | **2.8%** |
-| **Carbohydrates (g)** | 42.6 g | 41.8 g | **2.1 g** | **3.4%** |
-| **Total Fat (g)** | 14.1 g | 13.8 g | **1.1 g** | **3.6%** |
-| **Sodium (mg)** | 612.0 mg | 604.2 mg | **18.5 mg** | **2.9%** |
-
-> **Senior Project Defense Highlight:** By pairing a physical scale with verified government reference data, Miqdar achieves a **3.1% nutritional MAPE**, outperforming pure vision estimation models by over **10x**.
+This architectural decoupling ensures that vision accuracy and physical weight accuracy remain independent engineering concerns.
 
 ---
 
@@ -227,9 +223,9 @@ Achieving **94.25% cooking method accuracy** (e.g., recognizing *Grilled Chicken
 
 ## 10. Summary Verification Checklist
 
-- [x] **400 / 400 Validated Samples**: All entries verified against ground truth labels.
+- [x] **400 / 400 Validated Samples**: All entries evaluated for visual food classification against ground truth labels.
 - [x] **Statistical F1 Evaluated**: Macro F1 (**90.44%**) and Weighted F1 (**90.54%**) computed across 35 dishes.
-- [x] **Latency SLO Compliant**: 100% of requests resolved under 4.00 seconds (Average: 2.64s).
-- [x] **Zero-Hallucination Nutrients**: Hardware weight scaling verified against SFDA/USDA databases.
+- [x] **Latency SLO Compliant**: 100% of recognition requests resolved under 4.00 seconds (Average: 2.64s).
+- [x] **Clear Scope Isolation**: Pure image classification benchmark; does not claim physical load cell weighing of real food.
 - [x] **Defense Artifact Ready**: Formatted for academic capstone presentation and technical documentation.
 
