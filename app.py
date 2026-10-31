@@ -47,6 +47,8 @@ import sys
 import threading
 import time
 import urllib.error
+import shutil
+import subprocess
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -61,7 +63,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 # Load environment variables (.env)
-for env_candidate in [ROOT / "backend" / ".env", ROOT / ".env"]:
+for env_candidate in [
+    ROOT / "backend" / ".env",
+    ROOT / ".env",
+    Path.home() / ".miqdar_env",
+]:
     if env_candidate.exists():
         with env_candidate.open(encoding="utf-8") as f:
             for line in f:
@@ -69,6 +75,12 @@ for env_candidate in [ROOT / "backend" / ".env", ROOT / ".env"]:
                 if line and not line.startswith("#") and "=" in line:
                     k, v = line.split("=", 1)
                     os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+# Set working defaults for Gemini model configuration
+os.environ.setdefault("GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
+os.environ.setdefault("GEMINI_FALLBACK_MODELS", "gemini-3-flash-preview,gemini-2.5-flash-image,gemini-flash-latest")
+if os.environ.get("GEMINI_API_KEY"):
+    os.environ.setdefault("MIQDAR_RECOGNITION_PROVIDER", "gemini")
 
 # Import optional imaging libraries
 try:
@@ -238,17 +250,70 @@ class ScaleHardwareAdapter:
             return self._sim_weight > 4500.0
 
     def capture_photo(self, path: Optional[Path] = None) -> str:
-        """Captures dish photo. Returns filesystem path (str)."""
-        if not self.is_mock and self._hw_module:
-            try:
-                return str(self._hw_module.capture_photo(path))
-            except Exception as exc:
-                print(f"[Hardware] Real camera capture failed ({exc}). Using mock photo.")
-
+        """Captures dish photo with multi-level hardware fallback. Returns filesystem path (str)."""
         target_path = path or (PHOTOS_DIR / time.strftime("meal_%Y%m%d_%H%M%S.jpg"))
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Check if sample dishes exist in workspace
+        # 1. Try real hardware python module if available
+        if not self.is_mock and self._hw_module:
+            try:
+                p = self._hw_module.capture_photo(target_path)
+                if Path(p).exists() and Path(p).stat().st_size > 1000:
+                    print(f"[Hardware Camera] Captured photo via hardware module: {p}")
+                    return str(p)
+            except Exception as exc:
+                print(f"[Hardware Camera] hardware.py capture failed ({exc}). Trying CLI camera drivers...")
+
+        # 2. Try rpicam-still (Raspberry Pi OS Bookworm official Camera Module 3 driver)
+        rpicam_bin = shutil.which("rpicam-still") or shutil.which("/usr/bin/rpicam-still")
+        if rpicam_bin:
+            try:
+                cmd = [
+                    rpicam_bin, "-t", "800", "-o", str(target_path),
+                    "--width", "1920", "--height", "1080", "-n",
+                    "--autofocus-mode", "auto"
+                ]
+                subprocess.run(cmd, check=True, timeout=8, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                if target_path.exists() and target_path.stat().st_size > 1000:
+                    print(f"[Hardware Camera] Captured real photo via rpicam-still: {target_path}")
+                    return str(target_path)
+            except Exception as exc:
+                print(f"[Hardware Camera] rpicam-still failed: {exc}")
+
+        # 3. Try libcamera-still (Raspberry Pi OS Bullseye official Camera Module 3 driver)
+        libcam_bin = shutil.which("libcamera-still") or shutil.which("/usr/bin/libcamera-still")
+        if libcam_bin:
+            try:
+                cmd = [
+                    libcam_bin, "-t", "800", "-o", str(target_path),
+                    "--width", "1920", "--height", "1080", "-n",
+                    "--autofocus-mode", "auto"
+                ]
+                subprocess.run(cmd, check=True, timeout=8, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                if target_path.exists() and target_path.stat().st_size > 1000:
+                    print(f"[Hardware Camera] Captured real photo via libcamera-still: {target_path}")
+                    return str(target_path)
+            except Exception as exc:
+                print(f"[Hardware Camera] libcamera-still failed: {exc}")
+
+        # 4. Try OpenCV (USB camera or /dev/video0)
+        try:
+            import cv2  # type: ignore[import-not-found]
+            cap = cv2.VideoCapture(0)
+            if cap.isOpened():
+                for _ in range(5):  # warm up auto-exposure
+                    cap.read()
+                ret, frame = cap.read()
+                cap.release()
+                if ret and frame is not None:
+                    cv2.imwrite(str(target_path), frame)
+                    print(f"[Hardware Camera] Captured real photo via OpenCV /dev/video0: {target_path}")
+                    return str(target_path)
+        except Exception:
+            pass
+
+        # 5. Simulated/Mock Fallback (clearly reported)
+        print("[Hardware Camera] NOTICE: No physical camera responded. Using sample dish.")
         samples = [
             ROOT / "evaluation" / "sample_images" / "kabsa.jpg",
             ROOT / "evaluation" / "sample_images" / "shawarma.jpeg",
@@ -263,7 +328,6 @@ class ScaleHardwareAdapter:
         if chosen and chosen.exists():
             target_path.write_bytes(chosen.read_bytes())
         else:
-            # Generate a minimal mock dish image
             if HAS_PIL:
                 img = Image.new("RGB", (640, 480), color=(30, 45, 35))
                 draw = ImageDraw.Draw(img)
@@ -291,14 +355,15 @@ class ScaleHardwareAdapter:
                     if HAS_PIL:
                         import io
                         im = Image.open(io.BytesIO(img_bytes))
-                        im.thumbnail((480, 360))
+                        im.thumbnail((640, 480))
                         buf = io.BytesIO()
-                        im.convert("RGB").save(buf, format="JPEG", quality=75)
+                        im.convert("RGB").save(buf, format="JPEG", quality=80)
                         img_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
                     else:
                         img_b64 = base64.b64encode(img_bytes).decode("ascii")
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[Capture] Thumbnail error ({e}), sending full photo bytes.")
+                    img_b64 = base64.b64encode(img_bytes).decode("ascii")
 
             event = {
                 "event_id": f"cap-{self._event_counter}-{int(time.time())}",
@@ -311,7 +376,7 @@ class ScaleHardwareAdapter:
                 "timing": result.get("timing", {}),
                 "confidence": result.get("confidence", 1.0),
                 "recognition_provider": result.get("recognition_provider", "gemini"),
-                "recognition_model": result.get("recognition_model", "gemini-3.1-flash-lite"),
+                "recognition_model": result.get("recognition_model", "gemini-3.1-flash-lite-preview"),
                 "image_base64": img_b64,
             }
             self.latest_capture_event = event
@@ -405,6 +470,7 @@ def analyze_and_save(
         )
     result["meal_id"] = meal_id
     result["saved_to_history"] = True
+    result["image_base64"] = base64.b64encode(img_bytes).decode("ascii")
     return result
 
 

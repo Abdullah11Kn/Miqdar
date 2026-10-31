@@ -2541,7 +2541,11 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
 
     final ImageProvider previewImage = widget.previewBytes != null
         ? MemoryImage(widget.previewBytes!)
-        : AssetImage(widget.previewAsset ?? _guessAssetForFood(result.nameEn));
+        : (result.imageBytes != null
+            ? MemoryImage(result.imageBytes!)
+            : (widget.previewAsset != null
+                ? AssetImage(widget.previewAsset!)
+                : AssetImage(_guessAssetForFood(result.nameEn)) as ImageProvider));
 
     return Scaffold(
       appBar: AppBar(
@@ -2602,6 +2606,113 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Large Captured Photo Display with Tap-to-Expand
+                      GestureDetector(
+                        onTap: () {
+                          showDialog<void>(
+                            context: context,
+                            builder: (ctx) => Dialog(
+                              backgroundColor: Colors.transparent,
+                              insetPadding: const EdgeInsets.all(16),
+                              child: Stack(
+                                alignment: Alignment.topRight,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: InteractiveViewer(
+                                      child: Image(image: previewImage, fit: BoxFit.contain),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const CircleAvatar(
+                                      backgroundColor: Colors.black54,
+                                      child: Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                                    ),
+                                    onPressed: () => Navigator.of(ctx).pop(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          height: 190,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            color: isDark ? const Color(0xFF131D18) : const Color(0xFFE2E8F0),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image(
+                                  image: previewImage,
+                                  fit: BoxFit.cover,
+                                ),
+                                Positioned(
+                                  top: 10,
+                                  left: 10,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.65),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          s.tr('Captured Scale Photo', 'صورة كاميرا الميزان'),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 10,
+                                  right: 10,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.65),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.fullscreen_rounded, size: 14, color: Colors.white70),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          s.tr('Tap to expand', 'اضغط للتكبير'),
+                                          style: const TextStyle(color: Colors.white70, fontSize: 10.5),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 14),
 

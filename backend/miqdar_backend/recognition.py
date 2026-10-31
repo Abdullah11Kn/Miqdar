@@ -282,7 +282,7 @@ class GeminiRecognitionProvider:
             except urllib.error.HTTPError as exc:
                 details = exc.read().decode("utf-8", errors="replace")[:500]
                 last_error = RuntimeError(f"Gemini API returned HTTP {exc.code}: {details}")
-                if exc.code in (429, 500, 502, 503, 504) and model_name != models_to_try[-1]:
+                if exc.code in (404, 429, 500, 502, 503, 504) and model_name != models_to_try[-1]:
                     continue
                 raise last_error from exc
             except urllib.error.URLError as exc:
@@ -301,7 +301,32 @@ class GeminiRecognitionProvider:
         return []
 
 
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
+DEFAULT_FALLBACKS = ("gemini-3-flash-preview", "gemini-2.5-flash-image", "gemini-flash-latest")
+
+
+def _load_env_if_needed() -> None:
+    try:
+        from pathlib import Path
+        for candidate in [
+            Path(".env"),
+            Path("backend/.env"),
+            Path(__file__).resolve().parent.parent.parent / ".env",
+            Path.home() / ".miqdar_env",
+        ]:
+            if candidate.is_file():
+                with candidate.open(encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except Exception:
+        pass
+
+
 def configured_provider() -> RecognitionProvider:
+    _load_env_if_needed()
     provider_name = os.environ.get("MIQDAR_RECOGNITION_PROVIDER", "").casefold().strip()
     if provider_name == "mock":
         return MockRecognitionProvider()
@@ -309,13 +334,14 @@ def configured_provider() -> RecognitionProvider:
     if provider_name == "gemini" or (not provider_name and gemini_key):
         if not gemini_key:
             raise RuntimeError(
-                "MIQDAR_RECOGNITION_PROVIDER=gemini requires GEMINI_API_KEY"
+                "MIQDAR_RECOGNITION_PROVIDER is set to 'gemini' but GEMINI_API_KEY is missing or empty. "
+                "Please configure GEMINI_API_KEY in your .env file."
             )
-        raw_fallbacks = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3.5-flash-lite")
+        raw_fallbacks = os.environ.get("GEMINI_FALLBACK_MODELS", ",".join(DEFAULT_FALLBACKS))
         fallbacks = tuple(m.strip() for m in raw_fallbacks.split(",") if m.strip())
         return GeminiRecognitionProvider(
             api_key=gemini_key,
-            model=os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite").strip(),
+            model=os.environ.get("GEMINI_MODEL", DEFAULT_GEMINI_MODEL).strip(),
             api_base=os.environ.get(
                 "GEMINI_API_BASE", "https://generativelanguage.googleapis.com"
             ).strip(),
