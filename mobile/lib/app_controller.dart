@@ -153,7 +153,7 @@ class MiqdarController extends ChangeNotifier {
   void _startLiveScaleSyncTimer() {
     _liveScaleTimer?.cancel();
     _liveScaleTimer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
-      if (isApiOnline && scaleDevice.paired) {
+      if (scaleDevice.paired) {
         unawaited(syncScaleLive());
       }
     });
@@ -277,7 +277,7 @@ class MiqdarController extends ChangeNotifier {
   }
 
   Future<void> syncScaleLive() async {
-    if (!isApiOnline || !scaleDevice.paired) return;
+    if (!scaleDevice.paired) return;
     try {
       final data = await apiService.getScaleLive();
       if (data.containsKey('live_weight_g')) {
@@ -291,6 +291,9 @@ class MiqdarController extends ChangeNotifier {
           online: true,
           lastSeen: DateTime.now(),
         );
+        if (!isApiOnline) {
+          connectionStatus = 'API online • Live Scale';
+        }
 
         // Two-way sync: detect if a meal capture was triggered on the scale hardware
         if (data['latest_capture'] is Map<String, dynamic>) {
@@ -304,12 +307,16 @@ class MiqdarController extends ChangeNotifier {
             try {
               meals = await localDatabase.loadMeals(days: 90);
             } catch (_) {}
-            notifyListeners();
           }
         }
         notifyListeners();
       }
-    } catch (_) {}
+    } catch (_) {
+      if (scaleDevice.online) {
+        scaleDevice = scaleDevice.copyWith(online: false);
+        notifyListeners();
+      }
+    }
   }
 
   Future<RecognitionResult> captureFromScale({String? hint}) async {

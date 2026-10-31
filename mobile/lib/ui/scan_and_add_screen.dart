@@ -215,6 +215,28 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _captureFromScaleCamera() async {
     final controller = MiqdarScope.of(context);
     final s = S.of(context);
+
+    if (!controller.scaleDevice.online) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.tr(
+              'Scale is offline. Make sure ./start_cloudflare_tunnel.sh and python3 app.py are running on the Raspberry Pi.',
+              'الميزان غير متصل. يرجى التأكد من تشغيل النفق start_cloudflare_tunnel.sh والتطبيق على الراسبيري باي.',
+            ),
+          ),
+          backgroundColor: const Color(0xFFD97706),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: s.tr('Configure URL', 'ضبط الرابط'),
+            textColor: Colors.white,
+            onPressed: () => showApiUrlDialog(context, controller),
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => lastError = null);
     try {
       final res = await controller.captureFromScale();
@@ -236,14 +258,20 @@ class _ScanScreenState extends State<ScanScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      final rawMsg = e.toString().replaceFirst('Exception: ', '').replaceFirst('ApiException: ', '');
       setState(() {
-        lastError = RecognitionException('SCALE_CAPTURE_ERROR', e.toString());
+        lastError = RecognitionException('SCALE_CAPTURE_ERROR', rawMsg);
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(s.tr('Scale camera capture failed: $e', 'فشل الالتقاط من كاميرا الميزان: $e')),
+          content: Text(rawMsg),
           backgroundColor: MiqdarColors.danger,
           behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: s.tr('Change URL', 'تغيير الرابط'),
+            textColor: Colors.white,
+            onPressed: () => showApiUrlDialog(context, controller),
+          ),
         ),
       );
     }
@@ -895,7 +923,7 @@ class _ScanScreenState extends State<ScanScreen> {
             label: Text(
               controller.busy
                   ? s.tr('Capturing & Analyzing via Gemini...', 'جاري الالتقاط والتحليل عبر جيميني...')
-                  : s.tr('📸 Capture from Scale Camera', '📸 التقط بكاميرا الميزان وحلل'),
+                  : s.tr('Capture from Scale Camera', 'التقاط بكاميرا الميزان وحلل'),
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
             ),
           ),
@@ -1160,27 +1188,44 @@ class _ScanScreenState extends State<ScanScreen> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: scale.online
-                            ? (isLiveMode
-                                ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                                : const Color(0xFF3B82F6).withValues(alpha: 0.15))
-                            : Colors.grey.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        scale.online
-                            ? (isLiveMode ? s.tr('LIVE', 'مباشر') : s.tr('ONLINE', 'متصل'))
-                            : s.tr('OFFLINE', 'غير متصل'),
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
+                    InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () => showApiUrlDialog(context, controller),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
                           color: scale.online
-                              ? (isLiveMode ? const Color(0xFF059669) : const Color(0xFF2563EB))
-                              : const Color(0xFF6B7280),
+                              ? (isLiveMode
+                                  ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                                  : const Color(0xFF3B82F6).withValues(alpha: 0.15))
+                              : Colors.grey.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              scale.online
+                                  ? (isLiveMode ? s.tr('LIVE', 'مباشر') : s.tr('ONLINE', 'متصل'))
+                                  : s.tr('OFFLINE', 'غير متصل'),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                                color: scale.online
+                                    ? (isLiveMode ? const Color(0xFF059669) : const Color(0xFF2563EB))
+                                    : const Color(0xFF6B7280),
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            Icon(
+                              Icons.edit_outlined,
+                              size: 10,
+                              color: scale.online
+                                  ? (isLiveMode ? const Color(0xFF059669) : const Color(0xFF2563EB))
+                                  : const Color(0xFF6B7280),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1250,8 +1295,43 @@ class _ScanScreenState extends State<ScanScreen> {
           ),
           const SizedBox(height: 10),
 
-          // 2. Live Sync status banner / Revert to Live Scale button
-          if (!isLiveMode)
+          // 2. Offline banner OR Live Sync status banner / Revert to Live Scale button
+          if (!scale.online)
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => showApiUrlDialog(context, controller),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withValues(alpha: isDark ? 0.15 : 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_off_rounded, size: 16, color: Color(0xFFDC2626)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        s.tr(
+                          'Scale offline • Tap to enter Cloudflare URL',
+                          'الميزان غير متصل • اضغط لضبط رابط النفق',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFDC2626),
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Color(0xFFDC2626)),
+                  ],
+                ),
+              ),
+            )
+          else if (!isLiveMode)
             InkWell(
               borderRadius: BorderRadius.circular(10),
               onTap: () => _setWeight(scale.effectiveWeightG, source: PortionSource.scale),
@@ -1474,7 +1554,7 @@ class _ScanScreenState extends State<ScanScreen> {
             label: Text(
               controller.busy
                   ? s.tr('Capturing & Analyzing via Gemini...', 'جاري الالتقاط والتحليل عبر جيميني...')
-                  : s.tr('📸 Capture from Scale Camera', '📸 التقط وزِن بكاميرا الميزان'),
+                  : s.tr('Capture from Scale Camera', 'التقاط وزِن بكاميرا الميزان'),
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
             ),
           ),

@@ -1079,92 +1079,96 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
   }
 
   void _showEndpointDialog(BuildContext context, MiqdarController controller) {
-    final s = S.of(context);
-    final textController = TextEditingController(text: controller.apiService.baseUrl);
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(s.tr('Set API Server URL', 'تعيين عنوان خادم مقدار')),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                s.tr(
-                  'Enter your Cloudflare Tunnel URL (for internet connection) or local IP of your Raspberry Pi scale.',
-                  'أدخل رابط نفق كلاودفلير (للاتصال عبر الإنترنت) أو عنوان IP المحلي لميزان الراسبيري باي.',
-                ),
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: textController,
-                keyboardType: TextInputType.url,
-                decoration: const InputDecoration(
-                  labelText: 'API Base URL',
-                  hintText: 'https://xxxx.trycloudflare.com',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(s.tr('Quick Presets & Cloudflare:', 'إعدادات سريعة وكلاودفلير:'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  ActionChip(
-                    avatar: const Icon(Icons.cloud_sync, size: 16),
-                    label: const Text('Cloudflare Tunnel (https://)'),
-                    onPressed: () {
-                      if (!textController.text.startsWith('https://')) {
-                        textController.text = 'https://';
-                        textController.selection = TextSelection.fromPosition(
-                          TextPosition(offset: textController.text.length),
-                        );
-                      }
-                    },
-                  ),
-                  ActionChip(
-                    label: const Text('Pi LAN (192.168.137.166)'),
-                    onPressed: () => textController.text = 'http://192.168.137.166:8080',
-                  ),
-                  ActionChip(
-                    label: const Text('Localhost (127.0.0.1)'),
-                    onPressed: () => textController.text = 'http://127.0.0.1:8080',
-                  ),
-                  ActionChip(
-                    label: const Text('Android Sim (10.0.2.2)'),
-                    onPressed: () => textController.text = 'http://10.0.2.2:8080',
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(s.tr('Cancel', 'إلغاء')),
-          ),
-          FilledButton(
-            onPressed: () {
-              var newUrl = textController.text.trim();
-              if (newUrl.isNotEmpty) {
-                if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
-                  newUrl = 'https://$newUrl';
-                }
-                controller.setApiBaseUrl(newUrl);
-              }
-              Navigator.of(ctx).pop();
-            },
-            child: Text(s.tr('Save & Connect', 'حفظ والاتصال')),
-          ),
-        ],
-      ),
-    );
+    showApiUrlDialog(context, controller);
   }
+}
+
+Future<void> showApiUrlDialog(BuildContext context, MiqdarController controller) {
+  final s = S.of(context);
+  final textController = TextEditingController(text: controller.apiService.baseUrl);
+
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(s.tr('Set API Server URL', 'تعيين عنوان خادم مقدار')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              s.tr(
+                'Enter your Cloudflare Tunnel URL (for internet connection) or local IP of your Raspberry Pi scale.',
+                'أدخل رابط نفق كلاودفلير (للاتصال عبر الإنترنت) أو عنوان IP المحلي لميزان الراسبيري باي.',
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: textController,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'API Base URL',
+                hintText: 'https://xxxx.trycloudflare.com',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(s.tr('Quick Presets & Cloudflare:', 'إعدادات سريعة وكلاودفلير:'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  avatar: const Icon(Icons.cloud_sync, size: 16),
+                  label: const Text('Cloudflare Tunnel (https://)'),
+                  onPressed: () {
+                    if (!textController.text.startsWith('https://')) {
+                      textController.text = 'https://';
+                      textController.selection = TextSelection.fromPosition(
+                        TextPosition(offset: textController.text.length),
+                      );
+                    }
+                  },
+                ),
+                ActionChip(
+                  label: const Text('Pi LAN (192.168.137.166)'),
+                  onPressed: () => textController.text = 'http://192.168.137.166:8080',
+                ),
+                ActionChip(
+                  label: const Text('Localhost (127.0.0.1)'),
+                  onPressed: () => textController.text = 'http://127.0.0.1:8080',
+                ),
+                ActionChip(
+                  label: const Text('Android Sim (10.0.2.2)'),
+                  onPressed: () => textController.text = 'http://10.0.2.2:8080',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text(s.tr('Cancel', 'إلغاء')),
+        ),
+        FilledButton(
+          onPressed: () {
+            var newUrl = textController.text.trim();
+            if (newUrl.isNotEmpty) {
+              if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+                newUrl = 'https://$newUrl';
+              }
+              controller.setApiBaseUrl(newUrl);
+            }
+            Navigator.of(ctx).pop();
+          },
+          child: Text(s.tr('Save & Connect', 'حفظ والاتصال')),
+        ),
+      ],
+    ),
+  );
 }
 

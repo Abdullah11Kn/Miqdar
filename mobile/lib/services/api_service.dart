@@ -313,7 +313,16 @@ class ApiService {
         )
         .timeout(requestTimeout);
     if (response.statusCode != 200) {
-      throw ApiException('Scale capture failed: ${response.body}');
+      final bodyStr = response.body;
+      if (bodyStr.contains('1033') || response.statusCode == 530) {
+        throw const ApiException(
+          'Cloudflare Tunnel is unreachable (Error 1033). Please check that ./start_cloudflare_tunnel.sh and python3 app.py are running on your Raspberry Pi and the current URL matches.',
+        );
+      }
+      if (bodyStr.contains('<!DOCTYPE') || bodyStr.contains('<html')) {
+        throw ApiException('Server returned HTTP ${response.statusCode}. Check your Scale API URL.');
+      }
+      throw ApiException(bodyStr);
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     return RecognitionResult.fromJson(body);
