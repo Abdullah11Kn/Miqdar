@@ -621,6 +621,15 @@ class _ScanScreenState extends State<ScanScreen> {
     final s = S.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Dynamically sync live weight from physical scale when in scale mode
+    if (portionSource == PortionSource.scale && !controller.taringScale) {
+      final currentGrams = controller.scaleDevice.effectiveWeightG;
+      if ((weight - currentGrams).abs() >= 0.5) {
+        weight = currentGrams;
+        weightTextCtrl.text = currentGrams.toStringAsFixed(0);
+      }
+    }
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
       children: [
@@ -819,6 +828,7 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   Widget _buildEmptyPhotoZone(BuildContext context, S s, bool isDark) {
+    final controller = MiqdarScope.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
       decoration: BoxDecoration(
@@ -858,8 +868,8 @@ class _ScanScreenState extends State<ScanScreen> {
           const SizedBox(height: 4),
           Text(
             s.tr(
-              'Choose an image file from your Mac or snap with camera',
-              'اختر ملف صورة من الماك أو التقط صورة بالكاميرا',
+              'Snap with physical scale camera or pick a meal image file',
+              'التقط بكاميرا الميزان أو اختر ملف صورة للطبق',
             ),
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -869,24 +879,28 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
           ),
           const SizedBox(height: 18),
-          // Primary action: Choose from Mac Files
+          // Primary action: Capture with Scale Camera
           FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
               foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(46),
+              minimumSize: const Size.fromHeight(48),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               elevation: 0,
             ),
-            onPressed: _pickFromFileSystem,
-            icon: const Icon(Icons.folder_open_rounded, size: 19),
+            onPressed: controller.busy ? null : _captureFromScaleCamera,
+            icon: controller.busy
+                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.camera_alt_rounded, size: 20),
             label: Text(
-              s.tr('Choose from Mac / Files', 'اختر من ملفات الماك'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+              controller.busy
+                  ? s.tr('Capturing & Analyzing via Gemini...', 'جاري الالتقاط والتحليل عبر جيميني...')
+                  : s.tr('📸 Capture from Scale Camera', '📸 التقط بكاميرا الميزان وحلل'),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
             ),
           ),
           const SizedBox(height: 8),
-          // Secondary dual actions: Photos / Camera
+          // Secondary dual actions: Photos / Files
           Row(
             children: [
               Expanded(
@@ -898,10 +912,10 @@ class _ScanScreenState extends State<ScanScreen> {
                     ),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  onPressed: () => _pickImage(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_library_outlined, size: 16),
+                  onPressed: _pickFromFileSystem,
+                  icon: const Icon(Icons.folder_open_rounded, size: 16),
                   label: Text(
-                    s.tr('Photos', 'الصور'),
+                    s.tr('Choose File', 'ملف صورة'),
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ),
@@ -916,10 +930,10 @@ class _ScanScreenState extends State<ScanScreen> {
                     ),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  onPressed: () => _pickImage(ImageSource.camera),
-                  icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                  onPressed: () => _pickImage(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library_outlined, size: 16),
                   label: Text(
-                    s.tr('Camera', 'الكاميرا'),
+                    s.tr('Photos', 'الصور'),
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ),
@@ -1098,49 +1112,105 @@ class _ScanScreenState extends State<ScanScreen> {
   ) {
     final textPrimary = isDark ? Colors.white : const Color(0xFF111815);
     final textSecondary = isDark ? const Color(0xFF9CA8A1) : const Color(0xFF5A655E);
+    final isLiveMode = portionSource == PortionSource.scale;
 
     return SurfaceCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Live Scale Status & Tare Button
+          // 1. Live Scale Telemetry Header & Tare Button
           Row(
             children: [
+              // Online / Live Pulse indicator
               Container(
-                width: 9,
-                height: 9,
+                width: 10,
+                height: 10,
                 decoration: BoxDecoration(
-                  color: portionSource == PortionSource.scale
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFF59E0B),
+                  color: scale.online
+                      ? (isLiveMode ? const Color(0xFF10B981) : const Color(0xFF3B82F6))
+                      : const Color(0xFF9CA3AF),
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: (portionSource == PortionSource.scale
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFF59E0B))
-                          .withValues(alpha: 0.4),
-                      blurRadius: 6,
-                    ),
-                  ],
+                  boxShadow: scale.online
+                      ? [
+                          BoxShadow(
+                            color: (isLiveMode ? const Color(0xFF10B981) : const Color(0xFF3B82F6))
+                                .withValues(alpha: 0.5),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  portionSource == PortionSource.scale
-                      ? '${scale.deviceId} • ${s.tr("Live Scale", "قراءة الميزان")}'
-                      : s.tr('Manual Portion Weight', 'وزن يدوي للحصة'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: textSecondary,
-                  ),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        scale.displayName.isNotEmpty ? scale.displayName : scale.deviceId,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: scale.online
+                            ? (isLiveMode
+                                ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                                : const Color(0xFF3B82F6).withValues(alpha: 0.15))
+                            : Colors.grey.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        scale.online
+                            ? (isLiveMode ? s.tr('LIVE', 'مباشر') : s.tr('ONLINE', 'متصل'))
+                            : s.tr('OFFLINE', 'غير متصل'),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                          color: scale.online
+                              ? (isLiveMode ? const Color(0xFF059669) : const Color(0xFF2563EB))
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              // Battery Indicator
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.battery_charging_full_rounded,
+                    size: 15,
+                    color: scale.batteryPercent > 20
+                        ? (isDark ? const Color(0xFF34D399) : const Color(0xFF059669))
+                        : const Color(0xFFEF4444),
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    '${scale.batteryPercent}%',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 10),
+              // Tare Button
               TextButton.icon(
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
@@ -1170,7 +1240,7 @@ class _ScanScreenState extends State<ScanScreen> {
                           ),
                         );
                       },
-                icon: const Icon(Icons.exposure_zero_rounded, size: 15),
+                icon: const Icon(Icons.exposure_zero_rounded, size: 14),
                 label: Text(
                   s.tr('Tare', 'تصفير'),
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
@@ -1178,9 +1248,107 @@ class _ScanScreenState extends State<ScanScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+
+          // 2. Live Sync status banner / Revert to Live Scale button
+          if (!isLiveMode)
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => _setWeight(scale.effectiveWeightG, source: PortionSource.scale),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.15 : 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFD97706)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        s.tr(
+                          'Manual portion: ${weight.toStringAsFixed(0)} g',
+                          'وزن يدوي: ${weight.toStringAsFixed(0)} غرام',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFB45309),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      s.tr('↺ Sync Live (${scale.effectiveWeightG.toStringAsFixed(0)}g)', '↺ ربط بالميزان (${scale.effectiveWeightG.toStringAsFixed(0)}غ)'),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: isDark ? 0.12 : 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.sensors_rounded,
+                    size: 15,
+                    color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      scale.isStable
+                          ? s.tr('Live Weight Active • Place items on scale', 'قراءة الميزان المباشرة نشطة • ضع الصحن على الميزان')
+                          : s.tr('Measuring live weight in motion…', 'جاري قياس الوزن المباشر…'),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: scale.isStable
+                          ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                          : const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      scale.isStable ? s.tr('STABLE', 'مستقر') : s.tr('MOTION', 'حركة'),
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.4,
+                        color: scale.isStable
+                            ? (isDark ? const Color(0xFF34D399) : const Color(0xFF059669))
+                            : const Color(0xFFD97706),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: 12),
 
-          // Tactile Digital Scale Display + Stepper Buttons
+          // 3. Tactile Digital Scale Display + Stepper Buttons
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -1202,7 +1370,7 @@ class _ScanScreenState extends State<ScanScreen> {
                     textAlign: TextAlign.center,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     style: TextStyle(
-                      fontSize: 30,
+                      fontSize: 32,
                       fontWeight: FontWeight.w900,
                       color: textPrimary,
                       letterSpacing: -0.8,
@@ -1240,7 +1408,7 @@ class _ScanScreenState extends State<ScanScreen> {
           ),
           const SizedBox(height: 10),
 
-          // Clean Quick Portion Presets
+          // 4. Clean Quick Portion Presets
           Row(
             children: [100.0, 150.0, 200.0, 300.0].map((preset) {
               final selected = (weight - preset).abs() < 2;
@@ -1285,9 +1453,34 @@ class _ScanScreenState extends State<ScanScreen> {
               );
             }).toList(),
           ),
+          const SizedBox(height: 14),
+
+          // 5. Scale Camera Capture & Recognize Action Button
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+            onPressed: controller.busy ? null : _captureFromScaleCamera,
+            icon: controller.busy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.camera_alt_rounded, size: 20),
+            label: Text(
+              controller.busy
+                  ? s.tr('Capturing & Analyzing via Gemini...', 'جاري الالتقاط والتحليل عبر جيميني...')
+                  : s.tr('📸 Capture from Scale Camera', '📸 التقط وزِن بكاميرا الميزان'),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            ),
+          ),
           const SizedBox(height: 12),
 
-          // Optional AI Context Input
+          // 6. Optional AI Context Input
           TextField(
             controller: hintTextCtrl,
             style: const TextStyle(fontSize: 13.5),

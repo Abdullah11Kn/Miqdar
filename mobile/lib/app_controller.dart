@@ -269,6 +269,13 @@ class MiqdarController extends ChangeNotifier {
     notifyListeners();
   }
 
+  String? _lastSeenCaptureEventId;
+  RecognitionResult? latestExternalScaleCapture;
+
+  void clearExternalScaleCapture() {
+    latestExternalScaleCapture = null;
+  }
+
   Future<void> syncScaleLive() async {
     if (!isApiOnline || !scaleDevice.paired) return;
     try {
@@ -284,6 +291,22 @@ class MiqdarController extends ChangeNotifier {
           online: true,
           lastSeen: DateTime.now(),
         );
+
+        // Two-way sync: detect if a meal capture was triggered on the scale hardware
+        if (data['latest_capture'] is Map<String, dynamic>) {
+          final capJson = data['latest_capture'] as Map<String, dynamic>;
+          final eventId = capJson['event_id'] as String?;
+          if (eventId != null && eventId != _lastSeenCaptureEventId) {
+            _lastSeenCaptureEventId = eventId;
+            final res = RecognitionResult.fromJson(capJson);
+            latestExternalScaleCapture = res;
+            lastRecognition = res;
+            try {
+              meals = await localDatabase.loadMeals(days: 90);
+            } catch (_) {}
+            notifyListeners();
+          }
+        }
         notifyListeners();
       }
     } catch (_) {}
@@ -291,7 +314,12 @@ class MiqdarController extends ChangeNotifier {
 
   Future<RecognitionResult> captureFromScale({String? hint}) async {
     final result = await apiService.captureFromScale(hint: hint);
+    _lastSeenCaptureEventId = result.eventId;
+    latestExternalScaleCapture = result;
     lastRecognition = result;
+    try {
+      meals = await localDatabase.loadMeals(days: 90);
+    } catch (_) {}
     notifyListeners();
     return result;
   }

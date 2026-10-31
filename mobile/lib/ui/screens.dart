@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../app_controller.dart';
 import '../l10n/strings.dart';
 import '../theme.dart';
 import 'diary_and_detail_screen.dart';
@@ -29,12 +30,33 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int index = widget.initialIndex;
+  String? _handledExternalCaptureId;
+
+  void _checkExternalCapture(MiqdarController controller) {
+    final capture = controller.latestExternalScaleCapture;
+    if (capture != null && capture.eventId != _handledExternalCaptureId) {
+      _handledExternalCaptureId = capture.eventId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => RecognitionResultScreen(
+              result: capture,
+              previewBytes: capture.imageBytes,
+            ),
+          ),
+        );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = MiqdarScope.of(context);
     final s = S.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    _checkExternalCapture(controller);
 
     // 5 Primary Destinations (Section 4.1):
     // 0: Home

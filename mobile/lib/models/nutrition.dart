@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 enum PortionSource {
@@ -462,6 +463,9 @@ class RecognitionResult {
       cached: json['recognition_cached'] as bool? ?? false,
       recognitionMs: (timing['recognition_ms'] as num?)?.toInt() ?? 0,
       hintUsed: json['hint_used'] as String?,
+      imageBytes: json['image_base64'] != null && (json['image_base64'] as String).isNotEmpty
+          ? base64Decode(json['image_base64'] as String)
+          : null,
     );
   }
 }

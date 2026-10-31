@@ -130,6 +130,10 @@ class ScaleHardwareAdapter:
         self._sim_stable = True
         self._sim_thread: Optional[threading.Thread] = None
 
+        # Two-way sync state for mobile app & physical scale
+        self.latest_capture_event: Optional[Dict[str, Any]] = None
+        self._event_counter = 0
+
         PHOTOS_DIR.mkdir(exist_ok=True)
         self._detect_hardware()
 
@@ -277,6 +281,42 @@ class ScaleHardwareAdapter:
         with self._lock:
             self._sim_weight = max(0.0, float(grams))
 
+    def record_capture_event(self, result: Dict[str, Any], img_bytes: bytes, grams: float, source: str = "scale") -> Dict[str, Any]:
+        """Stores the latest capture event for real-time mobile app and scale synchronization."""
+        with self._lock:
+            self._event_counter += 1
+            img_b64 = None
+            if img_bytes:
+                try:
+                    if HAS_PIL:
+                        import io
+                        im = Image.open(io.BytesIO(img_bytes))
+                        im.thumbnail((480, 360))
+                        buf = io.BytesIO()
+                        im.convert("RGB").save(buf, format="JPEG", quality=75)
+                        img_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+                    else:
+                        img_b64 = base64.b64encode(img_bytes).decode("ascii")
+                except Exception:
+                    pass
+
+            event = {
+                "event_id": f"cap-{self._event_counter}-{int(time.time())}",
+                "timestamp": time.time(),
+                "source": source,
+                "weight_g": float(grams),
+                "food": result.get("food", {}),
+                "nutrients": result.get("nutrients", {}),
+                "candidates": result.get("candidates", []),
+                "timing": result.get("timing", {}),
+                "confidence": result.get("confidence", 1.0),
+                "recognition_provider": result.get("recognition_provider", "gemini"),
+                "recognition_model": result.get("recognition_model", "gemini-3.1-flash-lite"),
+                "image_base64": img_b64,
+            }
+            self.latest_capture_event = event
+            return event
+
     def status(self) -> Dict[str, Any]:
         """Telemetry diagnostics."""
         w = self.get_weight()
@@ -288,6 +328,7 @@ class ScaleHardwareAdapter:
             "tare_g": round(self._sim_tare, 1) if self.is_mock else 0.0,
             "capacity_g": 5000,
             "battery_pct": self._read_battery_percent(),
+            "latest_capture": self.latest_capture_event,
         }
 
     def _read_battery_percent(self) -> int:
@@ -501,6 +542,18 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
                     meal_type=payload.get("meal_type", "Meal"),
                     hint=payload.get("hint"),
                 )
+                cap_event = self.scale_hw.record_capture_event(result, img_bytes, grams=float(w), source="phone")
+                result["event_id"] = cap_event["event_id"]
+                result["image_base64"] = cap_event.get("image_base64")
+
+                # Update physical scale GUI if running so Gemini results show on the scale too!
+                gui_app = getattr(self.server, "gui_app", None)
+                if gui_app is not None:
+                    try:
+                        gui_app.root.after(0, lambda r=result, g=float(w): gui_app.show_external_result(r, g))
+                    except Exception as e:
+                        print(f"[Scale GUI] Could not update scale display: {e}")
+
                 self.send_json(200, result)
                 return
 
@@ -888,12 +941,18 @@ class ScaleTouchscreenApp:
                         raise RuntimeError("The scale reads 0 g. Put the food on the plate, then press CAPTURE.")
                 self.root.after(0, lambda g=grams: self.state.update(weight=g))
                 photo_path = self.hw.capture_photo()
-                result = analyze_and_save(Path(photo_path).read_bytes(), float(grams), self.db_path, server=self.server)
+                photo_bytes = Path(photo_path).read_bytes() if Path(photo_path).exists() else b""
+                result = analyze_and_save(photo_bytes, float(grams), self.db_path, server=self.server)
+                self.hw.record_capture_event(result, photo_bytes, grams=float(grams), source="scale")
                 self.root.after(0, lambda r=result, g=grams: self._show_results(r, g))
             except Exception as exc:
                 msg = str(exc)
                 self.root.after(0, lambda m=msg: self._show_error(m))
         threading.Thread(target=worker, daemon=True).start()
+
+    def show_external_result(self, result: Dict[str, Any], grams: float) -> None:
+        """Called when recognition is triggered remotely from mobile phone."""
+        self._show_results(result, grams)
 
     def _show_results(self, result: Dict[str, Any], grams: float) -> None:
         food = result.get("food", {})
@@ -1051,6 +1110,8 @@ def main() -> None:
             fullscreen=args.fullscreen and not args.windowed,
             server=args.server,
         )
+        if api_server is not None:
+            api_server.gui_app = app
         app.run()
     except KeyboardInterrupt:
         pass
