@@ -918,7 +918,25 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text('${s.tr("Connection status", "حالة الاتصال")}: ${controller.connectionStatus}'),
-                      Text('${s.tr("API Endpoint", "عنوان الخادم")}: ${controller.apiService.baseUrl}'),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${s.tr("API Endpoint", "عنوان الخادم")}: ${controller.apiService.baseUrl}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                            onPressed: () => _showEndpointDialog(context, controller),
+                            icon: const Icon(Icons.edit_rounded, size: 15),
+                            label: Text(s.tr('Change', 'تغيير'), style: const TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
                       Text(
                         '${s.tr("Last local alert evaluation", "زمن تقييم التنبيهات المحلي")}: ${controller.alertEvaluationMs} ms (Target ≤ 4,000 ms)',
                       ),
@@ -1059,4 +1077,78 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _showEndpointDialog(BuildContext context, MiqdarController controller) {
+    final s = S.of(context);
+    final textController = TextEditingController(text: controller.apiService.baseUrl);
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.tr('Set API Server URL', 'تعيين عنوان خادم مقدار')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                s.tr(
+                  'Enter the IP address and port of your Raspberry Pi scale or local machine.',
+                  'أدخل عنوان IP ومنفذ ميزان الراسبيري باي أو الجهاز المحلي.',
+                ),
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: textController,
+                decoration: const InputDecoration(
+                  labelText: 'API Base URL',
+                  hintText: 'http://192.168.137.166:8080',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(s.tr('Quick Presets:', 'إعدادات سريعة:'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ActionChip(
+                    label: const Text('Pi (192.168.137.166)'),
+                    onPressed: () => textController.text = 'http://192.168.137.166:8080',
+                  ),
+                  ActionChip(
+                    label: const Text('Localhost (127.0.0.1)'),
+                    onPressed: () => textController.text = 'http://127.0.0.1:8080',
+                  ),
+                  ActionChip(
+                    label: const Text('Android Sim (10.0.2.2)'),
+                    onPressed: () => textController.text = 'http://10.0.2.2:8080',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(s.tr('Cancel', 'إلغاء')),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newUrl = textController.text.trim();
+              if (newUrl.isNotEmpty) {
+                controller.setApiBaseUrl(newUrl);
+              }
+              Navigator.of(ctx).pop();
+            },
+            child: Text(s.tr('Save & Connect', 'حفظ والاتصال')),
+          ),
+        ],
+      ),
+    );
+  }
 }
+

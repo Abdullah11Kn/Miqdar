@@ -212,6 +212,43 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
+  Future<void> _captureFromScaleCamera() async {
+    final controller = MiqdarScope.of(context);
+    final s = S.of(context);
+    setState(() => lastError = null);
+    try {
+      final res = await controller.captureFromScale();
+      if (!mounted) return;
+      setState(() {
+        weight = res.weightG;
+        weightTextCtrl.text = res.weightG.toStringAsFixed(0);
+        portionSource = PortionSource.scale;
+        imageBytes = res.imageBytes;
+        imageFileName = '${res.nameEn}.jpg';
+      });
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RecognitionResultScreen(
+            result: res,
+            previewBytes: res.imageBytes,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        lastError = RecognitionException('SCALE_CAPTURE_ERROR', e.toString());
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.tr('Scale camera capture failed: $e', 'فشل الالتقاط من كاميرا الميزان: $e')),
+          backgroundColor: MiqdarColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Future<void> _selectSamplePhoto(
     ({String asset, String labelEn, String labelAr, double defaultWeightG}) sample,
   ) async {
@@ -325,6 +362,18 @@ class _ScanScreenState extends State<ScanScreen> {
               onTap: () {
                 Navigator.of(ctx).pop();
                 _pickImage(ImageSource.camera);
+              },
+            ),
+            const SizedBox(height: 10),
+            _PhotoSourceTile(
+              icon: Icons.scale_rounded,
+              title: s.tr('Scale Camera Snapshot', 'التقاط بكاميرا الميزان'),
+              subtitle: s.tr('Trigger Camera Module 3 snapshot on physical scale', 'التقاط صورة للطبق باستخدام كاميرا الميزان المدمجة'),
+              highlight: false,
+              isDark: isDark,
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _captureFromScaleCamera();
               },
             ),
             const SizedBox(height: 10),

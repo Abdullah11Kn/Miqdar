@@ -85,7 +85,7 @@ class MiqdarHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
 
-        api_endpoints = {"/health", "/foods", "/history", "/goals", "/health-profile", "/alerts"}
+        api_endpoints = {"/health", "/foods", "/history", "/goals", "/health-profile", "/alerts", "/scale/live"}
         if parsed.path not in api_endpoints:
             web_dir = Path(__file__).resolve().parents[2] / "mobile" / "build" / "web"
             if web_dir.is_dir():
@@ -118,7 +118,7 @@ class MiqdarHandler(BaseHTTPRequestHandler):
                             self.wfile.write(content)
                         return
 
-        if parsed.path != "/health" and not self.require_authorization():
+        if parsed.path not in ("/health", "/scale/live") and not self.require_authorization():
             return
         try:
             with connect(self.db_path) as connection:
@@ -136,11 +136,28 @@ class MiqdarHandler(BaseHTTPRequestHandler):
                             "configured": False,
                             "message": str(exc),
                         }
+                    scale_hw = getattr(self.server, "scale_hw", None)
+                    scale_data = scale_hw.status() if scale_hw else {"mode": "standalone", "live_weight_g": 0.0, "online": True}
                     self.send_json(200, {
                         "status": "ok",
                         "database": str(self.db_path.name),
                         "recognition": provider_status,
+                        "scale": scale_data,
                     })
+                elif parsed.path == "/scale/live":
+                    scale_hw = getattr(self.server, "scale_hw", None)
+                    if scale_hw:
+                        self.send_json(200, scale_hw.status())
+                    else:
+                        self.send_json(200, {
+                            "mode": "standalone",
+                            "live_weight_g": 0.0,
+                            "is_stable": True,
+                            "is_overloaded": False,
+                            "tare_g": 0.0,
+                            "capacity_g": 5000,
+                            "battery_pct": 100,
+                        })
                 elif parsed.path == "/foods":
                     self.send_json(200, {"foods": food_search(connection, query.get("q", [""])[0])})
                 elif parsed.path == "/history":
@@ -187,7 +204,51 @@ class MiqdarHandler(BaseHTTPRequestHandler):
         try:
             payload = self.read_json()
             with connect(self.db_path) as connection:
-                if parsed.path == "/recognize":
+                if parsed.path == "/scale/tare":
+                    scale_hw = getattr(self.server, "scale_hw", None)
+                    if scale_hw:
+                        ok = scale_hw.tare()
+                        self.send_json(200, {"success": ok, "scale": scale_hw.status()})
+                    else:
+                        self.send_json(200, {"success": True, "scale": {"tare_g": 0.0, "mode": "standalone"}})
+                elif parsed.path == "/scale/capture":
+                    scale_hw = getattr(self.server, "scale_hw", None)
+                    w = scale_hw.get_stable_weight() if scale_hw else 250.0
+                    if w is None or w <= 0:
+                        w = scale_hw.get_weight() if scale_hw else 250.0
+                    if w <= 0:
+                        if scale_hw and scale_hw.is_mock:
+                            w = 250.0
+                        else:
+                            self.send_json(422, {"error": "EMPTY_SCALE", "message": "Scale reading is 0.0 g"})
+                            return
+                    photo_file = scale_hw.capture_photo() if scale_hw else None
+                    if photo_file and Path(photo_file).exists():
+                        img_bytes = Path(photo_file).read_bytes()
+                    else:
+                        img_bytes = decode_image(payload.get("image_base64"))
+                    result = recognize_food(
+                        connection,
+                        user_id=payload.get("user_id", DEMO_USER),
+                        image_bytes=img_bytes,
+                        weight_g=float(w),
+                        hint=payload.get("hint"),
+                    )
+                    food = result["food"]
+                    nutrients = result["nutrients"]
+                    meal_id = save_meal(
+                        connection,
+                        user_id=payload.get("user_id", DEMO_USER),
+                        food_id=food["food_id"],
+                        weight_g=float(w),
+                        confidence=float(result.get("confidence", 1.0)),
+                        nutrients=nutrients,
+                        meal_type=payload.get("meal_type", "Meal"),
+                    )
+                    result["meal_id"] = meal_id
+                    result["saved_to_history"] = True
+                    self.send_json(200, result)
+                elif parsed.path == "/recognize":
                     result = recognize_food(
                         connection,
                         user_id=payload.get("user_id", DEMO_USER),

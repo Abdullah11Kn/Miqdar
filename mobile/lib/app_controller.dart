@@ -179,6 +179,12 @@ class MiqdarController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setApiBaseUrl(String newUrl) {
+    apiService.updateBaseUrl(newUrl);
+    checkServer();
+    notifyListeners();
+  }
+
   void setSelectedDate(DateTime date) {
     selectedDate = DateTime(date.year, date.month, date.day);
     notifyListeners();
@@ -206,6 +212,11 @@ class MiqdarController extends ChangeNotifier {
     taringScale = true;
     scaleDevice = scaleDevice.copyWith(isStable: false, clearLockedWeight: true);
     notifyListeners();
+    if (isApiOnline) {
+      try {
+        await apiService.remoteScaleTare();
+      } catch (_) {}
+    }
     await Future<void>.delayed(const Duration(milliseconds: 450));
     scaleDevice = scaleDevice.copyWith(
       tareOffsetG: scaleDevice.liveWeightG,
@@ -216,6 +227,33 @@ class MiqdarController extends ChangeNotifier {
     );
     taringScale = false;
     notifyListeners();
+  }
+
+  Future<void> syncScaleLive() async {
+    if (!isApiOnline || !scaleDevice.paired) return;
+    try {
+      final data = await apiService.getScaleLive();
+      if (data.containsKey('live_weight_g')) {
+        final w = (data['live_weight_g'] as num).toDouble();
+        final stable = data['is_stable'] as bool? ?? true;
+        final battery = (data['battery_pct'] as num?)?.toInt() ?? scaleDevice.batteryPercent;
+        scaleDevice = scaleDevice.copyWith(
+          liveWeightG: w,
+          isStable: stable,
+          batteryPercent: battery,
+          online: true,
+          lastSeen: DateTime.now(),
+        );
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<RecognitionResult> captureFromScale({String? hint}) async {
+    final result = await apiService.captureFromScale(hint: hint);
+    lastRecognition = result;
+    notifyListeners();
+    return result;
   }
 
   void setSimulatedScaleWeight(double grams, {bool fromHardware = true}) {

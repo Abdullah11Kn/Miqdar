@@ -89,11 +89,19 @@ class ApiService {
   })  : baseUrl = baseUrl ?? _defaultBaseUrl(),
         _client = client ?? http.Client();
 
-  final String baseUrl;
+  String baseUrl;
   final String apiToken;
   final http.Client _client;
   static const requestTimeout = Duration(seconds: 25);
   static const demoImageAsset = 'assets/demo/kabsa.jpg';
+
+  void updateBaseUrl(String newUrl) {
+    var cleaned = newUrl.trim();
+    while (cleaned.endsWith('/')) {
+      cleaned = cleaned.substring(0, cleaned.length - 1);
+    }
+    baseUrl = cleaned;
+  }
 
   Map<String, String> get _jsonHeaders => {
         'Content-Type': 'application/json',
@@ -268,6 +276,47 @@ class ApiService {
       throw ApiException('Server health check failed: ${response.body}');
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  /// Fetches real-time telemetry from physical scale (/scale/live).
+  Future<Map<String, dynamic>> getScaleLive() async {
+    final response = await _client
+        .get(Uri.parse('$baseUrl/scale/live'), headers: _jsonHeaders)
+        .timeout(const Duration(seconds: 4));
+    if (response.statusCode != 200) {
+      throw ApiException('Failed to read live scale: ${response.body}');
+    }
+    return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// Sends a remote Tare command to the physical scale (/scale/tare).
+  Future<bool> remoteScaleTare() async {
+    try {
+      final response = await _client
+          .post(Uri.parse('$baseUrl/scale/tare'), headers: _jsonHeaders, body: jsonEncode({}))
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        return body['success'] as bool? ?? true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /// Triggers physical scale photo capture and load-cell measurement.
+  Future<RecognitionResult> captureFromScale({String? hint}) async {
+    final response = await _client
+        .post(
+          Uri.parse('$baseUrl/scale/capture'),
+          headers: _jsonHeaders,
+          body: jsonEncode({if (hint != null) 'hint': hint}),
+        )
+        .timeout(requestTimeout);
+    if (response.statusCode != 200) {
+      throw ApiException('Scale capture failed: ${response.body}');
+    }
+    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    return RecognitionResult.fromJson(body);
   }
 
   Future<void> saveHealthProfile(HealthProfile profile) async {
