@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 enum PortionSource {
@@ -462,7 +463,19 @@ class RecognitionResult {
       cached: json['recognition_cached'] as bool? ?? false,
       recognitionMs: (timing['recognition_ms'] as num?)?.toInt() ?? 0,
       hintUsed: json['hint_used'] as String?,
+      imageBytes: _decodeImage(json['image_base64']),
     );
+  }
+
+  /// Photo returned by the scale (/scale/capture), base64 JPEG; null when absent or invalid.
+  static Uint8List? _decodeImage(Object? value) {
+    if (value is! String || value.isEmpty) return null;
+    try {
+      final raw = value.contains(',') ? value.substring(value.indexOf(',') + 1) : value;
+      return base64Decode(raw);
+    } catch (_) {
+      return null;
+    }
   }
 }
 

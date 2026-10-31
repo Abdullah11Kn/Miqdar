@@ -301,7 +301,11 @@ class ScaleHardwareAdapter:
 # ==============================================================================
 def _post_json(url: str, payload: dict, timeout: float = 60.0) -> dict:
     data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+    headers = {"Content-Type": "application/json"}
+    token = os.environ.get("MIQDAR_API_TOKEN", "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
@@ -501,6 +505,8 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
                     meal_type=payload.get("meal_type", "Meal"),
                     hint=payload.get("hint"),
                 )
+                result["image_base64"] = _photo_for_app(img_bytes)   # the app shows the scale photo
+                result["photo_file"] = Path(photo_file).name
                 self.send_json(200, result)
                 return
 
@@ -730,6 +736,30 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
     return buttons
 
 
+def _num(d: Dict[str, Any], *keys: str) -> float:
+    """First numeric value found under any of the keys (backend names first, old names as fallback)."""
+    for k in keys:
+        v = d.get(k)
+        if isinstance(v, (int, float)):
+            return float(v)
+    return 0.0
+
+
+def _photo_for_app(img_bytes: bytes, max_side: int = 1024) -> str:
+    """Smaller JPEG (base64) of the scale photo, sent back to the mobile app for display."""
+    try:
+        import io
+        from PIL import Image as _Img
+        im = _Img.open(io.BytesIO(img_bytes)).convert("RGB")
+        im.thumbnail((max_side, max_side))
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=82)
+        img_bytes = buf.getvalue()
+    except Exception:
+        pass
+    return base64.b64encode(img_bytes).decode("ascii")
+
+
 class _TkPainter:
     def __init__(self, canvas: Any) -> None:
         self.c = canvas
@@ -868,8 +898,9 @@ class ScaleTouchscreenApp:
         food = result.get("food", {})
         n = result.get("nutrients", {})
         self.state.update(screen="result", food=food.get("name_en", "Unknown food"), weight=grams,
-                          kcal=n.get("calories", 0), carbs=n.get("carbohydrates", 0), protein=n.get("protein", 0),
-                          fat=n.get("fat", 0), sugar=n.get("sugar", 0))
+                          kcal=_num(n, "calories_kcal", "calories"), carbs=_num(n, "carbohydrate_g", "carbohydrates"),
+                          protein=_num(n, "protein_g", "protein"), fat=_num(n, "fat_g", "fat"),
+                          sugar=_num(n, "sugar_g", "sugar"))
         self._set_status("✓ SAVED TO APP" if result.get("saved_to_history") else "● DONE", C_GREEN_HI)
         self._redraw()
 

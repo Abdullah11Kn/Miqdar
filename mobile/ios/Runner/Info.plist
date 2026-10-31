@@ -47,6 +47,13 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Miqdar uses the camera to recognize food.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
