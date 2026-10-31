@@ -159,9 +159,18 @@ class MiqdarController extends ChangeNotifier {
     unawaited(_initializeNetworkFeatures());
   }
 
+  Timer? _scaleLiveTimer;
+
   Future<void> _initializeNetworkFeatures() async {
     await checkServer();
+    _scaleLiveTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => syncScaleLive());
     await refreshRecommendations();
+  }
+
+  @override
+  void dispose() {
+    _scaleLiveTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> checkServer() async {
