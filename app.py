@@ -661,7 +661,7 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
     # header
     p.text(16, 24, "MIQDAR", 22, True, C_GREEN_HI, "w")
     status, col = s.get("status", ("● READY", C_GREEN_HI))
-    p.text(W - 16, 24, status, 16, True, col, "e")
+    p.text(W - 130, 24, status, 14, True, col, "e")
     # main card
     p.rect(12, 50, W - 12, 372, C_CARD)
     screen = s.get("screen", "weigh")
@@ -672,6 +672,8 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
         p.text((x0 + x1) // 2, (y0 + y1) // 2, label, size, True, C_WHITE if action else C_MUTED, "center")
         if action:
             buttons.append((x0, y0, x1, y1, action))
+
+    button(W - 115, 6, W - 12, 44, "✕ EXIT", C_RED if screen == "exit_confirm" else C_TILE, "exit", 15)
 
     if screen == "weigh":
         p.text(W // 2, 82, "NET WEIGHT", 18, True, C_MUTED, "center")
@@ -727,6 +729,15 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
             p.text(W // 2, 160 + i * 32, line, 19, False, C_WHITE, "center")
         button(12, 384, 232, 468, "DONE", C_TILE, "done")
         button(244, 384, W - 12, 468, "TRY AGAIN", C_GREEN, "capture", 28)
+
+    elif screen == "exit_confirm":
+        p.text(W // 2, 95, "Exit Scale App?", 34, True, C_WHITE, "center")
+        p.text(W // 2, 160, "Close the touchscreen interface and return", 20, False, C_MUTED, "center")
+        p.text(W // 2, 195, "to the Raspberry Pi terminal prompt.", 20, False, C_WHITE, "center")
+        p.text(W // 2, 255, "To restart anytime: ./start_scale_app.sh", 18, False, C_GREEN_HI, "center")
+        p.text(W // 2, 295, "Press CANCEL to continue weighing", 16, False, C_MUTED, "center")
+        button(12, 384, 232, 468, "CANCEL", C_TILE, "cancel_exit")
+        button(244, 384, W - 12, 468, "EXIT APP", C_RED, "confirm_exit")
     return buttons
 
 
@@ -767,7 +778,9 @@ class ScaleTouchscreenApp:
         if fullscreen:
             self.root.attributes("-fullscreen", True)
             self.root.config(cursor="none")
-            self.root.bind("<Escape>", lambda _: self.root.attributes("-fullscreen", False))
+        self.root.bind("<Escape>", lambda _: self.exit_app())
+        self.root.bind("<q>", lambda _: self.exit_app())
+        self.root.bind("<Control-c>", lambda _: self.exit_app())
         self.canvas = tk.Canvas(self.root, width=640, height=480, bg=C_BG, highlightthickness=0)
         self.canvas.pack(expand=True)
         self.canvas.bind("<Button-1>", self._on_touch)
@@ -810,13 +823,31 @@ class ScaleTouchscreenApp:
                     self.on_zero_button()
                 elif action == "capture":
                     self.on_capture_button()
-                elif action == "done":
+                elif action in ("done", "cancel_exit"):
                     self.state.update(screen="weigh")
                     self._set_status()
+                elif action == "exit":
+                    if self.state.get("screen") == "exit_confirm":
+                        self.state.update(screen="weigh")
+                        self._set_status()
+                    else:
+                        self.state.update(screen="exit_confirm")
+                        self._set_status("● EXIT", C_RED)
+                elif action == "confirm_exit":
+                    self.exit_app()
+                    return
                 elif action.startswith("sim:"):
                     self.hw.set_sim_weight(float(action[4:]))
                 self._redraw()
                 return
+
+    def exit_app(self) -> None:
+        print("\n[Scale GUI] Exit requested. Closing scale UI and returning to terminal...")
+        try:
+            self.root.quit()
+            self.root.destroy()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------- actions
     def on_zero_button(self) -> None:
@@ -897,7 +928,7 @@ Type=simple
 User=root
 WorkingDirectory={script_path.parent}
 ExecStart=/usr/bin/python3 {script_path.resolve()} --fullscreen
-Restart=always
+Restart=on-failure
 RestartSec=3
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/foodscale/.Xauthority
@@ -979,10 +1010,21 @@ def main() -> None:
     hw.start()
 
     # Start Embedded Background REST API Server
-    start_api_server(args.host, args.port, args.db, hw, recognition_server=args.server)
+    api_server = start_api_server(args.host, args.port, args.db, hw, recognition_server=args.server)
     if args.server:
         print(f"[Recognition] Sending photos + weights to {args.server}")
     print(f"[API Server] Ready! Mobile app can connect to: http://{get_ip_address()}:{args.port}")
+
+    # Check for active Cloudflare tunnel
+    tunnel_file = ROOT / "tunnel_url.txt"
+    if tunnel_file.exists():
+        try:
+            tunnel_url = tunnel_file.read_text().strip()
+            if tunnel_url.startswith("http"):
+                print(f"[Cloudflare Tunnel] Active public URL: {tunnel_url}")
+                print(f"[Cloudflare Tunnel] Enter this URL in your mobile app settings to connect over the internet!")
+        except Exception:
+            pass
 
     if args.headless:
         print("[Scale] Running in headless mode. Press Ctrl+C to exit.")
@@ -993,6 +1035,11 @@ def main() -> None:
             print("\n[Scale] Stopping...")
         finally:
             hw.stop()
+            if api_server is not None:
+                try:
+                    api_server.shutdown()
+                except Exception:
+                    pass
         sys.exit(0)
 
     # Start Touchscreen GUI
@@ -1009,7 +1056,13 @@ def main() -> None:
         pass
     finally:
         hw.stop()
-        print("[Scale] Application closed gracefully.")
+        if api_server is not None:
+            try:
+                api_server.shutdown()
+            except Exception:
+                pass
+        print("[Scale] Application closed gracefully. Returned to terminal.")
+        sys.exit(0)
 
 
 if __name__ == "__main__":

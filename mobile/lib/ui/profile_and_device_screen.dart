@@ -1093,29 +1093,42 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
             children: [
               Text(
                 s.tr(
-                  'Enter the IP address and port of your Raspberry Pi scale or local machine.',
-                  'أدخل عنوان IP ومنفذ ميزان الراسبيري باي أو الجهاز المحلي.',
+                  'Enter your Cloudflare Tunnel URL (for internet connection) or local IP of your Raspberry Pi scale.',
+                  'أدخل رابط نفق كلاودفلير (للاتصال عبر الإنترنت) أو عنوان IP المحلي لميزان الراسبيري باي.',
                 ),
                 style: const TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: textController,
+                keyboardType: TextInputType.url,
                 decoration: const InputDecoration(
                   labelText: 'API Base URL',
-                  hintText: 'http://192.168.137.166:8080',
+                  hintText: 'https://xxxx.trycloudflare.com',
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
-              Text(s.tr('Quick Presets:', 'إعدادات سريعة:'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              Text(s.tr('Quick Presets & Cloudflare:', 'إعدادات سريعة وكلاودفلير:'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: [
                   ActionChip(
-                    label: const Text('Pi (192.168.137.166)'),
+                    avatar: const Icon(Icons.cloud_sync, size: 16),
+                    label: const Text('Cloudflare Tunnel (https://)'),
+                    onPressed: () {
+                      if (!textController.text.startsWith('https://')) {
+                        textController.text = 'https://';
+                        textController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: textController.text.length),
+                        );
+                      }
+                    },
+                  ),
+                  ActionChip(
+                    label: const Text('Pi LAN (192.168.137.166)'),
                     onPressed: () => textController.text = 'http://192.168.137.166:8080',
                   ),
                   ActionChip(
@@ -1138,8 +1151,11 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () {
-              final newUrl = textController.text.trim();
+              var newUrl = textController.text.trim();
               if (newUrl.isNotEmpty) {
+                if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+                  newUrl = 'https://$newUrl';
+                }
                 controller.setApiBaseUrl(newUrl);
               }
               Navigator.of(ctx).pop();

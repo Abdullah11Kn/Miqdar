@@ -55,3 +55,8 @@ database/reference_images/rights.csv
 # Archives and workspace configs
 *.zip
 *.code-workspace
+
+# Runtime scale captures and tunnel state
+photos/*.jpg
+tunnel_url.txt
+

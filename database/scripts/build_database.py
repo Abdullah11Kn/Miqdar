@@ -146,7 +146,7 @@ def nutrient_values(connection: sqlite3.Connection, food_id: str, weight_g: floa
     columns = [column[0] for column in connection.execute(
         "SELECT * FROM nutrient_profiles LIMIT 0"
     ).description]
-    profile = dict(zip(columns, row, strict=True))
+    profile = dict(zip(columns, row))
     scale = weight_g / 100.0
     return {
         "calories_kcal": round(profile["kcal_100g"] * scale, 2),

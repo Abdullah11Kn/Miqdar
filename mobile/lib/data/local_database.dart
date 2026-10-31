@@ -563,4 +563,49 @@ class LocalDatabase {
     _memCustomFoods.removeWhere((f) => f.foodId == item.foodId);
     _memCustomFoods.insert(0, item);
   }
+
+  final Map<String, String> _memSettings = {};
+
+  Future<void> saveSetting(String key, String value) async {
+    _memSettings[key] = value;
+    final database = _database;
+    if (database == null || _useInMemory) return;
+    try {
+      await database.execute('''
+        CREATE TABLE IF NOT EXISTS settings(
+          key TEXT PRIMARY KEY,
+          value TEXT
+        )
+      ''');
+      await database.insert(
+        'settings',
+        {'key': key, 'value': value},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (_) {}
+  }
+
+  Future<String?> getSetting(String key) async {
+    final database = _database;
+    if (database == null || _useInMemory) return _memSettings[key];
+    try {
+      await database.execute('''
+        CREATE TABLE IF NOT EXISTS settings(
+          key TEXT PRIMARY KEY,
+          value TEXT
+        )
+      ''');
+      final rows = await database.query(
+        'settings',
+        where: 'key = ?',
+        whereArgs: [key],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) {
+        return rows.first['value'] as String?;
+      }
+    } catch (_) {}
+    return _memSettings[key];
+  }
 }
+

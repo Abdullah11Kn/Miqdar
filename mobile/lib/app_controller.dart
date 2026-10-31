@@ -148,8 +148,23 @@ class MiqdarController extends ChangeNotifier {
 
   bool get isApiOnline => connectionStatus.startsWith('API online');
 
+  Timer? _liveScaleTimer;
+
+  void _startLiveScaleSyncTimer() {
+    _liveScaleTimer?.cancel();
+    _liveScaleTimer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
+      if (isApiOnline && scaleDevice.paired) {
+        unawaited(syncScaleLive());
+      }
+    });
+  }
+
   Future<void> initialize() async {
     await localDatabase.initialize();
+    final savedUrl = await localDatabase.getSetting('api_base_url');
+    if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+      apiService.updateBaseUrl(savedUrl.trim());
+    }
     goals = await localDatabase.loadGoals();
     healthProfile = await localDatabase.loadHealthProfile();
     meals = await localDatabase.loadMeals(days: 90);
@@ -157,10 +172,12 @@ class MiqdarController extends ChangeNotifier {
     scaleDevice = scaleDevice.copyWith(lastSeen: DateTime.now());
     notifyListeners();
     unawaited(_initializeNetworkFeatures());
+    _startLiveScaleSyncTimer();
   }
 
   Future<void> _initializeNetworkFeatures() async {
     await checkServer();
+    await syncScaleLive();
     await refreshRecommendations();
   }
 
@@ -173,16 +190,39 @@ class MiqdarController extends ChangeNotifier {
       activeProviderName = provider;
       activeModelName = model;
       connectionStatus = model == null ? 'API online • $provider' : 'API online • $model';
+
+      if (status['scale'] is Map<String, dynamic>) {
+        final scaleInfo = status['scale'] as Map<String, dynamic>;
+        final w = (scaleInfo['live_weight_g'] as num?)?.toDouble() ?? scaleDevice.liveWeightG;
+        final stable = scaleInfo['is_stable'] as bool? ?? true;
+        final battery = (scaleInfo['battery_pct'] as num?)?.toInt() ?? scaleDevice.batteryPercent;
+        scaleDevice = scaleDevice.copyWith(
+          liveWeightG: w,
+          isStable: stable,
+          batteryPercent: battery,
+          online: true,
+          lastSeen: DateTime.now(),
+        );
+      }
     } catch (_) {
       connectionStatus = 'Offline demo mode';
+      scaleDevice = scaleDevice.copyWith(online: false);
     }
     notifyListeners();
   }
 
   void setApiBaseUrl(String newUrl) {
-    apiService.updateBaseUrl(newUrl);
-    checkServer();
+    final cleaned = newUrl.trim();
+    apiService.updateBaseUrl(cleaned);
+    unawaited(localDatabase.saveSetting('api_base_url', cleaned));
+    unawaited(checkServer().then((_) => syncScaleLive()));
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _liveScaleTimer?.cancel();
+    super.dispose();
   }
 
   void setSelectedDate(DateTime date) {
