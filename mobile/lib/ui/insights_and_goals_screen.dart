@@ -64,15 +64,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    s.tr('Nutrition Insights & Trends', 'التحليلات والاتجاهات الغذائية'),
+                    s.tr('Insights', 'الإحصاءات'),
                     style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  Text(
-                    s.tr(
-                      'Daily aggregations across logged days with source completeness (S33).',
-                      'تجميع يومي دقيق عبر الأيام المسجلة مع توضيح اكتمال البيانات (S33).',
-                    ),
-                    style: const TextStyle(fontSize: 13),
                   ),
                 ],
               ),
@@ -110,7 +103,10 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 label: s.tr('Daily Average Energy', 'متوسط الطاقة اليومي'),
                 value: '${dailyAvg.calories.toStringAsFixed(0)} ${s.unitKcal}',
                 detail:
-                    '${s.tr("Across", "عبر")} ${byDate.length} ${s.tr("logged days", "أيام مسجلة")}',
+                    s.tr(
+                  'Over ${byDate.length} ${byDate.length == 1 ? 'day' : 'days'}',
+                  'خلال ${byDate.length} يوم',
+                ),
                 accent: MiqdarColors.primary,
               ),
             ),
@@ -150,17 +146,9 @@ class _TrendsScreenState extends State<TrendsScreen> {
         const SizedBox(height: 22),
 
         // Daily Average per Nutrient (Tap any bar to open S34 Nutrient Drill-Down)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              s.tr(
-                'Daily Nutrient Averages (Tap for S34 Drill-down)',
-                'المتوسط اليومي للعناصر (اضغط للتفاصيل S34)',
-              ),
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
-            ),
-          ],
+        Text(
+          s.tr('Daily Nutrient Averages', 'المتوسط اليومي للعناصر'),
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
         ),
         const SizedBox(height: 10),
         _NutrientTrendBar(
@@ -350,7 +338,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$label • ${s.tr("Nutrient Detail (S34)", "تفاصيل العنصر الغذائي (S34)")}',
+                '$label • ${s.tr("Nutrient Detail", "تفاصيل العنصر الغذائي")}',
                 style: Theme.of(ctx).textTheme.titleLarge,
               ),
               const SizedBox(height: 6),
@@ -408,14 +396,14 @@ class _TrendsScreenState extends State<TrendsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                s.tr('Export Portable Nutrition Data (S47)', 'تصدير البيانات الغذائية (S47)'),
+                s.tr('Export Portable Nutrition Data', 'تصدير البيانات الغذائية'),
                 style: Theme.of(ctx).textTheme.titleLarge,
               ),
               const SizedBox(height: 6),
               Text(
                 s.tr(
-                  'CSV includes Unicode Arabic names, portion provenance, verification status, and formula-injection sanitization (AT-38).',
-                  'يشمل ملف CSV الأسماء العربية ومصدر الوزن وحالة التوثيق مع حماية كاملة ضد حقن المعادلات (AT-38).',
+                  'CSV includes Unicode Arabic names, portion provenance, verification status, and formula-injection sanitization.',
+                  'يشمل ملف CSV الأسماء العربية ومصدر الوزن وحالة التوثيق مع حماية كاملة ضد حقن المعادلات.',
                 ),
                 style: const TextStyle(fontSize: 12),
               ),
@@ -580,7 +568,7 @@ class _NutrientTrendBar extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              '${s.tr("Daily target comparison", "مقارنة بالهدف اليومي")}: ${(ratio * 100).round()}%',
+              '${s.tr("Of daily target", "من الهدف اليومي")}: ${(ratio * 100).round()}%',
               style: const TextStyle(fontSize: 11),
             ),
           ],
@@ -623,16 +611,16 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     children: [
                       Text(
                         s.tr(
-                          'User-controlled targets & notice rules (S35)',
-                          'أهداف وحدود مخصصة بإدارة المستخدم (S35)',
+                          'User-controlled targets & notice rules',
+                          'أهداف وحدود مخصصة بإدارة المستخدم',
                         ),
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         s.tr(
-                          'Configure targets, maximum limits, or minimums using keyboard input, steppers, or sliders. Enable "Track without goals" to disable all threshold notices (GOAL-01).',
-                          'اضبط الأهداف أو الحدود القصوى أو الدنيا عبر الإدخال الرقمي أو الأزرار أو شريط التمرير. يمكنك تفعيل "التتبع فقط" لإيقاف جميع التنبيهات (GOAL-01).',
+                          'Configure targets, maximum limits, or minimums using keyboard input, steppers, or sliders. Enable "Track without goals" to disable all threshold notices.',
+                          'اضبط الأهداف أو الحدود القصوى أو الدنيا عبر الإدخال الرقمي أو الأزرار أو شريط التمرير. يمكنك تفعيل "التتبع فقط" لإيقاف جميع التنبيهات.',
                         ),
                         style: const TextStyle(fontSize: 12.5),
                       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../models/nutrition.dart';
 import '../l10n/strings.dart';
 import '../theme.dart';
 import 'screens.dart';
@@ -25,10 +26,11 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     Future<void>.delayed(const Duration(milliseconds: 950), () {
       if (!mounted) return;
+      final returning = MiqdarScope.of(context).onboarded;
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 400),
-          pageBuilder: (_, __, ___) => const WelcomeScreen(),
+          pageBuilder: (_, __, ___) => returning ? const MainShell() : const WelcomeScreen(),
           transitionsBuilder: (_, animation, __, child) =>
               FadeTransition(opacity: animation, child: child),
         ),
@@ -558,11 +560,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       elevation: 0,
                     ),
                     onPressed: () {
-                      controller.signIn(
-                        email: 'demo@miqdar.health',
-                        displayName: 'Demo Evaluator',
-                        isDemo: true,
-                      );
+                      controller.signIn(email: '');
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(builder: (_) => const MainShell()),
                       );
@@ -755,7 +753,7 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  final email = TextEditingController(text: 'jehad@miqdar.health');
+  final email = TextEditingController(text: '');
   final password = TextEditingController(text: 'miqdar-secure-2026');
   bool obscure = true;
   String? errorText;
@@ -1251,10 +1249,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       ? () {
                           controller.signIn(
                             email: emailCtrl.text.trim().isEmpty
-                                ? 'jehad@miqdar.health'
+                                ? ''
                                 : emailCtrl.text.trim(),
                             displayName: nameCtrl.text.trim().isEmpty
-                                ? 'Jehad Hasan Alharbi'
+                                ? UserAccount.defaultName
                                 : nameCtrl.text.trim(),
                           );
                           controller.updateAccountProfile(trackingIntention: intention);
@@ -1271,10 +1269,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       ? () {
                           controller.signIn(
                             email: emailCtrl.text.trim().isEmpty
-                                ? 'jehad@miqdar.health'
+                                ? ''
                                 : emailCtrl.text.trim(),
                             displayName: nameCtrl.text.trim().isEmpty
-                                ? 'Jehad Hasan Alharbi'
+                                ? UserAccount.defaultName
                                 : nameCtrl.text.trim(),
                           );
                           controller.updateAccountProfile(trackingIntention: intention);

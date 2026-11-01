@@ -25,13 +25,6 @@ class ProfileScreen extends StatelessWidget {
           s.navProfile,
           style: Theme.of(context).textTheme.headlineSmall,
         ),
-        Text(
-          s.tr(
-            'Account, dietary preferences, connected scale, privacy & diagnostics (S41).',
-            'الحساب، التفضيلات الغذائية، الميزان المتصل، الخصوصية والتشخيص (S41).',
-          ),
-          style: const TextStyle(fontSize: 13),
-        ),
         const SizedBox(height: 18),
 
         // Account Hero Card
@@ -65,10 +58,11 @@ class ProfileScreen extends StatelessWidget {
                         color: Colors.white,
                       ),
                     ),
-                    Text(
-                      account.email,
-                      style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 13),
-                    ),
+                    if (account.email.isNotEmpty)
+                      Text(
+                        account.email,
+                        style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 13),
+                      ),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -79,7 +73,7 @@ class ProfileScreen extends StatelessWidget {
                       child: Text(
                         account.isDemo
                             ? s.tr('Demo Workspace Account', 'حساب مساحة العرض التجريبي')
-                            : s.tr('Verified Personal Account', 'حساب شخصي موثق'),
+                            : s.tr('Saved on this phone', 'محفوظ على هذا الهاتف'),
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -92,7 +86,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               IconButton(
                 style: IconButton.styleFrom(foregroundColor: Colors.white),
-                tooltip: s.tr('Edit Personal Info (S42)', 'تعديل البيانات الشخصية'),
+                tooltip: s.tr('Edit Personal Info', 'تعديل البيانات الشخصية'),
                 onPressed: () => _showEditPersonalSheet(context, controller),
                 icon: const Icon(Icons.edit_outlined),
               ),
@@ -103,7 +97,7 @@ class ProfileScreen extends StatelessWidget {
 
         // Section: Language, Theme & Viewport (S45)
         Text(
-          s.tr('Appearance, Language & Display (S45)', 'المظهر واللغة وطريقة العرض (S45)'),
+          s.tr('Appearance', 'المظهر'),
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
         ),
         const SizedBox(height: 10),
@@ -117,7 +111,7 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      s.tr('Interface Language (Bilingual RTL/LTR)', 'لغة الواجهة (عربي / English)'),
+                      s.tr('Language', 'اللغة'),
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
@@ -139,19 +133,17 @@ class ProfileScreen extends StatelessWidget {
                   color: MiqdarColors.primary,
                 ),
                 title: Text(
-                  s.tr('Dark Mode Theme', 'المظهر الداكن'),
+                  s.tr('Dark Mode', 'المظهر الداكن'),
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
                 subtitle: Text(
-                  s.tr(
-                    'High-contrast emerald & slate dark palette',
-                    'لوحة ألوان زمردية داكنة مريحة للعين',
-                  ),
+                  s.tr('Easier on the eyes at night', 'مريح للعين ليلاً'),
                   style: const TextStyle(fontSize: 12),
                 ),
                 value: isDark,
                 onChanged: (_) => controller.toggleThemeMode(),
               ),
+              if (MediaQuery.sizeOf(context).width >= 780) ...[
               const Divider(height: 24),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -170,6 +162,7 @@ class ProfileScreen extends StatelessWidget {
                 value: controller.forceMobileFrameOnDesktop,
                 onChanged: (_) => controller.toggleViewportFrame(),
               ),
+              ],
             ],
           ),
         ),
@@ -177,15 +170,15 @@ class ProfileScreen extends StatelessWidget {
 
         // Section: Nutrition, Hardware & Diagnostics
         Text(
-          s.tr('Nutrition, Scale Hardware & Data', 'التغذية والميزان والبيانات'),
+          s.tr('Settings', 'الإعدادات'),
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
         ),
         const SizedBox(height: 10),
         _ProfileNavRow(
           icon: Icons.track_changes_rounded,
-          title: s.tr('Goals & Nutrient Targets (S35)', 'الأهداف والحدود الغذائية (S35)'),
+          title: s.tr('Daily Goals', 'الأهداف اليومية'),
           subtitle: s.tr(
-            'Calories, macros, sodium, sugar, potassium & track-only mode',
+            'Calories, protein, carbs, sugar and more',
             'السعرات، العناصر الكبرى، الصوديوم، السكر، البوتاسيوم ووضع التتبع',
           ),
           onTap: () => Navigator.of(context).push(
@@ -194,9 +187,9 @@ class ProfileScreen extends StatelessWidget {
         ),
         _ProfileNavRow(
           icon: Icons.restaurant_menu_rounded,
-          title: s.tr('Dietary Preferences & Smart Meal Ideas (S36/S39)', 'التفضيلات واقتراحات الوجبات الذكية'),
+          title: s.tr('Food Preferences & Meal Ideas', 'التفضيلات واقتراحات الوجبات'),
           subtitle: s.tr(
-            'Exclusions, allergens, considerations & 14-day variety scoring',
+            'Allergies, foods to avoid and suggestions',
             'الاستثناءات والحساسيات والاقتراحات المبنية على سجل 14 يوماً',
           ),
           onTap: () => Navigator.of(context).push(
@@ -205,9 +198,11 @@ class ProfileScreen extends StatelessWidget {
         ),
         _ProfileNavRow(
           icon: Icons.scale_rounded,
-          title: s.tr('Connected Scale & Calibration (S09–S13)', 'إعدادات الميزان والمعايرة (S09–S13)'),
+          title: s.tr('Scale', 'الميزان'),
           subtitle: controller.scaleDevice.paired
-              ? '${controller.scaleDevice.deviceId} • ${controller.scaleDevice.wifiSsid} • Online'
+              ? (controller.scaleDevice.online
+                  ? s.tr('Connected', 'متصل')
+                  : s.tr('Not connected', 'غير متصل'))
               : s.tr('Unpaired — Tap to claim scale', 'غير مقترن — اضغط لربط الميزان'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
@@ -215,8 +210,8 @@ class ProfileScreen extends StatelessWidget {
         ),
         _ProfileNavRow(
           icon: Icons.sync_rounded,
-          title: s.tr('Sync Outbox, Privacy & Diagnostics (S46–S59)', 'المزامنة والخصوصية والتشخيص (S46–S59)'),
-          subtitle: '${controller.connectionStatus} • ${controller.pendingSyncCount} ${s.tr("pending", "معلق")}',
+          title: s.tr('Privacy & Data', 'الخصوصية والبيانات'),
+          subtitle: s.tr('Export, sync and account deletion', 'التصدير والمزامنة وحذف الحساب'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const SyncAndDiagnosticsScreen()),
           ),
@@ -237,7 +232,7 @@ class ProfileScreen extends StatelessWidget {
             );
           },
           icon: const Icon(Icons.logout_rounded),
-          label: Text(s.tr('Sign Out of Account', 'تسجيل الخروج من الحساب')),
+          label: Text(s.tr('Sign Out', 'تسجيل الخروج من الحساب')),
         ),
       ],
     );
@@ -266,7 +261,7 @@ class ProfileScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                s.tr('Personal Information (S42)', 'المعلومات الشخصية (S42)'),
+                s.tr('Personal Information', 'المعلومات الشخصية'),
                 style: Theme.of(ctx).textTheme.titleLarge,
               ),
               const SizedBox(height: 14),
@@ -467,7 +462,7 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
                 const SizedBox(height: 20),
 
                 Text(
-                  s.tr('Optional Planning Considerations (S36)', 'اعتبارات التخطيط الغذائي الاختيارية (S36)'),
+                  s.tr('Optional Planning Considerations', 'اعتبارات التخطيط الغذائي الاختيارية'),
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 10),
@@ -550,7 +545,7 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      s.tr('Recommended Next Meals (S39)', 'الوجبات المقترحة لك (S39)'),
+                      s.tr('Recommended Next Meals', 'الوجبات المقترحة لك'),
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                     ),
                     if (controller.recommendationsOffline)
@@ -602,7 +597,7 @@ class DeviceSettingsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(s.tr('Scale Hardware & Controls (S12)', 'إعدادات الميزان الذكي (S12)')),
+        title: Text(s.tr('Scale Hardware & Controls', 'إعدادات الميزان الذكي')),
       ),
       body: SafeArea(
         child: Center(
@@ -705,7 +700,7 @@ class DeviceSettingsScreen extends StatelessWidget {
                             child: OutlinedButton.icon(
                               onPressed: () => _showCalibrationGuide(context),
                               icon: const Icon(Icons.straighten_rounded),
-                              label: Text(s.tr('Calibration Check (S13)', 'فحص المعايرة (S13)')),
+                              label: Text(s.tr('Calibration Check', 'فحص المعايرة')),
                             ),
                           ),
                         ],
@@ -721,7 +716,7 @@ class DeviceSettingsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        s.tr('Supported Hardware Controls (PRD-10)', 'عناصر التحكم المدعومة (PRD-10)'),
+                        s.tr('Supported Hardware Controls', 'عناصر التحكم المدعومة'),
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
                       ),
                       const SizedBox(height: 8),
@@ -787,8 +782,8 @@ class DeviceSettingsScreen extends StatelessWidget {
                           title: Text(s.tr('Unpair Miqdar-015?', 'إلغاء اقتران الميزان؟')),
                           content: Text(
                             s.tr(
-                              'Your saved meal history remains intact. You can re-claim the scale anytime (UI-08).',
-                              'سيبقى سجل وجباتك محفوظاً بالكامل، ويمكنك إعادة ربط الميزان في أي وقت (UI-08).',
+                              'Your saved meal history remains intact. You can re-claim the scale anytime.',
+                              'سيبقى سجل وجباتك محفوظاً بالكامل، ويمكنك إعادة ربط الميزان في أي وقت.',
                             ),
                           ),
                           actions: [
@@ -832,7 +827,7 @@ class DeviceSettingsScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(s.tr('Zero vs Sensor Calibration (S13)', 'التصفير مقابل معايرة الحساس (S13)')),
+        title: Text(s.tr('Zero vs Sensor Calibration', 'التصفير مقابل معايرة الحساس')),
         content: Text(
           s.tr(
             '• Zero / Tare establishes a 0.0 g net baseline for your current empty plate.\n\n'
@@ -885,7 +880,7 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(s.tr('Sync, Privacy & Diagnostics (S49/S59)', 'المزامنة والخصوصية والتشخيص')),
+        title: Text(s.tr('Sync, Privacy & Diagnostics', 'المزامنة والخصوصية والتشخيص')),
       ),
       body: SafeArea(
         child: Center(
@@ -905,7 +900,7 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              s.tr('System & AI Telemetry (S59)', 'حالة الخادم والذكاء الاصطناعي (S59)'),
+                              s.tr('System & AI Telemetry', 'حالة الخادم والذكاء الاصطناعي'),
                               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
                             ),
                           ),
@@ -959,7 +954,7 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              s.tr('Outbox & Sync Activity (S49)', 'صندوق المزامنة والعمليات (S49)'),
+                              s.tr('Outbox & Sync Activity', 'صندوق المزامنة والعمليات'),
                               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
                             ),
                           ),
@@ -1010,16 +1005,16 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        s.tr('Privacy & Data Lifecycle (S46 / S48)', 'الخصوصية ودورة حياة البيانات (S46 / S48)'),
+                        s.tr('Privacy & Data Lifecycle', 'الخصوصية ودورة حياة البيانات'),
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         s.tr(
                           '• Structured meal records remain in your personal diary until you delete them.\n'
-                          '• Recognition photos are processed transiently for identification and are not used for undisclosed model training (PRIV-03).',
+                          '• Recognition photos are processed transiently for identification and are not used for undisclosed model training.',
                           '• تبقى سجلات الوجبات المنظمة في حسابك حتى تقوم بحذفها.\n'
-                          '• تُعالج صور الوجبات مؤقتاً للتعرف الغذائي فقط ولا تُستخدم لتدريب النماذج دون إذن صريح (PRIV-03).',
+                          '• تُعالج صور الوجبات مؤقتاً للتعرف الغذائي فقط ولا تُستخدم لتدريب النماذج دون إذن صريح.',
                         ),
                         style: const TextStyle(fontSize: 12.5),
                       ),
@@ -1031,7 +1026,7 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
                         ),
                         onPressed: () => _showDeleteAccountDialog(context, controller),
                         icon: const Icon(Icons.person_remove_outlined),
-                        label: Text(s.tr('Request Account Deletion (S48)', 'طلب حذف الحساب والبيانات (S48)')),
+                        label: Text(s.tr('Request Account Deletion', 'طلب حذف الحساب والبيانات')),
                       ),
                     ],
                   ),
@@ -1049,7 +1044,7 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(s.tr('Delete Account & Personal Data? (S48)', 'حذف الحساب والبيانات الشخصية؟ (S48)')),
+        title: Text(s.tr('Delete Account & Personal Data?', 'حذف الحساب والبيانات الشخصية؟')),
         content: Text(
           s.tr(
             'This submits an account deletion request to remove your cloud profile, meal history, and paired scale claims, and clears local credentials.',

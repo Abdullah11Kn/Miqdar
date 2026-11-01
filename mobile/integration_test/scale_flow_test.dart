@@ -54,9 +54,9 @@ void main() {
     await controller.initialize();
     await tester.pumpWidget(MiqdarApp(controller: controller));
 
-    await pumpUntil(() => find.text('Get Started').evaluate().isNotEmpty);
+    await pumpUntil(() => find.text('Get Started').evaluate().isNotEmpty || find.byType(MainShell).evaluate().isNotEmpty);
     await hold(1);
-    await tester.tap(find.text('Get Started').first);
+    if (find.text('Get Started').evaluate().isNotEmpty) await tester.tap(find.text('Get Started').first);
     await pumpUntil(() => find.byType(MainShell).evaluate().isNotEmpty);
 
     // The scale connects and reports its true state.

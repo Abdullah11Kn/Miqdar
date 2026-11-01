@@ -80,45 +80,27 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _greeting(s),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
+                        controller.account.hasPersonalName
+                            ? _greeting(s)
+                            : _greeting(s).replaceAll(RegExp(r'[,،]\s*$'), ''),
+                        style: controller.account.hasPersonalName
+                            ? TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
+                              )
+                            : Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      if (controller.account.hasPersonalName) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          controller.account.localizedName(s.isAr),
+                          style: Theme.of(context).textTheme.headlineSmall,
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        controller.account.localizedName(s.isAr),
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
+                      ],
                     ],
                   ),
                 ),
-                // Language pill
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 38),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: controller.toggleLocale,
-                  child: Text(
-                    controller.isAr ? 'EN' : 'عربي',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Theme toggle
-                IconButton.outlined(
-                  tooltip: s.tr('Switch theme', 'تبديل المظهر'),
-                  onPressed: controller.toggleThemeMode,
-                  icon: Icon(
-                    isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                    size: 19,
-                  ),
-                ),
-                const SizedBox(width: 8),
                 // Inbox / Notices button with badge
                 Badge(
                   isLabelVisible: controller.unreadAlertsCount > 0,
@@ -148,52 +130,9 @@ class HomeScreen extends StatelessWidget {
               children: [
                 InkWell(
                   borderRadius: BorderRadius.circular(14),
-                  onTap: controller.checkServer,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: controller.isApiOnline
-                          ? MiqdarColors.primary.withValues(alpha: 0.11)
-                          : MiqdarColors.warning.withValues(alpha: 0.13),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: controller.isApiOnline
-                            ? MiqdarColors.primary.withValues(alpha: 0.3)
-                            : MiqdarColors.warning.withValues(alpha: 0.35),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.circle,
-                          size: 9,
-                          color: controller.isApiOnline
-                              ? MiqdarColors.emeraldBright
-                              : MiqdarColors.warning,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          controller.connectionStatus,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: controller.isApiOnline
-                                ? (isDark ? MiqdarColors.mintGlow : MiqdarColors.primary)
-                                : MiqdarColors.warning,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.refresh_rounded, size: 14),
-                      ],
-                    ),
-                  ),
-                ),
-                InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
-                  ),
+                  onTap: controller.scaleDevice.online
+                      ? onScan
+                      : () => showApiUrlDialog(context, controller),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                     decoration: BoxDecoration(
@@ -209,15 +148,15 @@ class HomeScreen extends StatelessWidget {
                         Icon(
                           Icons.scale_rounded,
                           size: 15,
-                          color: controller.scaleDevice.paired
+                          color: controller.scaleDevice.online
                               ? MiqdarColors.primary
-                              : MiqdarColors.muted,
+                              : MiqdarColors.warning,
                         ),
                         const SizedBox(width: 7),
                         Text(
-                          controller.scaleDevice.paired
-                              ? '${controller.scaleDevice.deviceId} • ${controller.scaleDevice.effectiveWeightG.toStringAsFixed(0)} ${s.unitG}'
-                              : s.tr('No scale paired', 'الميزان غير مقترن'),
+                          controller.scaleDevice.online
+                              ? '${s.tr('Scale', 'الميزان')}: ${controller.scaleDevice.effectiveWeightG.toStringAsFixed(0)} ${s.unitG}'
+                              : s.tr('Scale not connected', 'الميزان غير متصل'),
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                         ),
                       ],
@@ -339,6 +278,59 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
+            // Selected Day's Meals & Recent History
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isToday
+                      ? s.recentMealsTitle
+                      : '${s.tr("Meals on", "وجبات يوم")} ${DateFormat('d MMM').format(selectedDate)}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+                TextButton(
+                  onPressed: () {
+                    if (onOpenTab != null) {
+                      onOpenTab!(2); // Diary tab
+                    } else {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            appBar: AppBar(title: Text(s.navDiary)),
+                            body: const SafeArea(child: HistoryScreen()),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(s.tr('See diary', 'عرض السجل')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (dayMeals.isEmpty)
+              SurfaceCard(
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.restaurant_outlined,
+                      size: 36,
+                      color: MiqdarColors.muted,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      s.noMealsToday,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...dayMeals.map((meal) => MealRowCard(meal: meal)),
+
+
+            const SizedBox(height: 24),
+
             // Smart Meal Ideas Section (S39)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -417,77 +409,6 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-
-            const SizedBox(height: 22),
-
-            // Selected Day's Meals & Recent History
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isToday
-                      ? s.recentMealsTitle
-                      : '${s.tr("Meals on", "وجبات يوم")} ${DateFormat('d MMM').format(selectedDate)}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                TextButton(
-                  onPressed: () {
-                    if (onOpenTab != null) {
-                      onOpenTab!(2); // Diary tab
-                    } else {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => Scaffold(
-                            appBar: AppBar(title: Text(s.navDiary)),
-                            body: const SafeArea(child: HistoryScreen()),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: Text('${controller.meals.length} ${s.tr("in 90d", "في 90 يوماً")}'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (dayMeals.isEmpty)
-              SurfaceCard(
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.restaurant_outlined,
-                      size: 36,
-                      color: MiqdarColors.muted,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      s.noMealsToday,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: onScan,
-                      icon: const Icon(Icons.add_rounded),
-                      label: Text(s.navAdd),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ...dayMeals.map((meal) => MealRowCard(meal: meal)),
-
-            if (isToday && dayMeals.length < 3 && controller.meals.length > dayMeals.length) ...[
-              const SizedBox(height: 12),
-              Text(
-                s.tr('Earlier this week', 'في وقت سابق هذا الأسبوع'),
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 8),
-              ...controller.meals
-                  .where((m) => !dayMeals.contains(m))
-                  .take(3)
-                  .map((meal) => MealRowCard(meal: meal)),
-            ],
           ],
         );
       },
@@ -967,7 +888,7 @@ class SuggestionCardWidget extends StatelessWidget {
                 );
               },
               icon: const Icon(Icons.edit_calendar_rounded, size: 16),
-              label: Text(s.tr('Review as Draft', 'مراجعة كمسودة وجبة')),
+              label: Text(s.tr('Log This', 'مراجعة كمسودة وجبة')),
             ),
           ),
         ],

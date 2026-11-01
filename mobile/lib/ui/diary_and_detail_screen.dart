@@ -62,15 +62,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    s.tr('Nutrition Diary & History', 'سجل الوجبات والتاريخ الغذائي'),
+                    s.tr('Diary', 'السجل'),
                     style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  Text(
-                    s.tr(
-                      'Day-by-day grouped timeline across your 90-day window (S27).',
-                      'عرض زمني مصنف يوماً بيوم خلال نافذة 90 يوماً (S27).',
-                    ),
-                    style: const TextStyle(fontSize: 13),
                   ),
                 ],
               ),
@@ -178,7 +171,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  '${filtered.length} ${s.tr("meals across", "وجبة عبر")} ${sortedKeys.length} ${s.tr("logged days", "أيام مسجلة")}',
+                  s.tr(
+                    '${filtered.length} ${filtered.length == 1 ? 'meal' : 'meals'} over ${sortedKeys.length} ${sortedKeys.length == 1 ? 'day' : 'days'}',
+                    '${filtered.length} وجبة خلال ${sortedKeys.length} يوم',
+                  ),
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
@@ -274,7 +270,7 @@ class MealDetailScreen extends StatelessWidget {
         title: Text(s.tr('Meal Details', 'تفاصيل الوجبة')),
         actions: [
           IconButton(
-            tooltip: s.tr('Repeat as new draft (LOG-04)', 'تكرار الوجبة كمسودة جديدة'),
+            tooltip: s.tr('Repeat as new draft', 'تكرار الوجبة كمسودة جديدة'),
             onPressed: () async {
               final catalogItem = MiqdarFoodCatalog.findByIdOrLabel(currentMeal.foodId) ??
                   FoodCatalogItem(
@@ -460,7 +456,7 @@ class MealDetailScreen extends StatelessWidget {
 
                 const SizedBox(height: 18),
                 Text(
-                  s.tr('Nutrition Facts Snapshot (LOG-02)', 'ملخص القيم الغذائية المحفوظة (LOG-02)'),
+                  s.tr('Nutrition', 'ملخص القيم الغذائية المحفوظة'),
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 10),
@@ -540,14 +536,14 @@ class MealDetailScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    s.tr('Edit Meal (S29)', 'تعديل الوجبة (S29)'),
+                    s.tr('Edit Meal', 'تعديل الوجبة'),
                     style: Theme.of(ctx).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 6),
                   Text(
                     s.tr(
-                      'Recalculates deterministically from the immutable per-100g snapshot without rounding drift (CALC-04).',
-                      'يعيد حساب القيم الغذائية بدقة من القاعدة المرجعية لكل 100 غ دون تراكم فروق التقريب (CALC-04).',
+                      'Recalculates deterministically from the immutable per-100g snapshot without rounding drift.',
+                      'يعيد حساب القيم الغذائية بدقة من القاعدة المرجعية لكل 100 غ دون تراكم فروق التقريب.',
                     ),
                     style: const TextStyle(fontSize: 12),
                   ),
@@ -692,8 +688,8 @@ class MealDetailScreen extends StatelessWidget {
         title: Text(s.tr('Delete this meal?', 'حذف هذه الوجبة؟')),
         content: Text(
           s.tr(
-            'This removes "${currentMeal.displayName(s.isAr)}" from your diary. You can undo within 8 seconds (UI-02).',
-            'سيتم حذف "${currentMeal.displayName(s.isAr)}" من السجل. يمكنك التراجع خلال 8 ثوانٍ (UI-02).',
+            'This removes "${currentMeal.displayName(s.isAr)}" from your diary. You can undo within 8 seconds.',
+            'سيتم حذف "${currentMeal.displayName(s.isAr)}" من السجل. يمكنك التراجع خلال 8 ثوانٍ.',
           ),
         ),
         actions: [

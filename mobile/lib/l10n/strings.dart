@@ -83,17 +83,17 @@ class S {
   String get caloriesTracked => isAr ? 'سعرة مسجلة اليوم' : 'kcal recorded today';
   String get quickCaptureTitle => isAr ? 'جاهز لتسجيل وجبتك؟' : 'Ready to log a meal?';
   String get quickCaptureSubtitle => isAr
-      ? 'ضع الطبق على الميزان والتقط صورة، أو ابحث في قاعدة البيانات.'
-      : 'Place food on the scale and capture a photo, or search verified records.';
+      ? 'ضع طعامك على الميزان والتقط صورة له.'
+      : 'Put your food on the scale and capture it.';
   String get startCapture => isAr ? 'مسح وتوزين وجبة' : 'Weigh & Scan Meal';
   String get searchFoodBtn => isAr ? 'بحث غذائي' : 'Search Food';
   String get customFoodBtn => isAr ? 'إدخال مخصص' : 'Custom Entry';
   String get mealIdeasTitle => isAr ? 'اقتراحات وجبات ذكية' : 'Smart Meal Ideas';
-  String get recentMealsTitle => isAr ? 'وجبات اليوم والسجل الأخير' : 'Today & Recent Meals';
+  String get recentMealsTitle => isAr ? 'وجبات اليوم' : "Today's Meals";
   String get seeAll => isAr ? 'عرض الكل' : 'See all';
   String get noMealsToday => isAr
       ? 'لم يتم تسجيل وجبات لهذا اليوم بعد. ابدأ بمسح وجبة أو البحث.'
-      : 'No meals logged for this date yet. Start by scanning or searching.';
+      : 'Nothing logged yet.';
 
   // Nutrients
   String get calories => isAr ? 'السعرات' : 'Calories';
@@ -163,5 +163,5 @@ class S {
   String get offlineDemoRecord => isAr
       ? 'بيانات عرض تجريبي (غير متصل بالخادم)'
       : 'Offline Demonstration Record';
-  String get saveMealToDiary => isAr ? 'تأكيد وحفظ الوجبة في السجل' : 'Confirm & Save Meal to Diary';
+  String get saveMealToDiary => isAr ? 'حفظ في السجل' : 'Save to Diary';
 }

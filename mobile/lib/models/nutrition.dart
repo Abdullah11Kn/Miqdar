@@ -939,11 +939,16 @@ class SyncOperation {
 }
 
 class UserAccount {
+  static const defaultName = 'Miqdar User';
+  static const defaultNameAr = 'مستخدم مقدار';
+
+  bool get hasPersonalName => displayName != defaultName;
+
   const UserAccount({
-    this.userId = 'user-jehad-01',
-    this.displayName = 'Jehad Hasan Alharbi',
-    this.displayNameAr = 'جهاد حسن الحربي',
-    this.email = 'jehad@miqdar.health',
+    this.userId = 'user-local',
+    this.displayName = defaultName,
+    this.displayNameAr = defaultNameAr,
+    this.email = '',
     this.trackingIntention = 'balanced',
     this.isDemo = false,
     this.authenticated = true,
