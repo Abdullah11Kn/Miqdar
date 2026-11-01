@@ -212,6 +212,9 @@ class RecognitionCandidate {
     this.nameAr,
     this.verificationStatus,
     this.nutrients,
+    this.basisPer100g,
+    this.edibleFraction = 1,
+    this.note = '',
   });
 
   final int rank;
@@ -223,13 +226,21 @@ class RecognitionCandidate {
   final String? nameAr;
   final String? verificationStatus;
   final NutritionValues? nutrients;
+  final NutritionValues? basisPer100g;
+  final double edibleFraction;
+  final String note;
 
   /// True when this candidate has nutrition values and can be selected.
   bool get inDatabase => foodId != null && nutrients != null;
 
-  factory RecognitionCandidate.fromJson(Map<String, dynamic> json, int fallbackRank) {
+  factory RecognitionCandidate.fromJson(
+    Map<String, dynamic> json,
+    int fallbackRank, {
+    double weightG = 0,
+  }) {
     final food = json['food'] as Map<String, dynamic>?;
     final nutrients = json['nutrients'] as Map<String, dynamic>?;
+    final portion = nutrients == null ? null : NutritionValues.fromJson(nutrients);
     return RecognitionCandidate(
       rank: (json['rank'] as num?)?.toInt() ?? fallbackRank,
       label: json['label'] as String? ?? '',
@@ -239,7 +250,8 @@ class RecognitionCandidate {
       nameEn: food?['name_en'] as String?,
       nameAr: food?['name_ar'] as String?,
       verificationStatus: food?['verification_status'] as String?,
-      nutrients: nutrients == null ? null : NutritionValues.fromJson(nutrients),
+      nutrients: portion,
+      basisPer100g: portion != null && weightG > 0 ? portion.scaledBy(100.0 / weightG) : null,
     );
   }
 }
@@ -319,6 +331,8 @@ class RecognitionResult {
     this.basisPer100g,
     this.additionalItems = const [],
     this.imageBytes,
+    this.edibleFraction = 1,
+    this.aiNote = '',
   });
 
   final String eventId;
@@ -344,6 +358,15 @@ class RecognitionResult {
   final List<MealItemEntry> additionalItems;
   final Uint8List? imageBytes;
 
+  /// Share of the weighed grams that is eaten, and what Gemini assumed to get there.
+  final double edibleFraction;
+  final String aiNote;
+
+  /// Below this, Gemini is telling us to check its answer.
+  static const lowConfidence = 0.6;
+
+  bool get isUnsure => verificationStatus == aiEstimateStatus && confidence < lowConfidence;
+
   NutritionValues get resolvedBasisPer100g =>
       basisPer100g ?? (weightG > 0 ? nutrients.scaledBy(100.0 / weightG) : nutrients);
 
@@ -356,8 +379,9 @@ class RecognitionResult {
   /// Returns a copy that uses [candidate] instead of the AI's first choice.
   RecognitionResult withCandidate(RecognitionCandidate candidate) {
     if (!candidate.inDatabase) return this;
-    final candidateNutrients = candidate.nutrients!;
-    final candidateBasis = weightG > 0 ? candidateNutrients.scaledBy(100.0 / weightG) : candidateNutrients;
+    // Candidates were scaled when they arrived; the weight may have been edited since.
+    final candidateBasis = candidate.basisPer100g ??
+        (weightG > 0 ? candidate.nutrients!.scaledBy(100.0 / weightG) : candidate.nutrients!);
     return RecognitionResult(
       eventId: eventId,
       foodId: candidate.foodId!,
@@ -366,7 +390,9 @@ class RecognitionResult {
       weightG: weightG,
       confidence: candidate.confidence,
       verificationStatus: candidate.verificationStatus ?? verificationStatus,
-      nutrients: candidateNutrients,
+      nutrients: candidateBasis.forPortionGrams(weightG),
+      edibleFraction: candidate.edibleFraction,
+      aiNote: candidate.note,
       alertEvaluationMs: alertEvaluationMs,
       alertSloMet: alertSloMet,
       isMock: isMock,
@@ -410,6 +436,8 @@ class RecognitionResult {
       basisPer100g: basis,
       additionalItems: additionalItems,
       imageBytes: imageBytes,
+      edibleFraction: edibleFraction,
+      aiNote: aiNote,
     );
   }
 
@@ -435,6 +463,8 @@ class RecognitionResult {
         portionSource: portionSource,
         basisPer100g: basisPer100g,
         additionalItems: items,
+        edibleFraction: edibleFraction,
+        aiNote: aiNote,
         imageBytes: imageBytes,
       );
 
@@ -464,7 +494,7 @@ class RecognitionResult {
       candidates: [
         for (var i = 0; i < rawCandidates.length; i++)
           if (rawCandidates[i] is Map<String, dynamic>)
-            RecognitionCandidate.fromJson(rawCandidates[i] as Map<String, dynamic>, i + 1),
+            RecognitionCandidate.fromJson(rawCandidates[i] as Map<String, dynamic>, i + 1, weightG: weightG),
       ],
       cached: json['recognition_cached'] as bool? ?? false,
       recognitionMs: (timing['recognition_ms'] as num?)?.toInt() ?? 0,

@@ -205,6 +205,15 @@ flowchart TD
     - **Carbohydrates**: Checks diabetic carb allotment.
     - **Potassium & Protein**: Checks renal (CKD) safety thresholds.
 
+### 3.2.1 AI in the App (the default path)
+Normally the scale only weighs and photographs. The app's `GeminiNutritionService` ([gemini_service.dart](mobile/lib/services/gemini_service.dart)) sends each photo to Gemini, with no cache and no nutrition values from the database. The server recognition above runs only with `--analyze-on-scale` or `--server`.
+- **Model order**: `gemini-3.1-flash-lite`, then `gemini-3.5-flash-lite`, then `gemini-flash-latest`. A model gets 8 s before the next is tried, and the whole chain 35 s.
+- **Calories** = `per_100g_edible` x `edible_fraction` x weighed grams. Gemini estimates the first two and the app does the arithmetic, so the scale always sets the portion. Answers are rejected if impossible, or if calories disagree with the macros by more than 50%.
+- **Dish names**: the catalog's names are sent as spelling hints only. Without them Gemini misread jareesh as a foreign dish.
+- **Limits**: on the free tier, Flash models allow about 20 requests a day per model and top models none, and Google's terms for free-tier data differ from paid. Check the current plan before a demo.
+- **Before release**: the key is compiled into the app and can be extracted. A released app must call Gemini through a server that holds the key.
+- **Measuring**: `cd mobile && flutter test benchmark/gemini_benchmark_test.dart --dart-define=GEMINI_API_KEY=<key> --dart-define=MANIFEST=<csv>` reports names, calorie error, repeatability and speed for your own photos. Run it sparingly: it uses quota.
+
 ### 3.3 Flutter Mobile Application (`mobile/`)
 - **State Management**: Built on `ChangeNotifier` and `Provider` via [AppController](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/app_controller.dart).
 - **Scale Telemetry Client**: [ScaleHardwareService](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/services/api_service.dart) polls `/scale/live` every 500 ms and goes offline only after 3 missed polls in a row.

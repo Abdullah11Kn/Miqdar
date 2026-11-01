@@ -66,6 +66,7 @@ class RecognitionException implements Exception {
             ? 'خدمة الذكاء الاصطناعي غير متاحة حالياً'
             : 'AI recognition service unavailable',
         'AI_KEY_MISSING' => isAr ? 'مفتاح Gemini غير مضبوط' : 'Gemini API key not set',
+        'AI_QUOTA_EXCEEDED' => isAr ? 'تم بلوغ حد استخدام Gemini' : 'Gemini usage limit reached',
         'SERVER_UNREACHABLE' => isAr
             ? 'تعذّر الاتصال بخادم مقدار'
             : 'Cannot reach the Miqdar server',
@@ -87,6 +88,9 @@ class RecognitionException implements Exception {
         'SERVER_UNREACHABLE' => isAr
             ? 'تحقق من تشغيل الخادم المحلي، أو استخدم وضع المعاينة التجريبية أو البحث في الدليل المحلي.'
             : 'Ensure the backend server is running, or continue with the Offline Demo or local Food Catalog.',
+        'AI_QUOTA_EXCEEDED' => isAr
+            ? 'انتظر دقيقة ثم حاول مرة أخرى. إذا استمرت المشكلة فقد انتهى الحد اليومي لمفتاحك.'
+            : 'Wait a minute and try again. If it continues, your key has used its daily limit.',
         'AI_KEY_MISSING' => isAr
             ? 'شغّل التطبيق باستخدام ./run_simulator.sh لقراءة المفتاح من ملف .env.'
             : 'Start the app with ./run_simulator.sh so it reads the key from your .env file.',

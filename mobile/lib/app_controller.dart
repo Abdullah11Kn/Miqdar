@@ -14,11 +14,15 @@ import 'services/api_service.dart';
 
 /// A capture the scale could not finish, with the photo when one was taken.
 class ScaleCaptureFailure {
-  const ScaleCaptureFailure({required this.error, this.imageBytes, this.weightG = 0});
+  const ScaleCaptureFailure({required this.error, this.imageBytes, this.weightG = 0, this.event});
 
   final RecognitionException error;
   final Uint8List? imageBytes;
   final double weightG;
+  final Map<String, dynamic>? event;
+
+  /// A photo that reached the app can go back to Gemini without capturing again.
+  bool get canRetry => imageBytes != null && event?['status'] == 'photo';
 }
 
 /// A scale photo Gemini is still analyzing, shown to the user right away.
@@ -298,6 +302,9 @@ class MiqdarController extends ChangeNotifier {
   RecognitionResult? latestExternalScaleCapture;
   ScaleCaptureFailure? latestScaleCaptureFailure;
   PendingScaleCapture? pendingScaleCapture;
+
+  /// Note typed for the AI ("no sauce"), used by the next capture from any button.
+  String aiNote = '';
   String? scaleConnectionIssue;
   String? _analyzingEventId;
   bool _scalePollInFlight = false;
@@ -416,7 +423,30 @@ class MiqdarController extends ChangeNotifier {
       error: error,
       imageBytes: image == null || image.isEmpty ? null : base64Decode(image),
       weightG: (event['weight_g'] as num?)?.toDouble() ?? 0,
+      event: event,
     );
+  }
+
+  Future<void> retryScaleAnalysis(ScaleCaptureFailure failure) async {
+    final event = failure.event;
+    if (event != null && failure.canRetry) await _analyzeScalePhoto(event);
+  }
+
+  /// Sends the draft's photo back to Gemini with what the user says it really is.
+  Future<RecognitionResult?> correctDraftWithGemini(String correction) async {
+    final current = lastRecognition;
+    final image = current?.imageBytes;
+    if (current == null || image == null || image.isEmpty) return current;
+    final result = await apiService.gemini.analyze(
+      imageBytes: image,
+      weightG: current.weightG,
+      correction: correction,
+      eventId: current.eventId,
+      portionSource: current.portionSource,
+    );
+    final applied = await _applyResult(result.withAdditionalItems(current.additionalItems));
+    notifyListeners();
+    return applied;
   }
 
   /// Sends the scale's weighed photo to Gemini. Runs apart from the live poll, so the
@@ -426,6 +456,9 @@ class MiqdarController extends ChangeNotifier {
     final image = event['image_base64'] as String?;
     final imageBytes = image == null ? Uint8List(0) : base64Decode(image);
     final weightG = (event['weight_g'] as num?)?.toDouble() ?? 0;
+    final note = (event['ai_note'] as String?) ?? aiNote.trim();
+    event['ai_note'] = note;
+    aiNote = '';
     _analyzingEventId = eventId;
     if (imageBytes.isNotEmpty) {
       pendingScaleCapture = PendingScaleCapture(imageBytes: imageBytes, weightG: weightG);
@@ -435,6 +468,7 @@ class MiqdarController extends ChangeNotifier {
       final result = await apiService.gemini.analyze(
         imageBytes: imageBytes,
         weightG: weightG,
+        hint: note.isEmpty ? null : note,
         eventId: eventId,
       );
       if (_analyzingEventId != eventId) return null;
@@ -610,7 +644,7 @@ class MiqdarController extends ChangeNotifier {
       provider: food.isCustom ? 'user-custom' : 'miqdar-catalog',
       portionSource: portionSource,
     );
-    final applied = await _applyResult(result, persistAlerts: false);
+    final applied = await _applyResult(result);
     notifyListeners();
     return applied;
   }
@@ -671,7 +705,7 @@ class MiqdarController extends ChangeNotifier {
   Future<RecognitionResult> chooseCandidate(RecognitionCandidate candidate) async {
     final current = lastRecognition;
     if (current == null || !candidate.inDatabase) return current ?? lastRecognition!;
-    final applied = await _applyResult(current.withCandidate(candidate), persistAlerts: false);
+    final applied = await _applyResult(current.withCandidate(candidate));
     notifyListeners();
     return applied;
   }
@@ -684,7 +718,7 @@ class MiqdarController extends ChangeNotifier {
     final current = lastRecognition;
     if (current == null || newWeightG <= 0) return current;
     final rescaled = current.withWeight(newWeightG, newSource: newSource);
-    final applied = await _applyResult(rescaled, persistAlerts: false);
+    final applied = await _applyResult(rescaled);
     notifyListeners();
     return applied;
   }
@@ -710,7 +744,7 @@ class MiqdarController extends ChangeNotifier {
       preparation: food.preparation,
     );
     final updated = current.withAdditionalItems([...current.additionalItems, item]);
-    final applied = await _applyResult(updated, persistAlerts: false);
+    final applied = await _applyResult(updated);
     notifyListeners();
     return applied;
   }
@@ -721,15 +755,14 @@ class MiqdarController extends ChangeNotifier {
     final updated = current.withAdditionalItems(
       current.additionalItems.where((i) => i.id != itemId).toList(),
     );
-    final applied = await _applyResult(updated, persistAlerts: false);
+    final applied = await _applyResult(updated);
     notifyListeners();
     return applied;
   }
 
-  Future<RecognitionResult> _applyResult(
-    RecognitionResult result, {
-    bool persistAlerts = true,
-  }) async {
+  /// Alerts stay a projection until the meal is saved, so moving the weight slider or
+  /// discarding a draft leaves no trace in the alert history.
+  Future<RecognitionResult> _applyResult(RecognitionResult result) async {
     final evaluation = alertService.evaluate(
       currentTotals: todayTotals,
       incoming: result.totalNutrients,
@@ -737,12 +770,6 @@ class MiqdarController extends ChangeNotifier {
     );
     alertEvaluationMs = evaluation.elapsedMs;
     projectedAlerts = evaluation.alerts;
-    if (evaluation.alerts.isNotEmpty) {
-      alerts = [...evaluation.alerts, ...alerts];
-    }
-    if (persistAlerts && evaluation.alerts.isNotEmpty) {
-      await localDatabase.saveAlerts(evaluation.alerts);
-    }
     lastRecognition = result;
     return result;
   }
@@ -767,8 +794,8 @@ class MiqdarController extends ChangeNotifier {
     );
     meals = [meal, ...meals]..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
 
-    // Commit projected alerts if not already persisted
     if (projectedAlerts.isNotEmpty) {
+      alerts = [...projectedAlerts, ...alerts];
       await localDatabase.saveAlerts(projectedAlerts);
     }
 
