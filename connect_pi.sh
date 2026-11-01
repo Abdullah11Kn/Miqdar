@@ -19,9 +19,9 @@ explain_failure() {
   if ifconfig | grep -q 'inet 192\.168\.7\.'; then
     echo "    The cable network is up, but SSH is not responding. The Pi may still be booting:"
     echo "    wait 30 seconds and try again."
-  elif system_profiler SPUSBHostDataType SPUSBDataType 2>/dev/null | grep -q -i -E 'gadget|rndis|cdc'; then
+  elif system_profiler SPUSBHostDataType SPUSBDataType 2>/dev/null | grep -q -i 'gadget'; then
     echo "    The Mac sees the Pi on USB but has no address yet. Wait 30 seconds and try again,"
-    echo "    and check System Settings > Network for 'RNDIS/Ethernet Gadget'."
+    echo "    and check System Settings > Network for 'Raspberry Pi USB Gadget'."
   else
     echo "    The Mac does not see the Pi on USB. Check, in order:"
     echo "    1. On the Pi, ./enable_usb_ssh_pi.sh has been run and the Pi has rebooted."

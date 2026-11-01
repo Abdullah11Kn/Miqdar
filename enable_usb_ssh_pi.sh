@@ -16,6 +16,7 @@ OVERLAY_LINE="dtoverlay=dwc2,dr_mode=peripheral"
 # Fixed addresses, so the Mac treats it as the same network adapter after every reboot.
 GADGET_ARGS="modules-load=dwc2,g_ether g_ether.dev_addr=02:6d:71:64:72:01 g_ether.host_addr=02:6d:71:64:72:02"
 DNSMASQ_CONF="/etc/NetworkManager/dnsmasq-shared.d/miqdar-usb.conf"
+UDEV_RULE="/etc/udev/rules.d/90-miqdar-usb.rules"
 SUDO="${SUDO-sudo}"
 
 find_boot_dir() {
@@ -104,6 +105,8 @@ enable() {
   printf 'dhcp-option=3\ndhcp-option=6\n' | $SUDO tee "$DNSMASQ_CONF" >/dev/null
 
   echo "[3/4] USB network"
+  # NetworkManager ignores USB gadgets by default, so without this it never starts at boot.
+  echo 'SUBSYSTEM=="net", KERNEL=="usb0", ENV{NM_UNMANAGED}="0"' | $SUDO tee "$UDEV_RULE" >/dev/null
   $SUDO nmcli connection delete "$CONNECTION" >/dev/null 2>&1 || true
   $SUDO nmcli connection add type ethernet ifname usb0 con-name "$CONNECTION" \
     connection.autoconnect yes connection.autoconnect-priority 10 \
@@ -127,7 +130,7 @@ enable() {
 undo() {
   disable_boot_files "$(find_boot_dir)"
   $SUDO nmcli connection delete "$CONNECTION" >/dev/null 2>&1 || true
-  $SUDO rm -f "$DNSMASQ_CONF"
+  $SUDO rm -f "$DNSMASQ_CONF" "$UDEV_RULE"
   echo "USB network removed. SSH is still on (sudo systemctl disable --now ssh to stop it). Reboot to finish."
 }
 
