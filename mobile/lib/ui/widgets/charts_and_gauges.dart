@@ -564,7 +564,7 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
                           borderRadius: BorderRadius.circular(99),
                         ),
                         child: Text(
-                          DateFormat('EEE, d MMM').format(selected.$1),
+                          s.date(selected.$1, 'EEE, d MMM'),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -637,7 +637,7 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
               ),
               const SizedBox(width: 6),
               Text(
-                '${s.tr("Target", "الهدف")}: ${widget.target.toStringAsFixed(0)} ${s.unitKcal}',
+                '${s.tr("Goal", "الهدف")}: ${widget.target.toStringAsFixed(0)} ${s.unitKcal}',
                 style: const TextStyle(fontSize: 11),
               ),
             ],
@@ -1024,7 +1024,7 @@ class AiVerificationBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: bg,
+        color: Theme.of(context).brightness == Brightness.dark ? fg.withValues(alpha: 0.14) : bg,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: fg.withValues(alpha: 0.28)),
       ),
@@ -1049,7 +1049,7 @@ class AiVerificationBadge extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.85),
+                    color: fg.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(
@@ -1067,8 +1067,8 @@ class AiVerificationBadge extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               s.tr(
-                'Analyzed by ${model ?? provider} • Scaled to your exact portion weight.',
-                'تم التحليل بواسطة ${model ?? provider} • محسوب بدقة حسب وزن الحصة.',
+                'Calculated for the exact weight of this portion.',
+                'محسوب حسب الوزن الفعلي لهذه الحصة.',
               ),
               style: TextStyle(fontSize: 11.5, color: fg.withValues(alpha: 0.85)),
             ),
@@ -1214,24 +1214,13 @@ class NutrientNoticeCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   isPreview
-                      ? s.tr('Projected Nutrient Notice', 'تنبيه غذائي متوقع عند الحفظ')
-                      : '${s.nutrientLabel(alert.nutrientKey)} • ${s.tr("Above Configured Limit", "أعلى من الحد المحدد")}',
+                      ? s.tr('If you save this meal', 'إذا حفظت هذه الوجبة')
+                      : '${s.nutrientLabel(alert.nutrientKey)} • ${s.tr("Above your goal", "أعلى من هدفك")}',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
                     color: accent,
                   ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  '${alert.evaluationMs} ms',
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: accent),
                 ),
               ),
             ],
@@ -1252,7 +1241,7 @@ class NutrientNoticeCard extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: onAcknowledge,
                 icon: const Icon(Icons.check_rounded, size: 16),
-                label: Text(s.tr('Acknowledge notice', 'تم الاطلاع')),
+                label: Text(s.tr('Got it', 'حسناً')),
               ),
             ),
           ],

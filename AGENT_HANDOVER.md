@@ -465,3 +465,11 @@ cd mobile && flutter test integration_test/scale_flow_test.dart -d <simulator-id
    - Add slow-drift zero tracking algorithm in `ScaleHardwareAdapter` to eliminate thermal drift on the load cell during extended kitchen sessions.
 4. **Voice Feedback / Audio Prompts**:
    - Integrate edge text-to-speech on the Raspberry Pi (`espeak-ng` or Piper) to speak the recognized food and calories to the user.
+
+## App honesty rules (November 2026)
+
+- There are no accounts or passwords: the diary lives on the phone. Do not add a screen that looks like sign-in, pairing or sync unless it really does that.
+- Local database is version 3. Goals (fat, fiber, track-only), meal notes and portion source, and notice read state and Arabic text are stored; meal photos are files in `<databases>/meal_photos/<mealId>.jpg`.
+- The demo workspace (`account.isDemo`) must never write to the database.
+- Privacy & Data states that food photos go to Google Gemini, and that the free plan may use them. Keep that text true if the plan changes.
+- Run integration tests on a throwaway simulator: `flutter test` reinstalls the app and wipes that simulator's data.

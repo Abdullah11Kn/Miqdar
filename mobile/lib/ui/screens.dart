@@ -104,7 +104,7 @@ class _MainShellState extends State<MainShell> {
         onOpenTab: (newIdx) => setState(() => index = newIdx),
       ),
       const ScanScreen(),
-      const HistoryScreen(),
+      HistoryScreen(onAddMeal: () => setState(() => index = 1)),
       const TrendsScreen(embedded: true),
       const ProfileScreen(),
     ];
@@ -156,13 +156,6 @@ class _MainShellState extends State<MainShell> {
                                       fontWeight: FontWeight.w900,
                                       fontSize: 16,
                                       color: MiqdarColors.primary,
-                                    ),
-                                  ),
-                                  Text(
-                                    'v3.0 • Smart Nutrition',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
                                     ),
                                   ),
                                 ],
@@ -243,7 +236,7 @@ class _MainShellState extends State<MainShell> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                           leading: const Icon(Icons.scale_rounded, color: MiqdarColors.primary),
                           title: Text(
-                            controller.scaleDevice.deviceId,
+                            s.navDevices,
                             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                           ),
                           subtitle: Text(

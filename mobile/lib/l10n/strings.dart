@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 /// Normalizes Arabic-Indic (`٠-٩`) and Eastern Arabic-Indic (`۰-۹`) digits
 /// into standard Western ASCII digits (`0-9`), and converts Arabic decimal
@@ -31,15 +32,24 @@ class S {
 
   String tr(String en, String ar) => isAr ? ar : en;
 
+  /// Formats a date in the app's language, e.g. `date(day, 'EEE, d MMM')`.
+  String date(DateTime value, String pattern) {
+    try {
+      final text = DateFormat(pattern, isAr ? 'ar' : 'en').format(value);
+      return isAr ? text.replaceAll(',', '،') : text;
+    } catch (_) {
+      return DateFormat(pattern).format(value); // date data not loaded, as in unit tests
+    }
+  }
+
   // Brand & Core
-  String get appName => isAr ? 'مقدار' : 'Miqdar';
   String get appNameDual => isAr ? 'مقدار • Miqdar' : 'Miqdar • مقدار';
   String get tagline => isAr
-      ? 'قياس دقيق للوزن • تعرّف ذكي • تغذية موثوقة'
-      : 'Precision Weight • AI Recognition • Traceable Nutrition';
+      ? 'زِن طعامك، صوّره، واعرف ما تأكله'
+      : 'Weigh it. Snap it. Know what you ate.';
   String get demoBanner => isAr
-      ? 'وضع العرض التجريبي — بيانات وعينات توضيحية'
-      : 'Demo Workspace — Sample Data & Hardware Simulation';
+      ? 'عرض تجريبي ببيانات نموذجية. لن يُحفظ شيء هنا.'
+      : 'Demo with sample data. Nothing here is saved.';
 
   // Navigation
   String get navHome => isAr ? 'الرئيسية' : 'Home';
@@ -51,48 +61,21 @@ class S {
   String get navDevices => isAr ? 'الميزان' : 'Scale';
 
   // Welcome & Auth
-  String get welcomeTitle => isAr
-      ? 'تتبّع تغذيتك بدقة الميزان وذكاء الكاميرا'
-      : 'Track nutrition with scale precision & AI vision';
-  String get welcomeSubtitle => isAr
-      ? 'زِن وجبتك، التقط صورة أو ابحث في الدليل الغذائي، وراجع القيم الغذائية الموثقة قبل الحفظ.'
-      : 'Weigh your portion, snap a photo or search the catalog, and review traceable nutrient estimates before saving.';
-  String get signIn => isAr ? 'تسجيل الدخول' : 'Sign In';
-  String get createAccount => isAr ? 'إنشاء حساب جديد' : 'Create Account';
-  String get exploreDemo => isAr ? 'استكشاف العرض التجريبي' : 'Explore Demo Workspace';
-  String get emailLabel => isAr ? 'البريد الإلكتروني' : 'Email address';
-  String get passwordLabel => isAr ? 'كلمة المرور' : 'Password';
-  String get fullNameLabel => isAr ? 'الاسم الكامل' : 'Display name';
-  String get forgotPassword => isAr ? 'نسيت كلمة المرور؟' : 'Forgot password?';
-  String get resetPasswordTitle => isAr ? 'استعادة كلمة المرور' : 'Password Recovery';
-  String get resetPasswordDesc => isAr
-      ? 'أدخل بريدك الإلكتروني وسنرسل رابط إعادة تعيين كلمة المرور إذا كان الحساب مسجلاً.'
-      : 'Enter your email address. If an account exists, we will send a secure password reset link.';
-  String get sendResetLink => isAr ? 'إرسال رابط الاستعادة' : 'Send Reset Link';
-  String get continueWithoutScale => isAr
-      ? 'يمكنك استخدام التطبيق كاملاً بالبحث والإدخال اليدوي بدون ميزان.'
-      : 'Full search and manual portion logging work anytime without a scale.';
+  String get exploreDemo => isAr ? 'جرّب ببيانات نموذجية' : 'Try with Sample Data';
 
   // Home Dashboard
   String get greetingMorning => isAr ? 'صباح الخير،' : 'Good morning,';
   String get greetingAfternoon => isAr ? 'مساء الخير،' : 'Good afternoon,';
   String get greetingEvening => isAr ? 'مساء النور،' : 'Good evening,';
-  String get dailyIntakeTitle => isAr ? 'ملخص التغذية اليومي' : 'Daily Nutrition Summary';
-  String get caloriesRemaining => isAr ? 'متبقي من الهدف' : 'Remaining of target';
-  String get caloriesAboveTarget => isAr ? 'أعلى من الهدف المحدد' : 'Above configured target';
-  String get caloriesTracked => isAr ? 'سعرة مسجلة اليوم' : 'kcal recorded today';
-  String get quickCaptureTitle => isAr ? 'جاهز لتسجيل وجبتك؟' : 'Ready to log a meal?';
-  String get quickCaptureSubtitle => isAr
-      ? 'ضع طعامك على الميزان والتقط صورة له.'
-      : 'Put your food on the scale and capture it.';
-  String get startCapture => isAr ? 'مسح وتوزين وجبة' : 'Weigh & Scan Meal';
+  String get dailyIntakeTitle => isAr ? 'تغذية اليوم' : 'Nutrition';
+  String get startCapture => isAr ? 'إضافة وجبة' : 'Add Meal';
   String get searchFoodBtn => isAr ? 'بحث غذائي' : 'Search Food';
-  String get customFoodBtn => isAr ? 'إدخال مخصص' : 'Custom Entry';
-  String get mealIdeasTitle => isAr ? 'اقتراحات وجبات ذكية' : 'Smart Meal Ideas';
+  String get customFoodBtn => isAr ? 'إدخال يدوي' : 'Enter by Hand';
+  String get mealIdeasTitle => isAr ? 'أفكار للوجبات' : 'Meal Ideas';
   String get recentMealsTitle => isAr ? 'وجبات اليوم' : "Today's Meals";
   String get seeAll => isAr ? 'عرض الكل' : 'See all';
   String get noMealsToday => isAr
-      ? 'لم يتم تسجيل وجبات لهذا اليوم بعد. ابدأ بمسح وجبة أو البحث.'
+      ? 'لم تسجل شيئاً بعد.'
       : 'Nothing logged yet.';
 
   // Nutrients
@@ -130,38 +113,18 @@ class S {
       };
 
   // Capture & Scale
-  String get tabCameraScale => isAr ? 'كاميرا + ميزان' : 'Camera + Scale';
-  String get tabSearchCatalog => isAr ? 'دليل الأطعمة' : 'Food Catalog';
-  String get tabCustomEntry => isAr ? 'طعام مخصص' : 'Custom Food';
-  String get scaleLiveReading => isAr ? 'قراءة الميزان المباشرة' : 'Live Scale Reading';
-  String get manualPortionEntry => isAr ? 'وزن يدوي بالجرام' : 'Manual Portion Weight';
-  String get tareScale => isAr ? 'تصفير الميزان (Tare)' : 'Zero / Tare Scale';
-  String get lockWeight => isAr ? 'تثبيت الوزن' : 'Lock Weight';
-  String get unlockWeight => isAr ? 'تحديث الوزن' : 'Unlock Weight';
-  String get stableReading => isAr ? 'قراءة مستقرة' : 'Stable Reading';
-  String get weightLocked => isAr ? 'تم تثبيت القراءة' : 'Snapshot Locked';
-  String get recognizeFood => isAr ? 'تحليل وتعرّف بالذكاء الاصطناعي' : 'Identify Food with AI';
+  String get tareScale => isAr ? 'تصفير الميزان' : 'Zero the Scale';
   String get recognizingFood => isAr ? 'جارٍ تحليل الصورة ومطابقة الغذاء…' : 'Analyzing photo & matching nutrition…';
 
   // Review & Provenance
-  String get reviewBeforeSaving => isAr ? 'مراجعة الوجبة قبل الحفظ' : 'Review Meal Before Saving';
-  String get suggestedMatchConfirm => isAr
-      ? 'تطابق مقترح — يرجى التأكيد أو التعديل قبل الحفظ'
-      : 'Suggested match — please confirm or adjust before saving';
   String get verifiedOfficialRecord => isAr
-      ? 'سجل غذائي رسمي موثّق (USDA / SFDA)'
-      : 'Verified Official Record (USDA / SFDA)';
+      ? 'من قاعدة بيانات غذائية رسمية'
+      : 'From an official food database';
   String get referenceSeedRecord => isAr
-      ? 'سجل مرجعي معياري — قيم تقديرية لكل 100 غ'
-      : 'Reference Seed Record — Estimated per 100 g';
-  String get aiEstimateRecord => isAr
-      ? 'تقدير من Gemini AI — ليس سجلاً غذائياً موثقاً'
-      : 'Gemini AI Estimate — Not a Verified Record';
-  String get userEnteredRecord => isAr
-      ? 'قيمة مدخلة يدوياً من المستخدم'
-      : 'User-Entered Custom Nutrition Record';
-  String get offlineDemoRecord => isAr
-      ? 'بيانات عرض تجريبي (غير متصل بالخادم)'
-      : 'Offline Demonstration Record';
+      ? 'قيم تقريبية من قائمة الأطعمة'
+      : 'Typical values from the food list';
+  String get aiEstimateRecord => isAr ? 'تقدير من Gemini' : 'Estimated by Gemini';
+  String get userEnteredRecord => isAr ? 'أدخلته بنفسك' : 'Entered by you';
+  String get offlineDemoRecord => isAr ? 'بيانات تجريبية' : 'Demo data';
   String get saveMealToDiary => isAr ? 'حفظ في السجل' : 'Save to Diary';
 }

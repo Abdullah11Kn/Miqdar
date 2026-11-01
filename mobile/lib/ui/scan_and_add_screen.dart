@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart' show DateFormat;
 
 import '../app.dart';
 import '../app_controller.dart';
@@ -229,9 +228,9 @@ class _ScanScreenState extends State<ScanScreen> {
           backgroundColor: const Color(0xFFD97706),
           behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
-            label: s.tr('Configure URL', 'ضبط الرابط'),
+            label: s.tr('Connect', 'اتصال'),
             textColor: Colors.white,
-            onPressed: () => showApiUrlDialog(context, controller),
+            onPressed: () => showScaleAddressDialog(context, controller),
           ),
         ),
       );
@@ -260,9 +259,9 @@ class _ScanScreenState extends State<ScanScreen> {
           backgroundColor: MiqdarColors.danger,
           behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
-            label: s.tr('Change URL', 'تغيير الرابط'),
+            label: s.tr('Scale address', 'عنوان الميزان'),
             textColor: Colors.white,
-            onPressed: () => showApiUrlDialog(context, controller),
+            onPressed: () => showScaleAddressDialog(context, controller),
           ),
         ),
       );
@@ -340,8 +339,8 @@ class _ScanScreenState extends State<ScanScreen> {
             const SizedBox(height: 4),
             Text(
               s.tr(
-                'Select from your Mac files, photo gallery, or camera',
-                'اختر من ملفات جهازك، أو معرض الصور، أو الكاميرا',
+                'From your files, photos or camera',
+                'من ملفاتك أو صورك أو الكاميرا',
               ),
               style: TextStyle(
                 fontSize: 13,
@@ -351,8 +350,8 @@ class _ScanScreenState extends State<ScanScreen> {
             const SizedBox(height: 18),
             _PhotoSourceTile(
               icon: Icons.folder_open_rounded,
-              title: s.tr('Browse Mac / Device Files', 'تصفح ملفات الماك / الجهاز'),
-              subtitle: s.tr('Choose any JPG, PNG, WEBP, or HEIC image file', 'اختر أي صورة بصيغة JPG أو PNG أو WEBP'),
+              title: s.tr('Files', 'الملفات'),
+              subtitle: s.tr('Choose an image file', 'اختر ملف صورة'),
               highlight: true,
               isDark: isDark,
               onTap: () {
@@ -364,7 +363,7 @@ class _ScanScreenState extends State<ScanScreen> {
             _PhotoSourceTile(
               icon: Icons.photo_library_outlined,
               title: s.tr('Photo Library', 'معرض الصور'),
-              subtitle: s.tr('Select from your photo albums', 'اختر من ألبوم الصور في النظام'),
+              subtitle: s.tr('Choose from your albums', 'اختر من ألبوماتك'),
               highlight: false,
               isDark: isDark,
               onTap: () {
@@ -376,7 +375,7 @@ class _ScanScreenState extends State<ScanScreen> {
             _PhotoSourceTile(
               icon: Icons.camera_alt_outlined,
               title: s.tr('Camera', 'الكاميرا'),
-              subtitle: s.tr('Snap a live photo of your plate', 'التقط صورة حية لطبقك'),
+              subtitle: s.tr('Take a photo of your plate', 'التقط صورة لطبقك'),
               highlight: false,
               isDark: isDark,
               onTap: () {
@@ -387,8 +386,8 @@ class _ScanScreenState extends State<ScanScreen> {
             const SizedBox(height: 10),
             _PhotoSourceTile(
               icon: Icons.scale_rounded,
-              title: s.tr('Scale Camera Snapshot', 'التقاط بكاميرا الميزان'),
-              subtitle: s.tr('Trigger Camera Module 3 snapshot on physical scale', 'التقاط صورة للطبق باستخدام كاميرا الميزان المدمجة'),
+              title: s.tr('Scale Camera', 'كاميرا الميزان'),
+              subtitle: s.tr('Photograph what is on the scale', 'صوّر ما على الميزان'),
               highlight: false,
               isDark: isDark,
               onTap: () {
@@ -399,8 +398,8 @@ class _ScanScreenState extends State<ScanScreen> {
             const SizedBox(height: 10),
             _PhotoSourceTile(
               icon: Icons.science_outlined,
-              title: s.tr('Sample Demo Dishes', 'عينات أطباق تجريبية'),
-              subtitle: s.tr('Test with pre-configured meal photos', 'اختر من عينات الأطباق الجاهزة للاختبار'),
+              title: s.tr('Sample Photos', 'صور نموذجية'),
+              subtitle: s.tr('Try it with a ready-made photo', 'جرّب بصورة جاهزة'),
               highlight: false,
               isDark: isDark,
               onTap: () {
@@ -1147,8 +1146,10 @@ class _ScanScreenState extends State<ScanScreen> {
 
     final String guidance;
     if (!scale.online) {
-      guidance = controller.scaleConnectionIssue ??
-          s.tr('Turn on the scale, then connect to it.', 'شغّل الميزان ثم اتصل به.');
+      final issue = controller.scaleConnectionIssue;
+      guidance = issue != null && !s.isAr
+          ? issue
+          : s.tr('Turn on the scale, then connect to it.', 'شغّل الميزان ثم اتصل به.');
     } else if (scale.sensorError != null) {
       guidance = s.tr('Load cell not responding: check the wiring.', 'حساس الوزن لا يستجيب: تحقق من التوصيلات.');
     } else if (working) {
@@ -1173,7 +1174,7 @@ class _ScanScreenState extends State<ScanScreen> {
               Expanded(
                 child: InkWell(
                   borderRadius: BorderRadius.circular(8),
-                  onTap: () => showApiUrlDialog(context, controller),
+                  onTap: () => showScaleAddressDialog(context, controller),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(
@@ -1301,7 +1302,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 minimumSize: const Size.fromHeight(58),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              onPressed: () => showApiUrlDialog(context, controller),
+              onPressed: () => showScaleAddressDialog(context, controller),
               icon: const Icon(Icons.link_rounded),
               label: Text(
                 s.tr('Connect to Scale', 'الاتصال بالميزان'),
@@ -1418,7 +1419,7 @@ class _ScanScreenState extends State<ScanScreen> {
                     modeIndex = 2;
                   }),
                   icon: const Icon(Icons.add_rounded),
-                  label: Text(s.tr('Create Custom Food', 'إضافة كطعام مخصص')),
+                  label: Text(s.tr('Enter It by Hand', 'أدخله يدوياً')),
                 ),
               ],
             ),
@@ -1655,7 +1656,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       );
                     },
                     icon: const Icon(Icons.fact_check_rounded),
-                    label: Text(s.tr('Review & Log Portion', 'مراجعة الحصة قبل الحفظ')),
+                    label: Text(s.tr('Review', 'مراجعة')),
                   ),
                 ],
               ),
@@ -1683,16 +1684,16 @@ class _ScanScreenState extends State<ScanScreen> {
         children: [
           Text(
             s.tr(
-              'Custom Food & Nutrition Label',
-              'إدخال طعام مخصص أو بطاقة غذائية',
+              'Enter a food by hand',
+              'أدخل طعاماً يدوياً',
             ),
             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
           ),
           const SizedBox(height: 6),
           Text(
             s.tr(
-              'Leave any unknown nutrient field blank — Miqdar marks unreported nutrients as Unknown rather than assuming zero.',
-              'اترك أي عنصر غذائي غير معروف فارغاً — يميز مقدار العناصر غير المتوفرة بدلاً من افتراض أنها صفر.',
+              'Copy the values from the label. Leave blank what you do not know; it shows as Unknown, not zero.',
+              'انسخ القيم من البطاقة الغذائية. اترك ما لا تعرفه فارغاً وسيظهر كغير متوفر وليس صفراً.',
             ),
             style: const TextStyle(fontSize: 12.5),
           ),
@@ -1703,7 +1704,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 child: TextField(
                   controller: customNameEnCtrl,
                   decoration: InputDecoration(
-                    labelText: s.tr('Food Name (English) *', 'اسم الطعام (إنجليزي) *'),
+                    labelText: s.tr('Food name *', 'اسم الطعام بالإنجليزية *'),
                   ),
                 ),
               ),
@@ -1712,7 +1713,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 child: TextField(
                   controller: customNameArCtrl,
                   decoration: InputDecoration(
-                    labelText: s.tr('Food Name (Arabic)', 'اسم الطعام (عربي)'),
+                    labelText: s.tr('Arabic name (optional)', 'اسم الطعام بالعربية (اختياري)'),
                   ),
                 ),
               ),
@@ -1866,7 +1867,7 @@ class _ScanScreenState extends State<ScanScreen> {
               );
             },
             icon: const Icon(Icons.add_task_rounded),
-            label: Text(s.tr('Create & Review Custom Meal', 'إنشاء ومراجعة الوجبة المخصصة')),
+            label: Text(s.tr('Review', 'مراجعة')),
           ),
         ],
       ),
@@ -2191,11 +2192,11 @@ class _RecognitionErrorCard extends StatelessWidget {
                 icon: const Icon(Icons.edit_note_rounded, size: 18),
                 label: Text(s.customFoodBtn),
               ),
-              if (error.serverUnreachable)
+              if (error.serverUnreachable && MiqdarScope.of(context).account.isDemo)
                 FilledButton.icon(
                   onPressed: onUseOfflineDemo,
                   icon: const Icon(Icons.bolt_rounded, size: 18),
-                  label: Text(s.tr('Use Offline Demo', 'استخدام المعاينة المحلية')),
+                  label: Text(s.tr('Use Sample Result', 'استخدام نتيجة نموذجية')),
                 ),
             ],
           ),
@@ -2320,7 +2321,6 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
         ],
       ),
     );
-    input.dispose();
     if (correction == null || correction.trim().isEmpty || !mounted) return;
     setState(() => correcting = true);
     try {
@@ -2463,6 +2463,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                 mealType: selectedMealType,
                 eatenAt: consumedAt,
                 notes: notesCtrl.text.trim(),
+                photo: widget.previewBytes,
               );
               navigator.pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const MainShell()),
@@ -2819,7 +2820,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                         ),
                         subtitle: Text(
-                          '${s.mealTypeLabel(selectedMealType)} • ${DateFormat('EEE, h:mm a').format(consumedAt)}',
+                          '${s.mealTypeLabel(selectedMealType)} • ${s.date(consumedAt, 'EEE, h:mm a')}',
                           style: TextStyle(fontSize: 12.5, color: textSecondary),
                         ),
                         childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
@@ -2843,7 +2844,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  DateFormat('EEE, d MMM yyyy • h:mm a').format(consumedAt),
+                                  s.date(consumedAt, 'EEE, d MMM yyyy • h:mm a'),
                                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                                 ),
                               ),
@@ -2910,7 +2911,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    s.tr('Select Correct Food Record', 'اختر السجل الغذائي الصحيح'),
+                    s.tr('Choose the right food', 'اختر الطعام الصحيح'),
                     style: Theme.of(ctx).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 12),

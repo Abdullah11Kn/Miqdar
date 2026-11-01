@@ -33,7 +33,8 @@ class GeminiNutritionService {
     'gemini-flash-latest',
   ];
   static const _endpoint = 'https://generativelanguage.googleapis.com/v1beta/models';
-  // Answers normally take 2-3 s, so a slow model is skipped instead of waited for.
+  // Answers normally take 2-3 s, so a slow model is skipped at first. If nothing else answers,
+  // it gets another try with whatever time is left: under load a good answer can take 20 s.
   static const _perRequestTimeout = Duration(seconds: 8);
   static const _totalDeadline = Duration(seconds: 35);
   static const _retryableStatus = {400, 404, 429, 500, 502, 503, 504};
@@ -70,9 +71,17 @@ class GeminiNutritionService {
     final payload = jsonEncode(_requestBody(imageBytes, weightG, hint, correction));
 
     RecognitionException? lastError;
-    for (final model in models) {
+    final queue = [...models];
+    final slowModels = <String>[];
+    while (queue.isNotEmpty || slowModels.isNotEmpty) {
+      if (queue.isEmpty) {
+        queue.addAll(slowModels);
+        slowModels.clear();
+      }
+      final model = queue.removeAt(0);
       final remaining = deadline.difference(DateTime.now());
       if (remaining < const Duration(seconds: 1)) break;
+      final nothingElseToTry = queue.isEmpty && slowModels.isEmpty;
       try {
         final response = await _client
             .post(
@@ -80,7 +89,7 @@ class GeminiNutritionService {
               headers: {'Content-Type': 'application/json', 'x-goog-api-key': apiKey},
               body: payload,
             )
-            .timeout(model == models.last || remaining < _perRequestTimeout ? remaining : _perRequestTimeout);
+            .timeout(nothingElseToTry || remaining < _perRequestTimeout ? remaining : _perRequestTimeout);
         if (response.statusCode != 200) {
           lastError = RecognitionException(
             response.statusCode == 429 ? 'AI_QUOTA_EXCEEDED' : 'AI_PROVIDER_UNAVAILABLE',
@@ -106,6 +115,7 @@ class GeminiNutritionService {
         lastError = error;
       } on TimeoutException {
         lastError = const RecognitionException('AI_PROVIDER_UNAVAILABLE', 'Gemini did not answer in time.');
+        slowModels.add(model);
       } catch (_) {
         lastError = const RecognitionException('AI_PROVIDER_UNAVAILABLE', 'Could not reach Gemini.');
       }

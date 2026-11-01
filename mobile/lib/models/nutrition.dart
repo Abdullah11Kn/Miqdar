@@ -8,10 +8,10 @@ enum PortionSource {
   estimated;
 
   String label(bool isAr) => switch (this) {
-        PortionSource.scale => isAr ? 'مقاس بالميزان' : 'Scale Measured',
-        PortionSource.manual => isAr ? 'إدخال يدوي (غ)' : 'Manual Grams',
-        PortionSource.serving => isAr ? 'حصة معيارية' : 'Verified Serving',
-        PortionSource.estimated => isAr ? 'تقديري' : 'Estimated Portion',
+        PortionSource.scale => isAr ? 'موزون بالميزان' : 'Weighed on scale',
+        PortionSource.manual => isAr ? 'وزن مدخل يدوياً' : 'Entered by hand',
+        PortionSource.serving => isAr ? 'حصة معيارية' : 'Standard serving',
+        PortionSource.estimated => isAr ? 'وزن تقديري' : 'Estimated weight',
       };
 }
 
@@ -819,22 +819,13 @@ class RecommendationResponse {
 
 class ScaleDeviceState {
   const ScaleDeviceState({
-    this.deviceId = 'Miqdar-015',
-    this.displayName = 'Miqdar Smart Scale #015',
     this.paired = true,
     this.online = false,
-    this.wifiSsid = 'KFU-Lab-WiFi',
-    this.firmwareVersion = '0.9.2-stable',
     this.capacityG = 5000,
-    this.resolutionG = 1.0,
     this.liveWeightG = 0.0,
     this.lockedWeightG,
     this.tareOffsetG = 0.0,
     this.isStable = true,
-    this.autoSync = true,
-    this.soundEnabled = true,
-    this.brightness = 0.80,
-    this.batteryPercent = 94,
     this.lastSeen,
     this.simulated = false,
     this.autoCapture = false,
@@ -842,22 +833,13 @@ class ScaleDeviceState {
     this.sensorError,
   });
 
-  final String deviceId;
-  final String displayName;
   final bool paired;
   final bool online;
-  final String wifiSsid;
-  final String firmwareVersion;
   final double capacityG;
-  final double resolutionG;
   final double liveWeightG;
   final double? lockedWeightG;
   final double tareOffsetG;
   final bool isStable;
-  final bool autoSync;
-  final bool soundEnabled;
-  final double brightness;
-  final int batteryPercent;
   final DateTime? lastSeen;
   final bool simulated;
   final bool autoCapture;
@@ -869,23 +851,14 @@ class ScaleDeviceState {
   double get effectiveWeightG => lockedWeightG ?? liveWeightG;
 
   ScaleDeviceState copyWith({
-    String? deviceId,
-    String? displayName,
     bool? paired,
     bool? online,
-    String? wifiSsid,
-    String? firmwareVersion,
     double? capacityG,
-    double? resolutionG,
     double? liveWeightG,
     double? lockedWeightG,
     bool clearLockedWeight = false,
     double? tareOffsetG,
     bool? isStable,
-    bool? autoSync,
-    bool? soundEnabled,
-    double? brightness,
-    int? batteryPercent,
     DateTime? lastSeen,
     bool? simulated,
     bool? autoCapture,
@@ -894,48 +867,19 @@ class ScaleDeviceState {
     bool clearSensorError = false,
   }) =>
       ScaleDeviceState(
-        deviceId: deviceId ?? this.deviceId,
-        displayName: displayName ?? this.displayName,
         paired: paired ?? this.paired,
         online: online ?? this.online,
-        wifiSsid: wifiSsid ?? this.wifiSsid,
-        firmwareVersion: firmwareVersion ?? this.firmwareVersion,
         capacityG: capacityG ?? this.capacityG,
-        resolutionG: resolutionG ?? this.resolutionG,
         liveWeightG: liveWeightG ?? this.liveWeightG,
         lockedWeightG: clearLockedWeight ? null : (lockedWeightG ?? this.lockedWeightG),
         tareOffsetG: tareOffsetG ?? this.tareOffsetG,
         isStable: isStable ?? this.isStable,
-        autoSync: autoSync ?? this.autoSync,
-        soundEnabled: soundEnabled ?? this.soundEnabled,
-        brightness: brightness ?? this.brightness,
-        batteryPercent: batteryPercent ?? this.batteryPercent,
         lastSeen: lastSeen ?? this.lastSeen,
         simulated: simulated ?? this.simulated,
         autoCapture: autoCapture ?? this.autoCapture,
         captureState: captureState ?? this.captureState,
         sensorError: clearSensorError ? null : (sensorError ?? this.sensorError),
       );
-}
-
-class SyncOperation {
-  const SyncOperation({
-    required this.operationId,
-    required this.entityType,
-    required this.entityId,
-    required this.action,
-    required this.status,
-    required this.createdAt,
-    this.detail = '',
-  });
-
-  final String operationId;
-  final String entityType; // 'meal' | 'goals' | 'profile'
-  final String entityId;
-  final String action; // 'create' | 'update' | 'delete'
-  final String status; // 'synced' | 'pending' | 'retrying'
-  final DateTime createdAt;
-  final String detail;
 }
 
 class UserAccount {
