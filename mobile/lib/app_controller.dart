@@ -21,6 +21,14 @@ class ScaleCaptureFailure {
   final double weightG;
 }
 
+/// A scale photo Gemini is still analyzing, shown to the user right away.
+class PendingScaleCapture {
+  const PendingScaleCapture({required this.imageBytes, required this.weightG});
+
+  final Uint8List imageBytes;
+  final double weightG;
+}
+
 class MiqdarController extends ChangeNotifier {
   MiqdarController({
     required this.localDatabase,
@@ -289,6 +297,7 @@ class MiqdarController extends ChangeNotifier {
   String? _lastSeenCaptureEventId;
   RecognitionResult? latestExternalScaleCapture;
   ScaleCaptureFailure? latestScaleCaptureFailure;
+  PendingScaleCapture? pendingScaleCapture;
   String? scaleConnectionIssue;
   String? _analyzingEventId;
   bool _scalePollInFlight = false;
@@ -302,6 +311,10 @@ class MiqdarController extends ChangeNotifier {
 
   /// True from the moment a capture starts until its result is ready.
   bool get scaleWorking => busy || scaleDevice.isCapturing || analyzingScalePhoto;
+
+  void clearPendingScaleCapture() {
+    pendingScaleCapture = null;
+  }
 
   void clearScaleCaptureFailure() {
     latestScaleCaptureFailure = null;
@@ -410,13 +423,18 @@ class MiqdarController extends ChangeNotifier {
   /// weight keeps updating. A newer capture makes this one's answer irrelevant.
   Future<RecognitionResult?> _analyzeScalePhoto(Map<String, dynamic> event) async {
     final eventId = event['event_id'] as String?;
+    final image = event['image_base64'] as String?;
+    final imageBytes = image == null ? Uint8List(0) : base64Decode(image);
+    final weightG = (event['weight_g'] as num?)?.toDouble() ?? 0;
     _analyzingEventId = eventId;
+    if (imageBytes.isNotEmpty) {
+      pendingScaleCapture = PendingScaleCapture(imageBytes: imageBytes, weightG: weightG);
+    }
     notifyListeners();
     try {
-      final image = event['image_base64'] as String?;
       final result = await apiService.gemini.analyze(
-        imageBytes: image == null ? Uint8List(0) : base64Decode(image),
-        weightG: (event['weight_g'] as num?)?.toDouble() ?? 0,
+        imageBytes: imageBytes,
+        weightG: weightG,
         eventId: eventId,
       );
       if (_analyzingEventId != eventId) return null;

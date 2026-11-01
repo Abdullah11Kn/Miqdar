@@ -34,6 +34,19 @@ class _MainShellState extends State<MainShell> {
   /// even though saving a meal rebuilds this shell.
   void _checkExternalCapture(MiqdarController controller) {
     final shellRoute = ModalRoute.of(context);
+    final pending = controller.pendingScaleCapture;
+    if (pending != null) {
+      controller.clearPendingScaleCapture();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // A newer capture replaces whatever was left open.
+        final navigator = Navigator.of(context);
+        navigator.popUntil((route) => route == shellRoute);
+        navigator.push(
+          MaterialPageRoute(builder: (_) => _ScaleAnalyzingScreen(capture: pending)),
+        );
+      });
+    }
     final capture = controller.latestExternalScaleCapture;
     if (capture != null) {
       controller.clearExternalScaleCapture();
@@ -319,6 +332,57 @@ class _MainShellState extends State<MainShell> {
           ),
         );
       },
+    );
+  }
+}
+
+/// The photo from the scale, shown the moment it arrives while Gemini analyzes it.
+class _ScaleAnalyzingScreen extends StatelessWidget {
+  const _ScaleAnalyzingScreen({required this.capture});
+
+  final PendingScaleCapture capture;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(s.tr('Captured Scale Photo', 'صورة كاميرا الميزان'))),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: Image.memory(capture.imageBytes, fit: BoxFit.cover),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  const Center(child: CircularProgressIndicator()),
+                  const SizedBox(height: 18),
+                  Text(
+                    s.tr('Gemini is analyzing your food…', 'Gemini يحلل طعامك…'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${capture.weightG.toStringAsFixed(0)} ${s.unitG}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

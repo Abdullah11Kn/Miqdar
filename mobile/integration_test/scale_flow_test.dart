@@ -1,7 +1,7 @@
 // End-to-end check of the scale flow in the real app, against a running scale API in
 // simulation mode:
 //
-//   ../start_scale_app.sh --headless --mock                  (freshly started, in another terminal)
+//   ../start_scale_app.sh --headless --mock --auto-capture                  (freshly started, in another terminal)
 //   flutter test integration_test/scale_flow_test.dart -d <simulator id> \
 //     --dart-define=GEMINI_API_KEY=<key>
 //
