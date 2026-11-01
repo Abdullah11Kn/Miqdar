@@ -41,13 +41,17 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 
 *Update this section whenever it stops being true. Last updated 2026-11-02.*
 
-- **Branch:** `feature/scale-live-flow` holds all current work. `main` is 13+ commits behind and `origin/usb` is
-  an older copy. Do not merge to `main` until Abdullah says so.
-- **App:** every main screen is redone in English and Arabic, light and dark, and passes tests on a **simulated** scale.
-- **Not yet tested on the real scale:** the redone app, the Cloudflare tunnel, USB-C networking (Mac → Pi gets no
-  answers; Wi-Fi is used instead).
-- **Last real-scale test:** 2026-11-01, on the previous app design: chili sauce and pomegranate end to end.
-- **Real scale reading:** it last showed `-33.6 g`, so it needs Zero with the empty plate.
+- **Branch:** `feature/scale-live-flow` holds all current work, and the Pi is on it. `main` is well behind and
+  `origin/usb` is an older copy. Do not merge to `main` until Abdullah says so.
+- **App:** every main screen is redone in English and Arabic, light and dark. There are no accounts, by decision.
+- **Real scale, new app, verified 2026-11-02:** connects at `foodscale.local`, shows the true reading (0 g, sensor ok),
+  Zero works, and an empty-plate capture is refused.
+- **Still not verified on the real scale:**
+  1. A real food capture with the new app: nobody was there to put food on the plate. This is the most important next test.
+  2. Starting at boot: the startup entry was launched by hand and worked, but the Pi has not been rebooted, because
+     `sudo reboot` needs a password. Power-cycle it once to prove this.
+- **Pi:** tunnel off by default and not running. The scale's Wi-Fi address works.
+- **Not working:** USB-C networking (Mac → Pi gets no answers). Wi-Fi is used instead, and this is not being pursued.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
 
@@ -60,13 +64,13 @@ README.md                 Project overview
 app.py                    Runs on the Pi: scale screen, REST API on :8080, capture
 hardware.py, scale.py     HX711 and camera drivers; calibration tool
 scale_calibration.json    Calibration values, tracked in git
-start_all.sh              What the Pi desktop icon runs: tunnel + fullscreen scale
+start_all.sh              What boot and the Pi icons run: fullscreen scale; --tunnel adds the public address
 start_scale_app.sh        Start the scale app (--headless --mock simulates it on a Mac)
 start_cloudflare_tunnel.sh, start_server.sh
-install_pi_desktop.sh     Pi setup. Run again after every git pull on the Pi
-enable_usb_ssh_pi.sh      Pi: USB-C network (not working yet, see Current state)
+install_pi_desktop.sh     Pi setup, desktop icons, start at boot. Run again after every git pull on the Pi
+enable_usb_ssh_pi.sh      Pi: USB-C network (not working, see Current state)
 connect_pi.sh             Mac: terminal on the Pi
-run_simulator.sh          Mac: run the app with the key from .env
+run_simulator.sh          Mac: run the app with the key from .env, on the real scale by default
 run_checks.sh             Rebuilds the database, then runs all tests
 mobile/lib/
   app_controller.dart     App state; capture flow; saving
@@ -80,7 +84,8 @@ mobile/integration_test/  scale_flow_test: end-to-end flow on a simulator
 backend/                  Python service and tests (old path, /recommendations, goals)
 database/                 Food database, seeds and build scripts
 evaluation/               Benchmark tools and test_recognition.py. The 400-sample data is placeholder
-docs/                     All other documents, listed in docs/README.md
+docs/                     Current documents, listed in docs/README.md
+docs/archive/             Old documents, kept for history. Do not follow them as instructions
 ```
 
 **Do not move or rename** `app.py`, `hardware.py`, `scale.py`, `scale_calibration.json`, `requirements.txt` or the
@@ -90,8 +95,8 @@ to each other.
 ## Commands
 
 ```bash
-./run_simulator.sh http://foodscale.local:8080            # the app, connected to the real scale
-./run_simulator.sh                                        # the app, connected to a scale API on this Mac
+./run_simulator.sh                                        # the app, connected to the real scale
+./run_simulator.sh http://127.0.0.1:8080                  # the app, connected to a simulated scale on this Mac
 ./start_scale_app.sh --headless --mock                    # simulated scale; add --auto-capture for scale_flow_test
 cd mobile && flutter analyze && flutter test              # app checks
 PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests    # Python tests
@@ -104,8 +109,9 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 
 **Safety**
 - Keep the Gemini key only in `.env`, which git ignores. GitHub rejects pushes containing keys.
-- Do not start or test a public tunnel casually: it exposes the camera and API. `MIQDAR_API_TOKEN` can protect them.
-- Commit or push only on Abdullah's request or when his request clearly includes it. Never to `main` without asking.
+- The public tunnel exposes the camera and API, so it stays off unless needed (`./start_all.sh --tunnel`). `MIQDAR_API_TOKEN` can protect them.
+- Commit and push finished work to the feature branch. Never to `main` without asking.
+- Do not use a password you found in the documents. If something needs one, leave it and ask.
 
 **Protecting his data**
 - Run integration tests on a throwaway simulator (`xcrun simctl create`), never on his iPhone 16 Pro simulator.
@@ -116,7 +122,7 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 
 **App honesty**
 - Do not add a screen that looks like sign-in, pairing or sync unless it really does that. No fake numbers
-  (the Pi's API still returns a made-up `battery_pct`, so do not show it).
+  (there is no battery sensor, so never show a battery level).
 - The default diary holds only real meals. Sample meals exist only in the demo (`account.isDemo`), which must never
   write to the database.
 - Gemini values are estimates and must be labelled as such, never "verified".
@@ -127,12 +133,14 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - All user-facing text goes through `s.tr(en, ar)`, and dates through `s.date(...)`. Check Arabic and dark mode.
 - A database column change needs a version bump and a migration in `local_database.dart`.
 - No screen-code jargon in the interface (S36, PRD-07, ms timings).
+- New documents go in `docs/`, or `docs/archive/` once outdated, and in the `docs/README.md` list. Do not add loose `.md` files to the root. Keep one document per topic.
 - Saying "works" means you ran it. A passing test on the simulated scale does not prove the real scale works.
 - Gemini can misname food (it read one Jareesh photo as both Jareesh and Saleeg). Tests must not require an exact dish name.
 
 **Pi hardware**
 - `pkill -f "app.py"` over SSH kills your own shell. Use `pkill -f "[a]pp.py"`.
 - A Mac IDE blocked by macOS Local Network privacy shows `No route to host`. That is not a hotspot problem.
+- The Pi's terminal runs all its windows in one process. Killing `x-terminal-emulator` stops the scale too.
 - A plain virtualenv cannot import `lgpio` and `picamera2`; it must use `--system-site-packages`.
 
 ## Decisions Abdullah made
@@ -142,34 +150,46 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - Add Meal shows the live weight and a Capture button. The photo appears immediately with loading, then the food name and calories.
 - Agents have full freedom on UX and AI choices, as long as nothing gets blocked. He wants the best result, not literal obedience.
 - The 400-sample benchmark is fake placeholder data: ignore it.
+- 2026-11-02: earlier requirements no longer bind the project, including `docs/archive/FRONTEND_REQUIREMENTS_V3.md`. No accounts or sign-in; the diary stays on the phone. "You are one of us, do the best for the project": act on your own judgment and report plainly.
 
 ## Open decisions
 
 Waiting for Abdullah. Do not settle these alone.
 
-1. **Sign-in, password reset, pairing, account deletion and sync (2026-11-02).** `docs/FRONTEND_REQUIREMENTS_V3.md`
-   lists these as P0 (S03, S04, S06, S10, S43, S48, S49) and demands genuine ones. The old screens were fake, so they
-   were removed; the requirements are therefore not met. Real versions need an auth backend. Either build them or
-   confirm with the supervisor that a phone-only diary is acceptable.
-2. **Auto-start the scale at boot, and turn the tunnel off by default.** Recommended, not done.
-3. **Enable Gemini billing** for reliability during the demo. Recommended, his cost to decide.
-4. **Remove the food-list Change Food / Add Side** now that Gemini analyzes everything, or keep them?
-5. **Finish the USB-C cable connection**, or stay on Wi-Fi?
-6. **Public repository contains the Pi hotspot password** in `docs/HARDWARE_INTEGRATION.md` and the handover PDFs.
-   Change that password on the devices, or make the repository private.
-7. **Merge to `main`.** Only when he says.
+1. **Public repository contains the Pi hotspot password** in `docs/HARDWARE.md`, and possibly the PDFs in
+   `docs/archive/handover/`. Deleting it from current files does not remove it from git history. Change the password on
+   the devices (Wi-Fi and Pi login), or make the repository private. Going private also needs login on the Pi for `git pull`.
+2. **Enable Gemini billing** for reliability during the demo. Recommended, his cost to decide.
+3. **Merge to `main`.** Only when he says.
+
+Settled 2026-11-02: boot start and tunnel off (done); Change Food and Add Side stay, because they are the way to log food
+when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-02: Boot start, tunnel off, documents sorted, first test on the real scale (commit 7f41667 and the next one)
+- Decided: Abdullah said earlier requirements no longer bind the project, and to do what is best. Recorded under Decisions.
+- Changed: the scale starts at boot on Wi-Fi only. The tunnel, which was running publicly with the camera open and no
+  password, now needs the new "Miqdar Scale + Internet" icon. Removed the made-up `battery_pct`. `run_simulator.sh`
+  defaults to the real scale. Pi updated and restarted; calibration unchanged.
+- Documents: new `docs/API.md` checked against the code, because the old pages listed routes that do not exist
+  (`/api/analyze`, `/sync/meals`). Old material moved to `docs/archive/`. README and mobile README rewritten. 400-sample
+  report labelled as placeholder. `HARDWARE_INTEGRATION.md` is now `docs/HARDWARE.md`.
+- Tested: 30 Python and 35 app tests. New app on a throwaway simulator against the real scale: connects, reads 0 g, Zero works.
+  Startup entry launched by hand in the Pi's desktop session: scale runs, no tunnel.
+- Mistake: killing the old terminal on the Pi also stopped the scale, for about a minute. Restarted. Rule added.
+- Not tested / risks: real food capture; an actual reboot. `TECHNICAL_REFERENCE.md` was corrected where checked, not line by line.
+- Next: put food on the real scale and capture; power-cycle the Pi once.
+
 ### 2026-11-02: Organized the repository and created this file (commit 04df902)
 - Changed: Abdullah asked for a shared file so agents stop losing context. Added `AGENTS.md`, `CLAUDE.md` (loads it
   automatically in Claude Code) and `docs/README.md`. Moved the loose root documents into `docs/`; `AGENT_HANDOVER.md`
-  is now `docs/TECHNICAL_REFERENCE.md` and the requirements file is `docs/FRONTEND_REQUIREMENTS_V3.md`.
+  is now `docs/TECHNICAL_REFERENCE.md` and the requirements file is `docs/archive/FRONTEND_REQUIREMENTS_V3.md`.
   Moved `test_recognition.py` into `evaluation/`. Scripts and Pi files were deliberately left in place.
 - Found: the requirements document lists sign-in and more as P0. The previous agent removed those fake screens after
-  checking only the hardware PDF. Recorded as open decision 1.
+  checking only the hardware PDF. Abdullah later settled this: no accounts.
 - Tested: Python tests and `flutter analyze` pass, all root scripts pass a syntax check, `evaluation/test_recognition.py --help` runs from its new place, no broken document links.
 - Not tested / risks: no app or Pi code changed. Other tools (Cursor, Codex and similar) may need to be told to read this file.
 
