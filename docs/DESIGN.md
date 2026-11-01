@@ -1,58 +1,153 @@
-# Miqdar brand and design
+# Miqdar (مقدار) Design System & UI/UX Architecture
 
-Miqdar (مقدار) means "measure". The brand is a precise instrument in a Saudi kitchen, not a green health app.
+> Colors and type are still current. Screen descriptions may be older than the app; the code is right.
 
-## The idea: the dial
+**Project:** Miqdar Smart Nutrition Scale & Mobile System  
+**Baseline Date:** 25 October 2026  
+**Audience:** Mobile Frontend Engineers, Embedded Engineers, AI/Cloud Backend Contributors, UI/UX Designers  
 
-One shape carries the whole brand: **a ring that is both a plate seen from above and a scale's dial.**
-Everything measured is drawn on it: the calorie goal on Home, the live weight on Add Meal, the photo while Gemini reads
-it, the welcome screen. Use `MeasureDial` in `mobile/lib/ui/widgets/brand.dart`. Do not add other kinds of gauge.
+---
 
-## Logo
+## 1. Product Purpose & Architectural Ground Truth
 
-The Arabic letter **م** inside a dial that is three quarters measured (`MiqdarMark`). The wordmark sets
-"Miqdar | مقدار" side by side (`MiqdarWordmark`). App icons are generated from the same drawing: saffron arc and laban
-letter on date-brown.
+**Miqdar (مقدار)** is a full-stack, clinically referenced smart nutrition platform. It bridges physical hardware, cloud AI vision, clinical databases, and a mobile client into a unified, traceable pipeline:
 
-## Color
+$$\text{Smart Scale (Mass)} + \text{Camera / File (Photo)} \xrightarrow{\text{REST API}} \text{Gemini AI Vision} \xrightarrow{\text{Canonical Match}} \text{SQLite Clinical DB} \xrightarrow{\text{Evaluation}} \text{Verified Nutrients \& Clinical Alerts}$$
 
-Named after the kitchen. Tokens are in `mobile/lib/theme.dart`; use `Miq.of(context)` for anything that changes in dark mode.
+### Official Tagline & Identity
+- **English:** *"Precision Weight • AI Recognition • Traceable Nutrition"*
+- **Arabic:** *"قياس دقيق للوزن • تعرّف ذكي • تغذية موثوقة"*
+- **Core Value Proposition:** Measuring real portions down to the gram, identifying meals with Gemini AI vision, scaling against Saudi FDA (SFDA) and USDA reference records, and evaluating clinical thresholds in $\le 4\text{ seconds}$.
 
-| Token | Hex | Use |
-|---|---|---|
-| Tamr, `ink` | `#20160F` | Text, dark panels, the welcome and analyzing screens |
-| Laban, `paper` | `#F6F1E7` | Page background |
-| `cream` | `#FFFCF6` | Cards |
-| Za'faran, `saffron` | `#E8861A` | The accent: main buttons and dial. Always with ink text on it, never white |
-| `saffronDeep` | `#B85F08` | Saffron as text on paper, where plain saffron is too faint |
+---
 
-Nutrients: protein pomegranate `#A92B38`, carbs turmeric `#D9A321`, fat olive `#6E7F35`, sugar rose `#C55A7B`, fiber
-cardamom `#3F7C58`, sodium gulf `#2B7780`, potassium aubergine `#6A4A7C`.
+## 2. Core Product Principles (PRD-01 to PRD-10)
 
-Use saffron for one main thing per screen. Dark mode is warm near-black (`#14100C`), never pure black or grey.
+1. **Review Before Recording (PRD-01):** AI recognition creates an editable draft. Intake is recorded only when the user explicitly reviews and taps **Save**.
+2. **Useful Without Hardware (PRD-02):** If the physical scale is disconnected, food search, manual portion entry, photos, and diary remain 100% functional.
+3. **Honest Measurements (PRD-03):** Every logged portion records its honest provenance: `PortionSource.scale`, `PortionSource.manual`, verified serving unit, or estimate. Never label an entered value as measured.
+4. **Honest Nutrition (PRD-04):** UI visually distinguishes verified government database records (SFDA/USDA) from AI proposals and user-created custom entries. Missing nutrients are never shown as zero.
+5. **User Control (PRD-05):** Users can correct food identity, portion, preparation, meal time, and ingredients before or after saving.
+6. **Recoverable Work (PRD-06):** Navigation, camera interruption, connection failure, and app restart must not silently erase an active draft.
+7. **Calm Clinical Guidance (PRD-07):** Nutritional warnings (e.g., high sodium for hypertension) use neutral, clinical alerts without alarmist, shame-inducing visuals.
+8. **Bilingual Equality (PRD-08):** Arabic and English are first-class release requirements across all screens, metrics, error sheets, and navigation paths.
+9. **Production vs. Demo Isolation (PRD-09):** Real user photos and live scale measurements are the primary user flow. Synthetic demo dishes are confined strictly to an optional developer/evaluator drawer.
+10. **Capability-Based UI (PRD-10):** Show hardware controls only when the connected device actually supports them.
 
-## Type
+---
 
-| Role | Font | Where |
-|---|---|---|
-| Display | Instrument Serif, with Amiri for Arabic (`MiqType.display`) | Numbers, food names, titles |
-| Everything else | IBM Plex Sans Arabic (`Plex`), Arabic and Latin | Labels, body, buttons |
+## 3. Visual Identity & Design System Tokens
 
-Numbers are the heroes: set them large in the serif, with the unit smaller beside them. Display type has one weight;
-never fake bold on it. Text weights stop at 600.
+Inherited directly from `mobile/lib/theme.dart`:
 
-## Icons
+### 3.1 Color Palette
 
-Phosphor Light through `MiqIcons`, with Fill for a selected tab. Chevrons and back arrows stay Material because those mirror in Arabic.
+```
+Brand Emeralds:
+  Primary:        #059669  (Vibrant Modern Emerald)
+  Emerald Deep:   #064E3B  (Accent & Header Gradient)
+  Emerald Bright: #10B981  (Dark Mode Active Emerald)
+  Mint Glow:      #34D399  (Indicators & Highlights)
+  Soft Green:     #ECFDF5  (Pill & Card Backgrounds)
+  Mint Border:    #A7F3D0  (Delicate Outline)
 
-## Layout
+Neutrals (Light Mode):
+  Canvas:         #F4F7F5  (Page Background)
+  Surface:        #FFFFFF  (Cards & Sheets)
+  Border:         #E2E8F0  (Subtle Dividers)
+  Text Primary:   #0F172A  (Deep Slate)
+  Text Secondary: #475569  (Muted Slate)
+  Text Subdued:   #94A3B8
 
-- Hairlines, not shadows. Rows sit on one sheet with lines between them (`Ledger`, `LedgerRow`).
-- Buttons are pills; the main action fills the width.
-- One dark panel at most on a light page (the scale panel on Home).
-- Food photos are the only imagery, cut to circles in lists and on dials, edge to edge on Review.
+Neutrals (Dark Mode):
+  Dark Canvas:    #0A120E  (Background)
+  Dark Surface:   #121F18  (Cards & Sheets)
+  Dark Card:      #182920  (Secondary Surfaces)
+  Dark Border:    #263E31  (Dark Dividers)
+  Dark Text:      #F1F5F9  (Primary Text)
+  Dark Muted:     #94A3B8  (Muted Text)
 
-## Fonts and licences
+Categorical Nutrient Accents (DES-03):
+  Calories:   #059669 (Emerald)     Sugar:     #EC4899 (Pink)
+  Protein:    #0D9488 (Teal)        Fiber:     #16A34A (Green)
+  Carbs:      #D97706 (Amber)       Sodium:    #6366F1 (Indigo)
+  Fat:        #3B82F6 (Blue)        Potassium: #8B5CF6 (Purple)
 
-All bundled in `mobile/assets/fonts/` with their licence files: IBM Plex Sans Arabic, Instrument Serif and Amiri (SIL OFL),
-Phosphor (MIT). The `phosphor_flutter` package is deliberately not used because it does not build on current Flutter.
+Semantic Status:
+  Warning:    #D97706 (Amber)       Warning Bg: #FFFBEB
+  Danger:     #E11D48 (Rose)        Danger Bg:  #FFF1F2
+  Info:       #0284C7 (Sky)         Info Bg:    #F0F9FF
+```
+
+### 3.2 Typography & Radii
+- **Hero / Screen Titles:** 24px, Font Weight `w800`, letter-spacing `-0.5`
+- **Section Headers:** 17–18px, Font Weight `w800`
+- **Digital Readouts:** 28–32px, Font Weight `w900`, tabular figures
+- **Body & Labels:** 13–14px, Font Weight `w600` / `w700`
+- **Corner Radii:**
+  - Hero Photo / Viewfinder Container: `22px`
+  - Cards & Scale Surface: `16px` – `18px`
+  - Action Buttons & CTAs: `14px` – `16px`
+  - Pills & Badges: `99px` (fully rounded capsule)
+
+### 3.3 Ambient Shadows
+- **Light Mode:** Two-tier ambient shadow (`0px 6px 20px rgba(15, 23, 42, 0.04)` + `0px 2px 8px rgba(5, 150, 105, 0.03)`).
+- **Dark Mode:** Deep elevation shadow (`0px 8px 24px rgba(0, 0, 0, 0.35)`).
+
+---
+
+## 4. Native Pipeline Shape & Screen Hierarchy
+
+What the README and system architecture lead with is the **Smart Nutrition Scale & AI Vision Engine**. The screen hierarchy directly mirrors the real hardware-to-cloud journey:
+
+```mermaid
+flowchart TD
+    A["1. Live Scale Connection<br/>Weight Streaming & Tare"] --> B["2. Vision Capture Zone<br/>Mac Files, Photo Library, Camera"]
+    B --> C["3. Primary Action<br/>Analyze Meal with AI"]
+    C --> D["4. AI Cloud Pipeline<br/>Gemini 3.1 Flash-Lite Engine"]
+    D --> E["5. Canonical Match<br/>SFDA & USDA Reference Scaling"]
+    E --> F["6. Review & Clinical Alerts<br/>Traceable Macros & Medical Notices"]
+```
+
+---
+
+## 5. UI/UX Rules for the "Log a Meal" Screen (`scan_and_add_screen.dart`)
+
+### 5.1 No Fake Categories or Stock Presets
+- The screen opens in an authentic, clean state.
+- Hardcoded preset food chips ("Chicken Kabsa", "Shawarma", "Jareesh") are **never** displayed on the primary user screen as fake categories.
+- The user is logging *their* meal, so the screen focuses on real photo intake and real scale weight.
+
+### 5.2 Real File Selection from Mac & Devices
+- Uses `file_picker` alongside `image_picker`.
+- On macOS, iOS Simulator, and mobile devices, users can choose photos directly from their Mac Finder, iCloud Drive, Downloads, or local files.
+- Formats supported: `JPG`, `PNG`, `WEBP`, `HEIC`.
+- Three clear, distinct photo intake actions:
+  1. **Choose from Mac / Files** (`Icons.folder_open_rounded`): Native document/file picker.
+  2. **Photo Library** (`Icons.photo_library_outlined`): Native Photos album.
+  3. **Camera** (`Icons.camera_alt_outlined`): Device camera snapshot.
+
+### 5.3 Live Smart Scale Integration
+- Real-time connected scale telemetry (`scale.deviceId • Live Scale`).
+- Dedicated **Tare (Zero)** action with instantaneous reset to `0 g`.
+- Tactile step buttons (`-10g` / `+10g`) and direct-edit numeric entry.
+- Quick portion preset capsules (`100g`, `150g`, `200g`, `300g`).
+- Redundant slider removed to keep the card compact and keep the primary CTA above the fold.
+
+### 5.4 Primary CTA Prominence
+- Full-width, high-contrast CTA: **"Analyze Meal with AI"** (`#059669` light / `#10B981` dark).
+- Clear feedback: Prompts the user if a photo is needed; displays animated progress state during Gemini cloud inference.
+- Secondary fallback: "Instant offline preview" for network-isolated testing.
+
+### 5.5 Isolated Developer & Evaluator Testing
+- If evaluators or developers need to test without a physical camera or scale, a discreet option (*"Testing? Try a sample dish photo"*) opens a separate modal bottom sheet.
+- This keeps testing tools accessible without compromising the production user experience.
+
+---
+
+## 6. Bilingual & Localization Architecture
+
+- **Locales:** English (`en`) and Arabic (`ar`).
+- **Directionality:** Full LTR and RTL support. Icon mirrors and layout alignments respond automatically to `Directionality.of(context)`.
+- **Digit Normalization:** `normalizeDigits(String input)` safely converts Arabic-Indic (`٠-٩`) numerals and Arabic comma separators (`٫`) into standard ASCII floats for reliable arithmetic parsing.
+- **Strings Provider:** Centralized via `S.of(context).tr('English', 'العربية')`.

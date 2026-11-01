@@ -6,9 +6,7 @@ import '../l10n/strings.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
 import 'screens.dart';
-import 'widgets/brand.dart';
 import 'widgets/charts_and_gauges.dart';
-import 'widgets/miq_icons.dart';
 
 /// Server text may be English only, so Arabic screens show it only when it is translated.
 bool hasArabicText(String text) => RegExp(r'[؀-ۿ]').hasMatch(text);
@@ -22,110 +20,87 @@ class ProfileScreen extends StatelessWidget {
     final s = S.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final account = controller.account;
-    final miq = Miq.of(context);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
       children: [
-        Row(
-          children: [
-            MeasureDial(
-              size: 72,
-              progress: 0.75,
-              strokeWidth: 5,
-              ticks: 0,
-              child: Text(
-                account.localizedName(s.isAr).characters.first.toUpperCase(),
-                style: MiqType.display(34, color: miq.text, height: 1),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    account.localizedName(s.isAr),
-                    style: MiqType.display(32, color: miq.text, height: 1.15),
-                  ),
-                  Text(
-                    account.isDemo
-                        ? s.tr('Demo with sample data', 'عرض تجريبي ببيانات نموذجية')
-                        : s.tr('Your diary stays on this phone', 'سجلك محفوظ على هذا الهاتف'),
-                    style: TextStyle(fontSize: 13, color: miq.muted),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              color: miq.muted,
-              tooltip: s.tr('Change your name', 'تغيير الاسم'),
-              onPressed: () => _showEditNameSheet(context, controller),
-              icon: const Icon(MiqIcons.pencilSimple, size: 20),
-            ),
-          ],
+        Text(
+          s.navProfile,
+          style: Theme.of(context).textTheme.headlineSmall,
         ),
-        const SizedBox(height: 24),
-        Ledger(
-          children: [
-            LedgerRow(
-              icon: MiqIcons.target,
-              title: s.tr('Daily Goals', 'الأهداف اليومية'),
-              subtitle: controller.goals.trackingOnly
-                  ? s.tr('Tracking without goals', 'تتبع بدون أهداف')
-                  : s.tr(
-                      '${controller.goals.calories.toStringAsFixed(0)} kcal a day',
-                      '${controller.goals.calories.toStringAsFixed(0)} سعرة في اليوم',
+        const SizedBox(height: 18),
+
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: MiqdarColors.heroGradient,
+            borderRadius: BorderRadius.circular(26),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: Colors.white,
+                foregroundColor: MiqdarColors.emeraldDeep,
+                child: Text(
+                  account.localizedName(s.isAr).characters.first.toUpperCase(),
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      account.localizedName(s.isAr),
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
                     ),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const GoalsScreen()),
+                    const SizedBox(height: 2),
+                    Text(
+                      account.isDemo
+                          ? s.tr('Demo with sample data', 'عرض تجريبي ببيانات نموذجية')
+                          : s.tr('Your diary stays on this phone', 'سجلك محفوظ على هذا الهاتف'),
+                      style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 12.5),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            LedgerRow(
-              icon: MiqIcons.forkKnife,
-              title: s.tr('Food Preferences', 'تفضيلات الطعام'),
-              subtitle: s.tr('Allergies, foods to avoid, meal ideas', 'الحساسية، أطعمة تتجنبها، أفكار للوجبات'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const MealSuggestionsScreen(showPreferences: true)),
+              IconButton(
+                style: IconButton.styleFrom(foregroundColor: Colors.white),
+                tooltip: s.tr('Change your name', 'تغيير الاسم'),
+                onPressed: () => _showEditNameSheet(context, controller),
+                icon: const Icon(Icons.edit_outlined),
               ),
-            ),
-            LedgerRow(
-              icon: MiqIcons.scales,
-              title: s.navDevices,
-              subtitle: controller.scaleDevice.online
-                  ? s.tr('Connected', 'متصل')
-                  : s.tr('Not connected', 'غير متصل'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
-              ),
-            ),
-            LedgerRow(
-              icon: MiqIcons.shieldCheck,
-              title: s.tr('Privacy & Data', 'الخصوصية والبيانات'),
-              subtitle: s.tr('Where your data goes, export, delete', 'أين تذهب بياناتك، التصدير، الحذف'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PrivacyAndDataScreen()),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
-        Ledger(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
+        const SizedBox(height: 22),
+
+        Text(
+          s.tr('Appearance', 'المظهر'),
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
+        ),
+        const SizedBox(height: 10),
+        SurfaceCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
                 children: [
-                  Icon(MiqIcons.globe, size: 22, color: miq.accent),
-                  const SizedBox(width: 14),
+                  const Icon(Icons.language_rounded, color: MiqdarColors.primary),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       s.tr('Language', 'اللغة'),
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: miq.text),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
                   SegmentedButton<String>(
-                    showSelectedIcon: false,
                     segments: const [
                       ButtonSegment(value: 'en', label: Text('English')),
                       ButtonSegment(value: 'ar', label: Text('العربية')),
@@ -135,35 +110,84 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-            SwitchListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              secondary: Icon(
-                isDark ? MiqIcons.moon : MiqIcons.sun,
-                color: miq.accent,
-              ),
-              title: Text(
-                s.tr('Dark Mode', 'المظهر الداكن'),
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: miq.text),
-              ),
-              value: isDark,
-              onChanged: (_) => controller.toggleThemeMode(),
-            ),
-            if (MediaQuery.sizeOf(context).width >= 780)
+              const Divider(height: 24),
               SwitchListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                secondary: Icon(MiqIcons.devices, color: miq.accent),
-                title: Text(
-                  s.tr('Phone-sized layout', 'عرض بحجم الهاتف'),
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: miq.text),
+                contentPadding: EdgeInsets.zero,
+                secondary: Icon(
+                  isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                  color: MiqdarColors.primary,
                 ),
-                value: controller.forceMobileFrameOnDesktop,
-                onChanged: (_) => controller.toggleViewportFrame(),
+                title: Text(
+                  s.tr('Dark Mode', 'المظهر الداكن'),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                value: isDark,
+                onChanged: (_) => controller.toggleThemeMode(),
               ),
-          ],
+              if (MediaQuery.sizeOf(context).width >= 780) ...[
+                const Divider(height: 24),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const Icon(Icons.devices_rounded, color: MiqdarColors.primary),
+                  title: Text(
+                    s.tr('Phone-sized layout', 'عرض بحجم الهاتف'),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  value: controller.forceMobileFrameOnDesktop,
+                  onChanged: (_) => controller.toggleViewportFrame(),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
+
+        Text(
+          s.tr('Settings', 'الإعدادات'),
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
+        ),
+        const SizedBox(height: 10),
+        _ProfileNavRow(
+          icon: Icons.track_changes_rounded,
+          title: s.tr('Daily Goals', 'الأهداف اليومية'),
+          subtitle: controller.goals.trackingOnly
+              ? s.tr('Tracking without goals', 'تتبع بدون أهداف')
+              : s.tr(
+                  '${controller.goals.calories.toStringAsFixed(0)} kcal a day',
+                  '${controller.goals.calories.toStringAsFixed(0)} سعرة في اليوم',
+                ),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const GoalsScreen()),
+          ),
+        ),
+        _ProfileNavRow(
+          icon: Icons.restaurant_menu_rounded,
+          title: s.tr('Food Preferences', 'تفضيلات الطعام'),
+          subtitle: s.tr('Allergies, foods to avoid, meal ideas', 'الحساسية، أطعمة تتجنبها، أفكار للوجبات'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const MealSuggestionsScreen(showPreferences: true)),
+          ),
+        ),
+        _ProfileNavRow(
+          icon: Icons.scale_rounded,
+          title: s.navDevices,
+          subtitle: controller.scaleDevice.online
+              ? s.tr('Connected', 'متصل')
+              : s.tr('Not connected', 'غير متصل'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
+          ),
+        ),
+        _ProfileNavRow(
+          icon: Icons.shield_outlined,
+          title: s.tr('Privacy & Data', 'الخصوصية والبيانات'),
+          subtitle: s.tr('Where your data goes, export, delete', 'أين تذهب بياناتك، التصدير، الحذف'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PrivacyAndDataScreen()),
+          ),
         ),
         if (account.isDemo) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () async {
               final navigator = Navigator.of(context);
@@ -173,7 +197,7 @@ class ProfileScreen extends StatelessWidget {
                 (_) => false,
               );
             },
-            icon: const Icon(MiqIcons.signOut),
+            icon: const Icon(Icons.logout_rounded),
             label: Text(s.tr('Exit Demo', 'الخروج من العرض التجريبي')),
           ),
         ],
@@ -227,6 +251,57 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProfileNavRow extends StatelessWidget {
+  const _ProfileNavRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: SurfaceCard(
+          padding: const EdgeInsets.all(16),
+          onTap: onTap,
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: MiqdarColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: MiqdarColors.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: MiqdarColors.muted),
+            ],
+          ),
+        ),
+      );
 }
 
 /// Meal ideas, and the preferences that shape them.
@@ -336,15 +411,15 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
                       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
                       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-                      leading: const Icon(MiqIcons.slidersHorizontal, color: MiqdarColors.primary),
+                      leading: const Icon(Icons.tune_rounded, color: MiqdarColors.primary),
                       title: Text(
                         s.tr('Your preferences', 'تفضيلاتك'),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       children: [
                         Text(
                           s.tr('I am', 'أنا'),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 8),
                         Wrap(
@@ -369,7 +444,7 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
                           decoration: InputDecoration(
                             labelText: s.tr('Allergies', 'الحساسية'),
                             hintText: s.tr('e.g. nuts, dairy, fish', 'مثال: مكسرات، ألبان، سمك'),
-                            prefixIcon: const Icon(MiqIcons.prohibit),
+                            prefixIcon: const Icon(Icons.no_food_rounded),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -378,7 +453,7 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
                           decoration: InputDecoration(
                             labelText: s.tr('Foods to avoid', 'أطعمة تتجنبها'),
                             hintText: s.tr('e.g. tomato, egg', 'مثال: طماطم، بيض'),
-                            prefixIcon: const Icon(MiqIcons.minusCircle),
+                            prefixIcon: const Icon(Icons.remove_circle_outline_rounded),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -497,7 +572,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                           Flexible(
                             child: Text(
                               status,
-                              style: TextStyle(fontWeight: FontWeight.w600, color: statusColor),
+                              style: TextStyle(fontWeight: FontWeight.w800, color: statusColor),
                             ),
                           ),
                         ],
@@ -506,7 +581,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                         const SizedBox(height: 10),
                         Text(
                           '${scale.effectiveWeightG.toStringAsFixed(0)} ${s.unitG}',
-                          style: MiqType.display(80, color: Miq.of(context).text, height: 1),
+                          style: const TextStyle(fontSize: 52, fontWeight: FontWeight.w900),
                         ),
                         Text(
                           scale.isStable
@@ -517,9 +592,9 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                         const SizedBox(height: 14),
                         SizedBox(
                           width: double.infinity,
-                          child: OutlinedButton.icon(
+                          child: FilledButton.tonalIcon(
                             onPressed: controller.taringScale ? null : () => _zero(controller, s),
-                            icon: const Icon(MiqIcons.numberCircleZero),
+                            icon: const Icon(Icons.exposure_zero_rounded),
                             label: Text(s.tareScale),
                           ),
                         ),
@@ -545,7 +620,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                       children: [
                         Text(
                           s.tr('To connect', 'للاتصال'),
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -567,7 +642,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                                   dimension: 18,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Icon(MiqIcons.arrowClockwise),
+                              : const Icon(Icons.refresh_rounded),
                           label: Text(s.tr('Try Again', 'حاول مجدداً')),
                         ),
                       ],
@@ -581,7 +656,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                   onTap: () => showScaleAddressDialog(context, controller),
                   child: Row(
                     children: [
-                      const Icon(MiqIcons.link, color: MiqdarColors.primary),
+                      const Icon(Icons.link_rounded, color: MiqdarColors.primary),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -589,7 +664,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                           children: [
                             Text(
                               s.tr('Scale address', 'عنوان الميزان'),
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(fontWeight: FontWeight.w800),
                             ),
                             Directionality(
                               textDirection: TextDirection.ltr,
@@ -606,7 +681,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                       Text(
                         s.tr('Change', 'تغيير'),
                         style: const TextStyle(
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w800,
                           color: MiqdarColors.primary,
                         ),
                       ),
@@ -620,7 +695,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(MiqIcons.camera, color: MiqdarColors.primary),
+                        const Icon(Icons.camera_alt_outlined, color: MiqdarColors.primary),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -630,7 +705,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                                 scale.autoCapture
                                     ? s.tr('Automatic capture is on', 'الالتقاط التلقائي مفعّل')
                                     : s.tr('Automatic capture is off', 'الالتقاط التلقائي متوقف'),
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                style: const TextStyle(fontWeight: FontWeight.w800),
                               ),
                               const SizedBox(height: 2),
                               Text(
@@ -685,11 +760,11 @@ class PrivacyAndDataScreen extends StatelessWidget {
                     children: [
                       Text(
                         s.tr('Where your data goes', 'أين تذهب بياناتك'),
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15.5),
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
                       ),
                       const SizedBox(height: 14),
                       _PrivacyRow(
-                        icon: MiqIcons.deviceMobile,
+                        icon: Icons.phone_iphone_rounded,
                         title: s.tr('This phone', 'هذا الهاتف'),
                         body: s.tr(
                           'Your meals, meal photos, goals and preferences are stored here. There is no Miqdar account or cloud copy, so removing the app removes them.',
@@ -697,7 +772,7 @@ class PrivacyAndDataScreen extends StatelessWidget {
                         ),
                       ),
                       _PrivacyRow(
-                        icon: MiqIcons.sparkle,
+                        icon: Icons.auto_awesome_rounded,
                         title: s.tr('Google Gemini', 'Google Gemini'),
                         body: s.tr(
                           'Each food photo you analyze is sent to Google, with its weight and any note you typed. On Gemini\'s free plan, Google may use what it receives to improve its products, so avoid including people or private items in the photo.',
@@ -705,7 +780,7 @@ class PrivacyAndDataScreen extends StatelessWidget {
                         ),
                       ),
                       _PrivacyRow(
-                        icon: MiqIcons.scales,
+                        icon: Icons.scale_rounded,
                         title: s.tr('Your scale', 'ميزانك'),
                         body: s.tr(
                           'The scale keeps the photos it takes in its own storage. Deleting data in this app does not remove them.',
@@ -719,7 +794,7 @@ class PrivacyAndDataScreen extends StatelessWidget {
                 const SizedBox(height: 14),
                 OutlinedButton.icon(
                   onPressed: () => showExportSheet(context, days: 365),
-                  icon: const Icon(MiqIcons.downloadSimple),
+                  icon: const Icon(Icons.download_rounded),
                   label: Text(s.tr('Export My Meals', 'تصدير وجباتي')),
                 ),
                 if (!controller.account.isDemo) ...[
@@ -730,7 +805,7 @@ class PrivacyAndDataScreen extends StatelessWidget {
                       side: BorderSide(color: MiqdarColors.danger.withValues(alpha: 0.4)),
                     ),
                     onPressed: () => _confirmDeleteAll(context, controller),
-                    icon: const Icon(MiqIcons.trash),
+                    icon: const Icon(Icons.delete_forever_outlined),
                     label: Text(s.tr('Delete All My Data', 'حذف جميع بياناتي')),
                   ),
                 ],
@@ -743,10 +818,10 @@ class PrivacyAndDataScreen extends StatelessWidget {
                       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
                       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                      leading: const Icon(MiqIcons.wrench, color: MiqdarColors.primary),
+                      leading: const Icon(Icons.build_outlined, color: MiqdarColors.primary),
                       title: Text(
                         s.tr('Troubleshooting', 'استكشاف الأخطاء'),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       children: [
                         _DiagnosticLine(
@@ -848,7 +923,7 @@ class _PrivacyRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
                   Text(body, style: const TextStyle(fontSize: 12.5, height: 1.45)),
                 ],
@@ -871,7 +946,7 @@ class _DiagnosticLine extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+            Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
             SelectableText(value, style: const TextStyle(fontSize: 13)),
           ],
         ),
@@ -968,7 +1043,7 @@ class _ScaleAddressDialogState extends State<_ScaleAddressDialog> {
             ),
             const SizedBox(height: 8),
             ActionChip(
-              avatar: const Icon(MiqIcons.wifiHigh, size: 16),
+              avatar: const Icon(Icons.wifi_rounded, size: 16),
               label: Text(s.tr('On my Wi-Fi: foodscale.local', 'على شبكتي: foodscale.local')),
               onPressed: connecting ? null : () => address.text = 'foodscale.local',
             ),
@@ -979,7 +1054,7 @@ class _ScaleAddressDialogState extends State<_ScaleAddressDialog> {
                   'No answer from this address. Check that the scale is on and on the same Wi-Fi.',
                   'لا يوجد رد من هذا العنوان. تأكد أن الميزان يعمل وعلى شبكة Wi-Fi نفسها.',
                 ),
-                style: const TextStyle(color: MiqdarColors.danger, fontSize: 13, fontWeight: FontWeight.w600),
+                style: const TextStyle(color: MiqdarColors.danger, fontSize: 13, fontWeight: FontWeight.w700),
               ),
             ],
           ],
