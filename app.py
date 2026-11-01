@@ -88,7 +88,7 @@ if os.environ.get("GEMINI_API_KEY"):
 
 # Import optional imaging libraries
 try:
-    from PIL import Image, ImageDraw, ImageFont, ImageTk
+    from PIL import Image, ImageDraw, ImageFont
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -129,6 +129,11 @@ class CameraUnavailableError(RecognitionError):
 
 class EmptyScaleError(RecognitionError):
     code = "EMPTY_SCALE"
+    http_status = 422
+
+
+class UnsteadyScaleError(RecognitionError):
+    code = "WEIGHT_NOT_STEADY"
     http_status = 422
 
 
@@ -639,6 +644,9 @@ def perform_capture(
     try:
         hw.capture_state = "settling"
         stable = hw.get_stable_weight(timeout_s=stable_timeout_s)
+        if stable is None and not hw.is_mock:
+            # A hand on the food changes the reading, and calories scale with this number.
+            raise UnsteadyScaleError("The weight is still moving. Take your hand off the plate, then capture again.")
         grams = stable if stable is not None and stable > 0 else hw.get_weight()
         if grams < MIN_CAPTURE_WEIGHT_G:
             if not hw.is_mock:
@@ -1314,7 +1322,7 @@ class ScaleTouchscreenApp:
 
         def worker() -> None:
             try:
-                perform_capture(self.hw, self.db_path, server=self.server, source="scale", stable_timeout_s=3.0)
+                perform_capture(self.hw, self.db_path, server=self.server, source="scale")
             except Exception as exc:
                 print(f"[Scale GUI] {exc}")         # already published; _follow_capture shows it
             finally:

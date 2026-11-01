@@ -71,6 +71,7 @@ class RecognitionException implements Exception {
             : 'Cannot reach the Miqdar server',
         'CAMERA_UNAVAILABLE' => isAr ? 'كاميرا الميزان لا تستجيب' : 'Scale camera not responding',
         'EMPTY_SCALE' => isAr ? 'لا يوجد طعام على الميزان' : 'Nothing on the scale',
+        'WEIGHT_NOT_STEADY' => isAr ? 'الوزن غير مستقر' : 'The weight is still moving',
         'CAPTURE_IN_PROGRESS' => isAr ? 'الميزان يلتقط صورة الآن' : 'Scale is already capturing',
         'CAPTURE_STILL_RUNNING' => isAr ? 'التحليل مستمر' : 'Still analyzing',
         _ => isAr ? 'تعذّر إتمام التعرّف' : 'Recognition could not complete',
@@ -92,6 +93,9 @@ class RecognitionException implements Exception {
         'CAMERA_UNAVAILABLE' => isAr
             ? 'تحقق من توصيل كابل الكاميرا بالراسبيري باي ثم حاول مرة أخرى.'
             : 'Check the camera ribbon cable on the Raspberry Pi, then try again.',
+        'WEIGHT_NOT_STEADY' => isAr
+            ? 'ارفع يدك عن الطبق وانتظر ثانية ثم أعد الالتقاط.'
+            : 'Take your hand off the plate, wait a second, then capture again.',
         'EMPTY_SCALE' => isAr
             ? 'ضع الطعام على الطبق ثم أعد الالتقاط.'
             : 'Put the food on the plate, then capture again.',

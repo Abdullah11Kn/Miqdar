@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import io
 import json
 import shutil
 import tempfile
@@ -107,6 +109,23 @@ class ScaleCaptureFlowTests(unittest.TestCase):
         self.assertEqual(status, 503)
         self.assertEqual(body["error"], "CAMERA_UNAVAILABLE")
         self.assertEqual(hw.latest_capture_event["status"], "error")
+
+    def test_real_scale_refuses_a_weight_that_never_settles(self) -> None:
+        module = FakeHardwareModule(grams=170.0)
+        module.get_stable_weight = lambda *_args, **_kwargs: None
+        hw = self.real_scale(module)
+        status, body = self.request(self.serve(hw), "/scale/capture", {})
+        self.assertEqual(status, 422)
+        self.assertEqual(body["error"], "WEIGHT_NOT_STEADY")
+        self.assertEqual(hw.latest_capture_event["status"], "error")
+
+    def test_photo_for_the_app_is_downscaled(self) -> None:
+        hw = self.real_scale(FakeHardwareModule(grams=240.0))
+        hw.analyze_on_scale = False
+        big = io.BytesIO()
+        scale_app.Image.new("RGB", (2304, 1296), (200, 80, 40)).save(big, "JPEG")
+        with scale_app.Image.open(io.BytesIO(base64.b64decode(hw._encode_photo(big.getvalue())))) as sent:
+            self.assertEqual(sent.size, (1280, 720))
 
     def test_real_scale_refuses_an_empty_plate(self) -> None:
         hw = self.real_scale(FakeHardwareModule(grams=0.4))
