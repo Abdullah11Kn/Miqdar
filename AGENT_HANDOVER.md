@@ -63,6 +63,8 @@ flowchart TD
 ├── run_simulator.sh               # Mac: run the app on the simulator with the key from .env
 ├── start_all.sh                   # One-click start: tunnel + fullscreen scale (desktop icon)
 ├── install_pi_desktop.sh          # Pi setup: packages, virtualenv, API key, desktop icon
+├── enable_usb_ssh_pi.sh           # Run once on the Pi: USB-C becomes a private network to the Mac
+├── connect_pi.sh                  # Run on the Mac: terminal on the Pi over the USB-C cable
 ├── start_cloudflare_tunnel.sh     # Remote access tunnel launcher (cloudflared)
 ├── test_recognition.py            # CLI tool to test Gemini recognition on any image
 ├── run_checks.sh                  # All-in-one verification script (DB + Py + Flutter)
@@ -386,6 +388,14 @@ The bottom of the scale's weigh screen shows the address to use: the tunnel URL 
 - Quick-tunnel URLs change on every start. An old one answers HTTP 530 (error 1033), which the app reports as an inactive tunnel URL. A permanent URL needs a named tunnel on a domain you own in Cloudflare.
 - On the Mac run `./run_simulator.sh <address>`. It reads `GEMINI_API_KEY` from the git-ignored `.env` and passes both to the app. The address can also be changed in the app by tapping the LIVE/OFFLINE badge on Add Meal.
 - **Security**: a tunnel makes the API, including the camera, reachable from the internet. Set `MIQDAR_API_TOKEN` in the Pi's `.env` and run the app with the matching `--dart-define=MIQDAR_API_TOKEN=...`. Only `/health` and `/scale/live` stay public.
+
+### 5.3.1 Controlling the Pi from a Mac over USB-C
+Run once on the Pi, then reboot: `./enable_usb_ssh_pi.sh` (`--undo` reverses it; originals are kept as `*.miqdar-backup` in `/boot/firmware`).
+Then on the Mac: `./connect_pi.sh` (first run asks for the Pi password once and installs a key), and afterwards `ssh miqdar-pi` or VS Code Remote-SSH.
+- The Pi is always `192.168.7.1` on the cable. No gateway is offered, so each machine keeps its own internet.
+- The app can use the cable too, with no tunnel: `./run_simulator.sh http://192.168.7.1:8080`.
+- USB-C is the Pi 4B's only power input, so on this cable the Mac powers the Pi instead of the battery pack. Shut down before swapping cables, and check `vcgencmd get_throttled` shows `throttled=0x0` under load.
+- Gadget mode does not affect running from the battery pack or the USB-A ports.
 
 ### 5.4 Running the Flutter Mobile App
 ```bash
