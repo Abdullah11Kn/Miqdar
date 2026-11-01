@@ -25,12 +25,13 @@ class GeminiNutritionService {
   }) : _client = client ?? http.Client();
 
   static const _defaultModels = [
-    'gemini-3.1-flash-lite-preview',
-    'gemini-3-flash-preview',
+    'gemini-3.1-flash-lite',
+    'gemini-3.5-flash-lite',
     'gemini-flash-latest',
   ];
   static const _endpoint = 'https://generativelanguage.googleapis.com/v1beta/models';
-  static const _perRequestTimeout = Duration(seconds: 20);
+  // Answers normally take 2-3 s, so a slow model is skipped instead of waited for.
+  static const _perRequestTimeout = Duration(seconds: 8);
   static const _totalDeadline = Duration(seconds: 35);
   static const _retryableStatus = {400, 404, 429, 500, 502, 503, 504};
   static const _notFoodLabels = {'not food', 'no food', 'non-food'};
@@ -72,7 +73,7 @@ class GeminiNutritionService {
               headers: {'Content-Type': 'application/json', 'x-goog-api-key': apiKey},
               body: payload,
             )
-            .timeout(remaining < _perRequestTimeout ? remaining : _perRequestTimeout);
+            .timeout(model == models.last || remaining < _perRequestTimeout ? remaining : _perRequestTimeout);
         if (response.statusCode != 200) {
           lastError = RecognitionException(
             'AI_PROVIDER_UNAVAILABLE',
@@ -113,8 +114,11 @@ class GeminiNutritionService {
         'reflecting real uncertainty. When a candidate is one of these dishes, use exactly this '
         'name: $knownDishes. Otherwise use a short common English name. For each, give '
         'its name in English and Arabic and your best estimate of its nutrition per 100 g of the '
-        'food as served, including typical oil, sauce and rice for that dish. Give values per '
-        '100 g, not for the portion. The scale measured ${weightG.toStringAsFixed(0)} g on the '
+        'item exactly as it sits on the scale, including typical oil, sauce and rice for that '
+        'dish. If the photo shows parts people do not eat, such as peel, rind, shells, bones or '
+        'pits, they are part of the weighed grams, so lower the values to match: half a '
+        'pomegranate in its rind is about half edible, so it has about half the calories per '
+        '100 g of the seeds alone. Give values per 100 g, not for the portion. The scale measured ${weightG.toStringAsFixed(0)} g on the '
         'plate; use this only to judge what the dish is. If the photo does not show food or '
         "drink, return a single candidate named 'not food' with all values 0."
         '${trimmedHint.isEmpty ? '' : ' The user added this note, as weak context only: "$trimmedHint".'}';
