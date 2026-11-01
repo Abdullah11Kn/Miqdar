@@ -1,6 +1,7 @@
 # Miqdar (مقدار) Design System & UI/UX Architecture
 
-**Document:** `DESIGN.md`  
+> Colors and type are still current. Screen descriptions may be older than the app; the code is right.
+
 **Project:** Miqdar Smart Nutrition Scale & Mobile System  
 **Baseline Date:** 25 October 2026  
 **Audience:** Mobile Frontend Engineers, Embedded Engineers, AI/Cloud Backend Contributors, UI/UX Designers  

@@ -1,6 +1,5 @@
 # Miqdar (مقدار) - Hardware & Software Integration Guide
 
-**Document:** `HARDWARE_INTEGRATION.md`  
 **Project:** Senior Project - Smart Food Scale & Mobile System  
 **Contributors:** Electrical Engineering (EE) + Software Engineering (SWE/ICS)  
 **Baseline Date:** October 2026  
@@ -9,7 +8,7 @@
 
 ## 1. Executive Summary
 
-This document explains the unified integration connecting the physical **Raspberry Pi 4B Smart Scale**, the **Gemini Vision AI Engine**, the **SQLite Nutrition Database**, and the **Flutter Mobile Application** into a single master application: [`app.py`](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/app.py).
+This document explains the unified integration connecting the physical **Raspberry Pi 4B Smart Scale**, the **Gemini Vision AI Engine**, the **SQLite Nutrition Database**, and the **Flutter Mobile Application** into a single master application: [`app.py`](../app.py).
 
 The application fulfills all 6 steps required in the Electrical Engineering (EE) Handover:
 1. **Screen UI (`app.py`)**: 640×480 capacitive touch interface specifically built for the Waveshare 3.5" DSI LCD (E).
@@ -135,18 +134,9 @@ sudo python3 app.py --self-test
 
 ---
 
-## 4. API Endpoints Reference
+## 4. API
 
-Base URL: `http://<PI_IP>:8080`
-
-| Method | Endpoint | Description | Sample Response |
-|---|---|---|---|
-| `GET` | `/health` | System health, database, active AI model, and scale status | `{"status":"ok", "scale":{"mode":"real", "live_weight_g":152.3}}` |
-| `GET` | `/scale/live` | Real-time weight streaming for the mobile client | `{"live_weight_g":152.3, "is_stable":true, "battery_pct":94}` |
-| `POST` | `/scale/tare` | Remote zero command triggered from the mobile phone | `{"success":true, "scale":{"tare_g":152.3}}` |
-| `POST` | `/scale/capture` | Triggers stable weight + camera snapshot + AI recognition + DB save | Full meal result with `meal_id`, calories, and macros |
-| `POST` | `/recognize` | Food recognition on custom base64 image + portion weight | Standard Miqdar recognition JSON |
-| `GET` | `/history` | 90-day meal log for the logged-in user | `{"items": [...]}` |
+See [API.md](API.md).
 
 ---
 

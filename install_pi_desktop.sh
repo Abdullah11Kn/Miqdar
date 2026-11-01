@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Miqdar - Raspberry Pi setup. Safe to run again after every git pull.
-# Installs what the scale needs and puts a "Miqdar Scale" icon on the desktop.
+# Installs what the scale needs and makes the scale start at boot, and adds desktop icons.
 # No Gemini key is needed here: the scale sends its photo to the phone app, which calls Gemini.
 # ==============================================================================
 set -euo pipefail
@@ -47,27 +47,40 @@ fi
 echo "[3/4] Nutrition database"
 [[ -f database/miqdar_nutrition.db ]] || .venv/bin/python database/scripts/build_database.py
 
-echo "[4/4] Desktop icon"
+echo "[4/4] Desktop icons and start at boot"
 desktop_dir="$(xdg-user-dir DESKTOP 2>/dev/null || true)"
 [[ -n "$desktop_dir" ]] || desktop_dir="$HOME/Desktop"
 mkdir -p "$desktop_dir" "$HOME/.local/share/applications"
-entry="$HOME/.local/share/applications/miqdar-scale.desktop"
-cat > "$entry" <<EOF
+
+write_icon() {  # file, name, comment, start_all arguments
+  cat > "$1" <<EOF
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=Miqdar Scale
-Comment=Start the scale, camera, API and Cloudflare tunnel
-Exec=bash -c 'cd "$project_dir" && ./start_all.sh'
+Name=$2
+Comment=$3
+Exec=bash -c 'cd "$project_dir" && ./start_all.sh $4'
 Path=$project_dir
 Icon=$project_dir/mobile/assets/branding/miqdar-logo.png
 Terminal=true
 Categories=Utility;
 EOF
-chmod +x "$entry"
+  chmod +x "$1"
+}
+
+entry="$HOME/.local/share/applications/miqdar-scale.desktop"
+write_icon "$entry" "Miqdar Scale" "Start the scale, camera and API on this Wi-Fi" ""
 cp "$entry" "$desktop_dir/Miqdar Scale.desktop"
-chmod +x "$desktop_dir/Miqdar Scale.desktop"
-command -v gio >/dev/null 2>&1 && gio set "$desktop_dir/Miqdar Scale.desktop" metadata::trusted true 2>/dev/null || true
+write_icon "$desktop_dir/Miqdar Scale + Internet.desktop" "Miqdar Scale + Internet" \
+  "Also open a public address. Anyone with it can reach the camera" "--tunnel"
+for icon in "Miqdar Scale" "Miqdar Scale + Internet"; do
+  chmod +x "$desktop_dir/$icon.desktop"
+  command -v gio >/dev/null 2>&1 && gio set "$desktop_dir/$icon.desktop" metadata::trusted true 2>/dev/null || true
+done
+
+# Start at boot, without the tunnel. Delete this file to stop that.
+mkdir -p "$HOME/.config/autostart"
+cp "$entry" "$HOME/.config/autostart/miqdar-scale.desktop"
 
 # One tap on the touchscreen starts it, with no "Execute / Open" question from the file manager.
 libfm_conf="$HOME/.config/libfm/libfm.conf"
@@ -85,7 +98,8 @@ done
 command -v pcmanfm >/dev/null 2>&1 && pcmanfm --reconfigure 2>/dev/null || true
 
 echo ""
-echo "Done. Tap the 'Miqdar Scale' icon on the desktop to start everything."
+echo "Done. The scale now starts at boot. Keep the plate empty while it starts, because start-up zeroes it."
+echo "Desktop icons: 'Miqdar Scale', and 'Miqdar Scale + Internet' for a public address."
 if [[ ! -f scale_calibration.json ]]; then
   echo "The first start will ask you to calibrate, so keep a known weight nearby."
 fi

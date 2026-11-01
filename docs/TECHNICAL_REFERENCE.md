@@ -48,12 +48,6 @@ flowchart TD
 
 ---
 
-## 2. Repository Layout
-
-The map of the repository is kept in one place: [AGENTS.md](../AGENTS.md#where-things-live).
-
----
-
 ## 3. Subsystem Architecture Deep-Dive
 
 ### 3.1 Hardware Scale & Drivers (`app.py`, `hardware.py`)
@@ -91,7 +85,7 @@ The map of the repository is kept in one place: [AGENTS.md](../AGENTS.md#where-t
 > **The key must not ship.** `--dart-define` values can be extracted from an installed app, so this suits local simulator testing only. A release must call Gemini through a server that holds the key. Estimates also vary for one dish between photos, so review them before relying on the clinical alerts.
 
 - **Primary AI Vision Model**: **`gemini-3.1-flash-lite`**
-  - Configured in [recognition.py](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/backend/miqdar_backend/recognition.py).
+  - Configured in [recognition.py](../backend/miqdar_backend/recognition.py).
   - Multimodal prompt instructs Gemini to output structured JSON:
     ```json
     [
@@ -103,9 +97,9 @@ The map of the repository is kept in one place: [AGENTS.md](../AGENTS.md#where-t
   - Preprocessing: Image is automatically downsampled using high-quality Lanczos resampling (max 768px) and compressed to JPEG quality 80 to minimize network token transfer while preserving visual clarity.
   - In-memory thread-safe LRU Cache (`RECOGNITION_CACHE`): Repeat captures of identical dishes return instantly (0 ms AI latency).
   - Retry & Fallback Cascade: If the primary model returns 404, 429, 500, 502, 503, or 504, it immediately attempts fallbacks: `gemini-3-flash-preview` $\rightarrow$ `gemini-2.5-flash-image` $\rightarrow$ `gemini-flash-latest`.
-- **Sequential Capture Gating** ([service.py](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/backend/miqdar_backend/service.py)):
+- **Sequential Capture Gating** ([service.py](../backend/miqdar_backend/service.py)):
   - Prevents accidental double-logging. A new capture is only processed if the weight changed by $> 5.0\text{ g}$ or the visual hash changed.
-- **Clinical Alert Engine** ([alert_engine.py](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/backend/miqdar_backend/alert_engine.py)):
+- **Clinical Alert Engine** ([alert_engine.py](../backend/miqdar_backend/alert_engine.py)):
   - Strictly evaluated in under $10\text{ ms}$ (exceeding the $\le 4,000\text{ ms}$ clinical requirement).
   - Computes the user's cumulative 24-hour intake including the pending meal against configured limits:
     - **Sodium**: Warns if single meal $> 800\text{ mg}$ or daily total $> 2,300\text{ mg}$ ($1,500\text{ mg}$ for hypertension).
@@ -123,152 +117,18 @@ Normally the scale only weighs and photographs. The app's `GeminiNutritionServic
 - **Measuring**: `cd mobile && flutter test benchmark/gemini_benchmark_test.dart --dart-define=GEMINI_API_KEY=<key> --dart-define=MANIFEST=<csv>` reports names, calorie error, repeatability and speed for your own photos. Run it sparingly: it uses quota.
 
 ### 3.3 Flutter Mobile Application (`mobile/`)
-- **Real data only**: the diary holds only meals the user saved. Sample meals exist only in the demo workspace, in memory, and are never stored.
-- **Add Meal** centres on the live weight and one Capture button. Search, manual entry and using a photo stay available. **Review Meal** keeps Save fixed on screen, with extra detail in collapsed sections.
-- **Remembered between launches**: welcome screen seen, language, theme and profile name.
-- **State Management**: Built on `ChangeNotifier` and `Provider` via [AppController](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/app_controller.dart).
-- **Scale Telemetry Client**: [ScaleHardwareService](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/services/api_service.dart) polls `/scale/live` every 500 ms and goes offline only after 3 missed polls in a row.
-  - Automatically detects scale disconnection, renders an "Offline" badge, and offers a one-tap dialog to update the server URL.
-  - Automatically receives live capture events pushed from physical button presses on the scale.
-- **Review & Logging UI** ([scan_and_add_screen.dart](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/ui/scan_and_add_screen.dart)):
-  - Hero image card displays the real camera photo captured by the scale.
-  - **Tap-to-Expand**: Tapping the photo opens a full-screen `InteractiveViewer` with pinch-to-zoom and pan.
-  - Ranked Candidates Carousel: Displays Top-3 candidate foods recognized by Gemini. Tapping another candidate dynamically recalculates nutrients for the measured weight.
-- **Offline Resilience**:
-  - Local SQLite database on the mobile device ([local_database.dart](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/data/local_database.dart)) retains 90+ days of meal history, allowing full offline browsing and diary inspection.
+- **Real data only**: the diary holds only meals the user saved. Sample meals exist only in the demo workspace and are never stored. There are no accounts.
+- **State**: `MiqdarController` (`app_controller.dart`), a `ChangeNotifier` reached through `MiqdarScope`.
+- **Scale**: `api_service.dart` polls `/scale/live` every 500 ms. Captures started anywhere (app, scale screen, auto-capture) arrive through `latest_capture`, and the photo opens at once while Gemini works.
+- **Add Meal** centres on the live weight and one Capture button. Search, manual entry and using a photo stay available. **Review Meal** keeps Save fixed on screen.
+- **Storage**: SQLite version 3 in `local_database.dart`, and meal photos as files in `<databases>/meal_photos/<mealId>.jpg`. A year of meals is loaded.
+- **Language**: all text through `s.tr(en, ar)`, dates through `s.date(...)`.
 
 ---
 
-## 4. Complete REST API Contract
+## 4. REST API
 
-All endpoints listen on `http://<scale-ip>:8080` (or through the Cloudflare Tunnel URL).
-
-### 4.1 Hardware Scale Endpoints
-
-#### `GET /scale/live`
-Lightweight telemetry polled twice a second (about 2 KB over a tunnel). It never contains the photo.
-- **Response `200 OK`**:
-  ```json
-  {
-    "mode": "real",
-    "live_weight_g": 245.8,
-    "is_stable": true,
-    "is_overloaded": false,
-    "sensor_ok": true,
-    "sensor_error": null,
-    "capture_state": "idle",
-    "auto_capture": true,
-    "battery_pct": 94,
-    "latest_capture": {
-      "event_id": "cap-1-1730412345",
-      "age_s": 2.4,
-      "status": "ok",
-      "source": "auto",
-      "simulated": false,
-      "weight_g": 245.8,
-      "food": {"food_id": "SA-001", "name_en": "Chicken Kabsa"},
-      "nutrients": {"calories_kcal": 385.2}
-    }
-  }
-  ```
-  `capture_state` is `idle`, `settling`, `capturing` or `analyzing`. A failed capture has `"status": "error"` plus `error` and `message`.
-
-#### `GET /scale/capture/latest`
-The full latest capture event including `image_base64`. Clients fetch it once per new `event_id`.
-
-A photo awaiting analysis in the app has `"status": "photo"`, which is the default.
-
-#### `POST /scale/capture/result`
-The app reports `{"event_id", "food": {"name_en"}, "nutrients"}` so the touchscreen can show the calories. Results for an older capture are ignored.
-
-#### `POST /scale/simulate` (simulation mode only, 404 on a real scale)
-`{"weight_g": 240, "sample": "jareesh"}` puts food on the simulated plate. Samples: `kabsa`, `shawarma`, `jareesh`, `pizza`, `burger`.
-
-#### `POST /scale/tare`
-Resets the scale's current reading to 0.0g.
-- **Response `200 OK`**:
-  ```json
-  {
-    "status": "ok",
-    "message": "Scale tared successfully",
-    "new_offset": 8522300,
-    "weight_g": 0.0
-  }
-  ```
-
-#### `POST /scale/capture`
-Triggers an immediate camera capture + Gemini recognition.
-- **Request Body (optional)**:
-  ```json
-  {
-    "user_id": "usr_patient_1",
-    "hint": "extra sauce",
-    "save": false
-  }
-  ```
-  `save` defaults to `true`. The mobile app sends `false` and logs the meal when the user confirms it, so the server never double-counts. Touchscreen and auto-captures are always drafts awaiting that confirmation.
-- **Errors**: `{"error": "<code>", "message": "...", "candidates": [], "event_id": "..."}` with `CAMERA_UNAVAILABLE` (503), `EMPTY_SCALE` (422), `NOT_FOOD` (422), `FOOD_NOT_IN_DATABASE` (422), `CAPTURE_IN_PROGRESS` (409) or `AI_PROVIDER_UNAVAILABLE` (502).
-- **Response `200 OK`**:
-  ```json
-  {
-    "meal_id": "meal-1730412350",
-    "food": {
-      "food_id": "SA-001",
-      "name_en": "Chicken Kabsa",
-      "name_ar": "كبسة دجاج",
-      "category": "Rice & Poultry"
-    },
-    "weight_g": 245.8,
-    "nutrients": {
-      "calories_kcal": 385.2,
-      "protein_g": 28.4,
-      "carbohydrate_g": 42.1,
-      "fat_g": 11.2,
-      "sodium_mg": 680.0,
-      "sugar_g": 2.1,
-      "fiber_g": 3.4,
-      "potassium_mg": 410.0
-    },
-    "candidates": [
-      {"label": "chicken kabsa", "confidence": 0.95, "selected": true},
-      {"label": "mandi rice", "confidence": 0.78, "selected": false}
-    ],
-    "alerts": [],
-    "image_base64": "/9j/4AAQSkZJRg...",
-    "timing": {
-      "recognition_ms": 1420,
-      "alert_evaluation_ms": 4,
-      "total_ms": 1450
-    }
-  }
-  ```
-
-### 4.2 Application Endpoints
-
-#### `POST /api/analyze`
-Direct food recognition endpoint for uploaded image bytes + weight.
-- **Request Body**:
-  ```json
-  {
-    "user_id": "usr_patient_1",
-    "image_base64": "<base64_jpeg_string>",
-    "weight_g": 180.0,
-    "hint": ""
-  }
-  ```
-- **Response**: Same structure as `/scale/capture`.
-
-#### `GET /api/meals?user_id=usr_patient_1&days=90`
-Returns logged meal history for diary and recommendation engine.
-
-#### `POST /api/save_meal`
-Saves or updates a meal log entry with user-adjusted candidates or portion weight.
-
-#### `GET /api/profile?user_id=usr_patient_1` & `POST /api/profile`
-Manages clinical profile and condition flags (`hypertension`, `diabetes_type_2`, `ckd_stage_3`).
-
-#### `GET /api/recommendations?user_id=usr_patient_1`
-Returns personalized, explainable meal suggestions based on past 90-day intake.
+See [API.md](API.md).
 
 ---
 
@@ -299,14 +159,14 @@ cd Miqdar
 ```
 The installer adds the apt packages, cloudflared and a virtualenv created with `--system-site-packages` (a plain virtualenv cannot import the apt-installed `lgpio` and `picamera2`). It also puts a **Miqdar Scale** icon on the desktop. The Pi needs no Gemini key.
 
-After that, **tap the icon**. `start_all.sh` stops any earlier run, starts the tunnel in the background and opens the scale fullscreen. `scale_calibration.json` is tracked in git, so a fresh clone starts with those values rather than asking: check a known weight, and if it reads wrong run `.venv/bin/python scale.py calibrate` once on the Pi. Put the empty plate on before tapping the icon (start-up zeroes the scale) or press ZERO afterwards, otherwise the plate's weight is counted as food.
+After that the scale **starts by itself at boot**, and the **Miqdar Scale** icon starts it by hand. `start_all.sh` stops any earlier run and opens the scale fullscreen. To stop starting at boot, delete `~/.config/autostart/miqdar-scale.desktop`. `scale_calibration.json` is tracked in git, so a fresh clone starts with those values rather than asking: check a known weight, and if it reads wrong run `.venv/bin/python scale.py calibrate` once on the Pi. Put the empty plate on before tapping the icon (start-up zeroes the scale) or press ZERO afterwards, otherwise the plate's weight is counted as food.
 
 ### 5.3 Connecting the App (Cloudflare Tunnel or Wi-Fi)
-The bottom of the scale's weigh screen shows the address to use: the tunnel URL once it is up, otherwise the LAN address.
+The bottom of the scale's weigh screen shows the address to use: the LAN address, or the tunnel URL when the tunnel is on. **The tunnel is off by default**; the **Miqdar Scale + Internet** desktop icon or `./start_all.sh --tunnel` turns it on.
 - **Same network as the Pi**: the LAN address `http://<pi-ip>:8080` is enough and has lower latency. No tunnel is needed unless the network isolates clients.
 - **Different networks**: use the `https://<random>.trycloudflare.com` URL.
 - Quick-tunnel URLs change on every start. An old one answers HTTP 530 (error 1033), which the app reports as an inactive tunnel URL. A permanent URL needs a named tunnel on a domain you own in Cloudflare.
-- On the Mac run `./run_simulator.sh <address>`. It reads `GEMINI_API_KEY` from the git-ignored `.env` and passes both to the app. The address can also be changed in the app by tapping the LIVE/OFFLINE badge on Add Meal.
+- On the Mac run `./run_simulator.sh` for `foodscale.local`, or `./run_simulator.sh <address>`. It reads `GEMINI_API_KEY` from the git-ignored `.env` and passes both to the app. The address can also be changed in the app by tapping the LIVE/OFFLINE badge on Add Meal.
 - **Security**: a tunnel makes the API, including the camera, reachable from the internet. Set `MIQDAR_API_TOKEN` in the Pi's `.env` and run the app with the matching `--dart-define=MIQDAR_API_TOKEN=...`. Only `/health` and `/scale/live` stay public.
 
 ### 5.3.1 Controlling the Pi from a Mac over USB-C

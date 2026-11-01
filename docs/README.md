@@ -1,19 +1,34 @@
 # Miqdar documentation
 
-Start with [AGENTS.md](../AGENTS.md): it has the current state, the rules and the change log.
-When a document here disagrees with the code, the code is right.
+Start with [AGENTS.md](../AGENTS.md): current state, rules, decisions and the change log.
+When a document disagrees with the code, the code is right.
 
-| Document | What it covers | Status |
-|---|---|---|
-| [TECHNICAL_REFERENCE.md](TECHNICAL_REFERENCE.md) | How the scale, backend and app work; running everything | Kept up to date, some detail may lag |
-| [FRONTEND_REQUIREMENTS_V3.md](FRONTEND_REQUIREMENTS_V3.md) | Full requirements for every app screen (proposed baseline, 22 Oct 2026) | The target, not what exists. See "Open decisions" in AGENTS.md |
-| [HARDWARE_INTEGRATION.md](HARDWARE_INTEGRATION.md) | Wiring, Raspberry Pi and calibration | October 2026 |
-| [GEMINI_SERVER_SETUP.md](GEMINI_SERVER_SETUP.md) | Running Gemini on the scale or server (the old path) | Not the default path |
-| [API_CONTRACT.md](API_CONTRACT.md), [API.md](API.md) | REST endpoints | Older. `app.py` and the reference are correct |
-| [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) | Older guide to connecting the parts | Older |
-| [DESIGN.md](DESIGN.md), [FIGMA_TO_FLUTTER.md](FIGMA_TO_FLUTTER.md) | Design system and Figma mapping | Older |
-| [VERIFICATION.md](VERIFICATION.md) | Older acceptance results | Older. Latest results are in the AGENTS.md log |
-| [CHANGELOG_1.1.md](CHANGELOG_1.1.md) | What changed in version 1.1 | History. New changes go in AGENTS.md |
-| [handover/](handover/) | Original hardware handover PDFs | History |
+## Current
 
-`evaluation/` contains a 400-sample report made from placeholder data. Do not quote its numbers as results.
+| Document | What it covers |
+|---|---|
+| [TECHNICAL_REFERENCE.md](TECHNICAL_REFERENCE.md) | How the scale, backend and app work, and how to run them |
+| [API.md](API.md) | Scale REST API, checked against the code |
+| [HARDWARE.md](HARDWARE.md) | Wiring, Raspberry Pi and calibration |
+| [DESIGN.md](DESIGN.md) | Colors, type and design rules. The screens themselves have changed since it was written |
+
+Next to their own code: [database/README.md](../database/README.md), [mobile/README.md](../mobile/README.md),
+[database/reference_images/CAPTURE_GUIDE.md](../database/reference_images/CAPTURE_GUIDE.md).
+
+## Archive
+
+[archive/](archive/) is kept for history only. **Do not follow these as instructions**: they describe older designs,
+servers or plans.
+
+| Document | Why it is archived |
+|---|---|
+| FRONTEND_REQUIREMENTS_V3.md | Early proposal. Abdullah decided on 2026-11-02 it no longer binds the project |
+| API_OLD_SERVER.md, API_CONTRACT.md | Older APIs, replaced by API.md |
+| INTEGRATION_GUIDE.md | How an earlier code bundle was merged |
+| GEMINI_SERVER_SETUP.md | Gemini on the server, no longer the default path |
+| VERIFICATION.md | Test results from August 2026 |
+| CHANGELOG_1.1.md | Version 1.1 changes. New changes go in AGENTS.md |
+| FIGMA_TO_FLUTTER.md, MOBILE_DESIGN_QA.md, MOBILE_REST_CONNECTION.md | The first app design |
+| handover/ | Original hardware handover PDFs |
+
+The 400-sample report in `evaluation/` is placeholder data. Do not quote its numbers as results.
