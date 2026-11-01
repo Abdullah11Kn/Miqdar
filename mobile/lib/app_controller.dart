@@ -54,17 +54,22 @@ class MiqdarController extends ChangeNotifier {
 
   void toggleLocale() {
     locale = isAr ? const Locale('en') : const Locale('ar');
+    apiService.gemini.noteInArabic = isAr;
+    _remember('locale', locale.languageCode);
     notifyListeners();
   }
 
   void setLocale(Locale value) {
     if (locale == value) return;
     locale = value;
+    apiService.gemini.noteInArabic = isAr;
+    _remember('locale', locale.languageCode);
     notifyListeners();
   }
 
   void toggleThemeMode() {
     themeMode = isDark ? ThemeMode.light : ThemeMode.dark;
+    _remember('theme', isDark ? 'dark' : 'light');
     notifyListeners();
   }
 
@@ -76,8 +81,15 @@ class MiqdarController extends ChangeNotifier {
   // Account & Session
   UserAccount account = const UserAccount();
 
+  /// True once the user has been through the welcome screen, so it only appears once.
+  bool onboarded = false;
+
+  void _remember(String key, String value) {
+    unawaited(localDatabase.saveSetting(key, value).catchError((Object _) {}));
+  }
+
   void signIn({required String email, String? displayName, bool isDemo = false}) {
-    final cleanEmail = email.trim().isEmpty ? 'jehad@miqdar.health' : email.trim();
+    final cleanEmail = email.trim();
     final name = (displayName != null && displayName.trim().isNotEmpty)
         ? displayName.trim()
         : (isDemo ? 'Demo Evaluator' : account.displayName);
@@ -88,6 +100,14 @@ class MiqdarController extends ChangeNotifier {
       isDemo: isDemo,
       authenticated: true,
     );
+    if (isDemo) {
+      // Sample meals stay in memory and never mix with a real diary.
+      meals = localDatabase.demoHistory();
+    } else {
+      onboarded = true;
+      _remember('onboarded', '1');
+      _rememberAccount();
+    }
     notifyListeners();
   }
 
@@ -103,6 +123,7 @@ class MiqdarController extends ChangeNotifier {
       email: email,
       trackingIntention: trackingIntention,
     );
+    if (!account.isDemo) _rememberAccount();
     if (trackingIntention == 'track_only') {
       goals = goals.copyWith(trackingOnly: true);
     } else if (trackingIntention != null) {
@@ -113,8 +134,40 @@ class MiqdarController extends ChangeNotifier {
 
   void signOut() {
     lastRecognition = null;
+    final wasDemo = account.isDemo;
     account = account.copyWith(authenticated: false, isDemo: false);
+    onboarded = false;
+    _remember('onboarded', '0');
+    if (wasDemo) unawaited(_reloadMeals());
     notifyListeners();
+  }
+
+  void _rememberAccount() {
+    _remember('account_name', account.displayName);
+    _remember('account_name_ar', account.displayNameAr);
+    _remember('account_email', account.email);
+  }
+
+  Future<void> _reloadMeals() async {
+    try {
+      meals = await localDatabase.loadMeals(days: 90);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> _restorePreferences() async {
+    if (await localDatabase.getSetting('locale') == 'ar') locale = const Locale('ar');
+    apiService.gemini.noteInArabic = isAr;
+    if (await localDatabase.getSetting('theme') == 'dark') themeMode = ThemeMode.dark;
+    onboarded = await localDatabase.getSetting('onboarded') == '1';
+    final name = await localDatabase.getSetting('account_name');
+    if (name != null && name.isNotEmpty) {
+      account = account.copyWith(
+        displayName: name,
+        displayNameAr: await localDatabase.getSetting('account_name_ar'),
+        email: await localDatabase.getSetting('account_email'),
+      );
+    }
   }
 
   // Domain State
@@ -183,6 +236,7 @@ class MiqdarController extends ChangeNotifier {
 
   Future<void> initialize() async {
     await localDatabase.initialize();
+    await _restorePreferences();
     final savedUrl = await localDatabase.getSetting('api_base_url');
     // A URL passed with --dart-define=MIQDAR_API_URL wins over the one saved last time.
     const launchUrl = String.fromEnvironment('MIQDAR_API_URL');
@@ -371,7 +425,7 @@ class MiqdarController extends ChangeNotifier {
       _scaleFailures++;
       scaleConnectionIssue = error is ApiException
           ? error.message
-          : 'Cannot reach ${apiService.baseUrl}. Check the address on the scale screen.';
+          : 'Scale not found. Check that it is on and on the same network.';
       if (scaleDevice.online && _scaleFailures >= _offlineAfterFailures) {
         scaleDevice = scaleDevice.copyWith(online: false, captureState: 'idle');
         connectionStatus = 'Server unreachable';

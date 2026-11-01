@@ -215,6 +215,9 @@ Normally the scale only weighs and photographs. The app's `GeminiNutritionServic
 - **Measuring**: `cd mobile && flutter test benchmark/gemini_benchmark_test.dart --dart-define=GEMINI_API_KEY=<key> --dart-define=MANIFEST=<csv>` reports names, calorie error, repeatability and speed for your own photos. Run it sparingly: it uses quota.
 
 ### 3.3 Flutter Mobile Application (`mobile/`)
+- **Real data only**: the diary holds only meals the user saved. Sample meals exist only in the demo workspace, in memory, and are never stored.
+- **Add Meal** centres on the live weight and one Capture button. Search, manual entry and using a photo stay available. **Review Meal** keeps Save fixed on screen, with extra detail in collapsed sections.
+- **Remembered between launches**: welcome screen seen, language, theme and profile name.
 - **State Management**: Built on `ChangeNotifier` and `Provider` via [AppController](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/app_controller.dart).
 - **Scale Telemetry Client**: [ScaleHardwareService](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/services/api_service.dart) polls `/scale/live` every 500 ms and goes offline only after 3 missed polls in a row.
   - Automatically detects scale disconnection, renders an "Offline" badge, and offers a one-tap dialog to update the server URL.

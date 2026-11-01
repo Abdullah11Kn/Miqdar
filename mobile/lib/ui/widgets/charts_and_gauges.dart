@@ -446,8 +446,8 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
           const SizedBox(height: 12),
           Text(
             s.tr(
-              'Energy distribution uses 4/4/9 kcal/g factors. Authoritative calories come from source food records (NUT-05).',
-              'يُحسب توزيع الطاقة بمعاملات 4/4/9 سعرة/غ، بينما تعتمد السعرات الرسمية على سجل الغذاء المصدري (NUT-05).',
+              'Share of calories from each, using 4, 4 and 9 kcal per gram.',
+              'حصة السعرات من كل عنصر، بمعدل 4 و4 و9 سعرات لكل غرام.',
             ),
             style: const TextStyle(fontSize: 11),
           ),

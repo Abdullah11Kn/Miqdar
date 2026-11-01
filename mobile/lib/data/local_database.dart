@@ -148,7 +148,6 @@ class LocalDatabase {
   Future<void> initialize() async {
     if (kIsWeb) {
       _useInMemory = true;
-      _seedMemoryHistory();
       return;
     }
     try {
@@ -186,15 +185,15 @@ class LocalDatabase {
       );
       await _seedGoals();
       await _seedHealthProfile();
-      await _seedHistory();
+      await _removeSampleHistory();
     } catch (_) {
       _useInMemory = true;
-      _seedMemoryHistory();
     }
   }
 
-  void _seedMemoryHistory() {
-    if (_memMeals.isNotEmpty) return;
+  /// Sample history for the clearly labelled demo workspace only. Never stored.
+  List<MealEntry> demoHistory() {
+    final demo = <MealEntry>[];
     final now = DateTime.now().toUtc();
     for (var day = 0; day < 91; day++) {
       // Today and recent days get 2 meals so daily progress and charts look rich and realistic!
@@ -213,7 +212,7 @@ class LocalDatabase {
           potassium: def.$14,
         );
         final scaled = basis.forPortionGrams(weight);
-        _memMeals.add(MealEntry(
+        demo.add(MealEntry(
           id: m == 0 ? 'seed-$day' : 'seed-$day-$m',
           foodId: def.$1,
           nameEn: def.$2,
@@ -230,6 +229,7 @@ class LocalDatabase {
         ));
       }
     }
+    return demo;
   }
 
   static Future<void> _createHealthProfileTable(Database db) => db.execute('''
@@ -272,37 +272,10 @@ class LocalDatabase {
     });
   }
 
-  Future<void> _seedHistory() async {
-    if (Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM meals')) != 0) return;
-    final now = DateTime.now().toUtc();
-    final batch = db.batch();
-    for (var day = 0; day < 91; day++) {
-      final def = _seedFoodDefs[day % _seedFoodDefs.length];
-      final weight = def.$5;
-      final basis = NutritionValues(
-        calories: def.$7,
-        protein: def.$8,
-        carbohydrates: def.$9,
-        fat: def.$10,
-        sugar: def.$11,
-        fiber: def.$12,
-        sodium: def.$13,
-        potassium: def.$14,
-      );
-      final scaled = basis.forPortionGrams(weight);
-      batch.insert('meals', {
-        'id': 'seed-$day',
-        'food_id': def.$1,
-        'name_en': def.$2,
-        'name_ar': def.$3,
-        'eaten_at': now.subtract(Duration(days: day)).toIso8601String(),
-        'meal_type': def.$4,
-        'weight_g': weight,
-        'confidence': 0.94,
-        ...scaled.toDatabase(),
-      });
-    }
-    await batch.commit(noResult: true);
+  /// Earlier versions filled the diary with sample meals that counted toward real totals.
+  Future<void> _removeSampleHistory() async {
+    final removed = await db.delete('meals', where: "id LIKE 'seed-%'");
+    if (removed > 0) await db.delete('alerts');
   }
 
   Future<NutritionGoals> loadGoals() async {

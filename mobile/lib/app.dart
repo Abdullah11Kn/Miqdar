@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app_controller.dart';
 import 'theme.dart';
@@ -34,6 +35,9 @@ class MiqdarApp extends StatelessWidget {
               title: isAr ? 'مقدار • Miqdar' : 'Miqdar • مقدار',
               debugShowCheckedModeBanner: false,
               locale: controller.locale,
+              // Without these Flutter resolves every locale to English.
+              supportedLocales: const [Locale('en'), Locale('ar')],
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
               themeMode: controller.themeMode,
               theme: miqdarTheme(isDark: false),
               darkTheme: miqdarTheme(isDark: true),

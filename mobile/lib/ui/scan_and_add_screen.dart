@@ -4,7 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' show DateFormat;
 
 import '../app.dart';
 import '../app_controller.dart';
@@ -40,6 +40,7 @@ class _ScanScreenState extends State<ScanScreen> {
   late final TextEditingController weightTextCtrl = TextEditingController(text: '180');
   late final TextEditingController hintTextCtrl = TextEditingController();
   RecognitionException? lastError;
+  bool showPhotoOptions = false;
 
   static const List<({String asset, String labelEn, String labelAr, double defaultWeightG})>
       _samplePhotos = [
@@ -221,8 +222,8 @@ class _ScanScreenState extends State<ScanScreen> {
         SnackBar(
           content: Text(
             s.tr(
-              'Scale is offline. Tap the Miqdar Scale icon on the Raspberry Pi, then enter the address shown on its screen.',
-              'الميزان غير متصل. اضغط أيقونة Miqdar Scale على الراسبيري باي ثم أدخل العنوان الظاهر على شاشته.',
+              'Scale is not connected. Start it, then enter the address shown on its screen.',
+              'الميزان غير متصل. شغّله ثم أدخل العنوان الظاهر على شاشته.',
             ),
           ),
           backgroundColor: const Color(0xFFD97706),
@@ -448,7 +449,7 @@ class _ScanScreenState extends State<ScanScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        s.tr('Sample Test Dishes', 'عينات أطباق تجريبية'),
+                        s.tr('Sample Photos', 'عينات أطباق تجريبية'),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -458,7 +459,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       const SizedBox(height: 2),
                       Text(
                         s.tr(
-                          'Pre-configured photos for evaluating vision AI recognition.',
+                          'Try the app without a real meal.',
                           'صور مجهزة لاختبار وتقييم التعرف البصري بالذكاء الاصطناعي.',
                         ),
                         style: TextStyle(
@@ -678,23 +679,12 @@ class _ScanScreenState extends State<ScanScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    s.tr('Log a Meal', 'تسجيل وجبة'),
+                    s.tr('Add Meal', 'إضافة وجبة'),
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
                       color: isDark ? Colors.white : const Color(0xFF111815),
                       letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    s.tr(
-                      'Snap or upload a photo, weigh on scale, or search foods.',
-                      'ارفع صورة للذكاء الاصطناعي، زِن بالميزان، أو ابحث في الدليل.',
-                    ),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? MiqdarColors.darkMuted : const Color(0xFF5A655E),
                     ),
                   ),
                 ],
@@ -714,19 +704,19 @@ class _ScanScreenState extends State<ScanScreen> {
           child: Row(
             children: [
               _ModeSegmentTab(
-                label: s.tr('Smart Scan', 'مسح ذكي'),
+                label: s.tr('Scale', 'الميزان'),
                 icon: Icons.camera_enhance_rounded,
                 selected: modeIndex == 0,
                 onTap: () => setState(() => modeIndex = 0),
               ),
               _ModeSegmentTab(
-                label: s.tr('Food Catalog', 'دليل الأطعمة'),
+                label: s.tr('Search', 'بحث'),
                 icon: Icons.search_rounded,
                 selected: modeIndex == 1,
                 onTap: () => setState(() => modeIndex = 1),
               ),
               _ModeSegmentTab(
-                label: s.tr('Custom Food', 'طعام مخصص'),
+                label: s.tr('Manual', 'يدوي'),
                 icon: Icons.edit_note_rounded,
                 selected: modeIndex == 2,
                 onTap: () => setState(() => modeIndex = 2),
@@ -752,31 +742,14 @@ class _ScanScreenState extends State<ScanScreen> {
     S s,
     bool isDark,
   ) {
-    final scale = controller.scaleDevice;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 760;
-        final cameraSection = _buildCameraSection(context, controller, s, isDark);
-        final scaleSection = _buildSmartScaleCard(context, controller, s, scale, isDark);
-
-        return Column(
+    final hasPhoto = imageBytes != null || selectedSampleAsset != null;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (isWide)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 6, child: cameraSection),
-                  const SizedBox(width: 18),
-                  Expanded(flex: 5, child: scaleSection),
-                ],
-              )
-            else ...[
-              scaleSection,
-              const SizedBox(height: 14),
-              cameraSection,
-            ],
-
+            _buildSmartScaleCard(context, controller, s, controller.scaleDevice, isDark),
             if (lastError != null) ...[
               const SizedBox(height: 14),
               _RecognitionErrorCard(
@@ -791,83 +764,151 @@ class _ScanScreenState extends State<ScanScreen> {
                 onOpenCustom: () => setState(() => modeIndex = 2),
               ),
             ],
-
-            const SizedBox(height: 16),
-            // Primary Analyze Action Button
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(54),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            const SizedBox(height: 14),
+            if (hasPhoto) ...[
+              _buildSelectedPhotoView(context, s, isDark),
+              const SizedBox(height: 12),
+              _buildPortionInput(context, controller, s, isDark),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(54),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
                 ),
-                elevation: 0,
-              ),
-              onPressed: controller.busy ? null : () => _runAiRecognition(controller),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (controller.busy)
-                    const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.3,
-                        color: Colors.white,
-                      ),
-                    )
-                  else
-                    const Icon(Icons.auto_awesome_rounded, size: 20),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      controller.busy
-                          ? s.recognizingFood
-                          : s.tr('Analyze Meal with AI', 'تحليل الوجبة بالذكاء الاصطناعي'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: TextButton.icon(
-                onPressed: controller.busy ? null : () => _runOfflineDemo(controller),
-                icon: const Icon(Icons.bolt_rounded, size: 17),
+                onPressed: controller.busy ? null : () => _runAiRecognition(controller),
+                icon: controller.busy
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.3, color: Colors.white),
+                      )
+                    : const Icon(Icons.auto_awesome_rounded, size: 20),
                 label: Text(
-                  s.tr('Instant offline preview', 'معاينة فورية بدون اتصال'),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  controller.busy
+                      ? s.recognizingFood
+                      : s.tr('Analyze This Photo', 'حلّل هذه الصورة'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
               ),
-            ),
+            ] else if (showPhotoOptions)
+              _buildEmptyPhotoZone(context, s, isDark)
+            else
+              TextButton.icon(
+                onPressed: () => setState(() => showPhotoOptions = true),
+                icon: const Icon(Icons.photo_library_outlined, size: 18),
+                label: Text(
+                  s.tr('Use a photo instead', 'استخدم صورة بدلاً من ذلك'),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Widget _buildCameraSection(
-    BuildContext context,
-    MiqdarController controller,
-    S s,
-    bool isDark,
-  ) {
-    if (imageBytes == null && selectedSampleAsset == null) {
-      return _buildEmptyPhotoZone(context, s, isDark);
-    }
-    return _buildSelectedPhotoView(context, s, isDark);
+  /// Weight for a photo that did not come from the scale.
+  Widget _buildPortionInput(BuildContext context, MiqdarController controller, S s, bool isDark) {
+    final scale = controller.scaleDevice;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF111815);
+    final textSecondary = isDark ? const Color(0xFF9CA8A1) : const Color(0xFF5A655E);
+    return SurfaceCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  s.tr('Weight of this food', 'وزن هذا الطعام'),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+              ),
+              if (scale.online && portionSource != PortionSource.scale)
+                TextButton(
+                  onPressed: () => _setWeight(scale.effectiveWeightG, source: PortionSource.scale),
+                  child: Text(
+                    s.tr(
+                      'Use scale (${scale.effectiveWeightG.toStringAsFixed(0)} g)',
+                      'من الميزان (${scale.effectiveWeightG.toStringAsFixed(0)} غ)',
+                    ),
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _RoundStepButton(
+                icon: Icons.remove_rounded,
+                onTap: () => _setWeight(weight - 10, source: PortionSource.manual),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: weightTextCtrl,
+                  textAlign: TextAlign.center,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: textPrimary),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    filled: false,
+                    contentPadding: EdgeInsets.zero,
+                    suffixText: ' ${s.unitG}',
+                    suffixStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textSecondary),
+                  ),
+                  onChanged: (raw) {
+                    final parsed = double.tryParse(normalizeDigits(raw).trim());
+                    if (parsed != null && parsed > 0) {
+                      setState(() {
+                        weight = parsed.clamp(1.0, 5000.0);
+                        portionSource = PortionSource.manual;
+                      });
+                    }
+                  },
+                ),
+              ),
+              _RoundStepButton(
+                icon: Icons.add_rounded,
+                onTap: () => _setWeight(weight + 10, source: PortionSource.manual),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [100.0, 150.0, 200.0, 300.0].map((preset) {
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 38),
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => _setWeight(preset, source: PortionSource.manual),
+                    child: Text(
+                      '${preset.toInt()}${s.unitG}',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildEmptyPhotoZone(BuildContext context, S s, bool isDark) {
-    final controller = MiqdarScope.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF121B17) : const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(22),
@@ -878,65 +919,15 @@ class _ScanScreenState extends State<ScanScreen> {
       ),
       child: Column(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                  : const Color(0xFFECFDF5),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.add_a_photo_outlined,
-              size: 27,
-              color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
-            ),
-          ),
-          const SizedBox(height: 12),
           Text(
-            s.tr('Add Your Meal Photo', 'أضف صورة وجبتك'),
+            s.tr('Choose a photo of your food', 'اختر صورة لطعامك'),
             style: TextStyle(
-              fontSize: 17,
+              fontSize: 15,
               fontWeight: FontWeight.w800,
               color: isDark ? Colors.white : const Color(0xFF111827),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            s.tr(
-              'Snap with physical scale camera or pick a meal image file',
-              'التقط بكاميرا الميزان أو اختر ملف صورة للطبق',
-            ),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.5,
-              color: isDark ? MiqdarColors.darkMuted : const Color(0xFF6B7280),
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 18),
-          // Primary action: Capture with Scale Camera
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              elevation: 0,
-            ),
-            onPressed: controller.busy ? null : _captureFromScaleCamera,
-            icon: controller.busy
-                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.camera_alt_rounded, size: 20),
-            label: Text(
-              controller.busy
-                  ? s.tr('Capturing & Analyzing via Gemini...', 'جاري الالتقاط والتحليل عبر جيميني...')
-                  : s.tr('Capture from Scale Camera', 'التقاط بكاميرا الميزان وحلل'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
-            ),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           // Secondary dual actions: Photos / Files
           Row(
             children: [
@@ -987,7 +978,7 @@ class _ScanScreenState extends State<ScanScreen> {
             onPressed: () => _showSampleDishesSheet(context, s, isDark),
             icon: const Icon(Icons.science_outlined, size: 15),
             label: Text(
-              s.tr('Testing? Try a sample dish photo', 'للاختبار السريع: اختر طبقاً تجريبياً'),
+              s.tr('Try a sample photo', 'للاختبار السريع: اختر طبقاً تجريبياً'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1149,466 +1140,191 @@ class _ScanScreenState extends State<ScanScreen> {
   ) {
     final textPrimary = isDark ? Colors.white : const Color(0xFF111815);
     final textSecondary = isDark ? const Color(0xFF9CA8A1) : const Color(0xFF5A655E);
-    final isLiveMode = portionSource == PortionSource.scale;
+    final green = isDark ? const Color(0xFF10B981) : const Color(0xFF059669);
+    final grams = scale.effectiveWeightG < 0 ? 0.0 : scale.effectiveWeightG;
+    final working = controller.scaleWorking;
+    final canCapture = scale.online && !working && (grams >= 5 || scale.simulated);
+
+    final String guidance;
+    if (!scale.online) {
+      guidance = controller.scaleConnectionIssue ??
+          s.tr('Turn on the scale, then connect to it.', 'شغّل الميزان ثم اتصل به.');
+    } else if (scale.sensorError != null) {
+      guidance = s.tr('Load cell not responding: check the wiring.', 'حساس الوزن لا يستجيب: تحقق من التوصيلات.');
+    } else if (working) {
+      guidance = controller.analyzingScalePhoto
+          ? s.tr('Gemini is analyzing your food…', 'Gemini يحلل طعامك…')
+          : s.tr('Taking the photo. Keep your hands off the plate.', 'جارٍ التقاط الصورة. أبعد يدك عن الطبق.');
+    } else if (grams < 5) {
+      guidance = s.tr('Put your food on the plate', 'ضع طعامك على الطبق');
+    } else if (!scale.isStable) {
+      guidance = s.tr('Settling… keep your hands off the plate', 'جارٍ الثبات… أبعد يدك عن الطبق');
+    } else {
+      guidance = s.tr('Ready to capture', 'جاهز للالتقاط');
+    }
 
     return SurfaceCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Live Scale Telemetry Header & Tare Button
           Row(
             children: [
-              // Online / Live Pulse indicator
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: scale.online
-                      ? (isLiveMode ? const Color(0xFF10B981) : const Color(0xFF3B82F6))
-                      : const Color(0xFF9CA3AF),
-                  shape: BoxShape.circle,
-                  boxShadow: scale.online
-                      ? [
-                          BoxShadow(
-                            color: (isLiveMode ? const Color(0xFF10B981) : const Color(0xFF3B82F6))
-                                .withValues(alpha: 0.5),
-                            blurRadius: 8,
-                            spreadRadius: 1,
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => showApiUrlDialog(context, controller),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.circle,
+                          size: 10,
+                          color: !scale.online
+                              ? const Color(0xFF9CA3AF)
+                              : (scale.simulated ? const Color(0xFFD97706) : green),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            !scale.online
+                                ? s.tr('Scale not connected', 'الميزان غير متصل')
+                                : (scale.simulated
+                                    ? s.tr('Simulated scale, not real food', 'ميزان محاكاة، ليس طعاماً حقيقياً')
+                                    : s.tr('Scale connected', 'الميزان متصل')),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: textSecondary),
                           ),
-                        ]
-                      : null,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        scale.displayName.isNotEmpty ? scale.displayName : scale.deviceId,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13.5,
-                          color: textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: () => showApiUrlDialog(context, controller),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: scale.online
-                              ? (isLiveMode
-                                  ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                                  : const Color(0xFF3B82F6).withValues(alpha: 0.15))
-                              : Colors.grey.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              scale.online
-                                  ? (scale.simulated
-                                      ? s.tr('SIMULATED', 'محاكاة')
-                                      : (isLiveMode ? s.tr('LIVE', 'مباشر') : s.tr('ONLINE', 'متصل')))
-                                  : s.tr('OFFLINE', 'غير متصل'),
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.5,
-                                color: scale.online
-                                    ? (isLiveMode ? const Color(0xFF059669) : const Color(0xFF2563EB))
-                                    : const Color(0xFF6B7280),
+              if (scale.online)
+                TextButton.icon(
+                  onPressed: controller.taringScale || working
+                      ? null
+                      : () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final tared = await controller.tareScale();
+                          if (tared) _setWeight(0, source: PortionSource.scale);
+                          messenger.showSnackBar(
+                            SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                              content: Text(
+                                tared
+                                    ? s.tr('Scale set to 0 g', 'تم تصفير الميزان إلى 0 غ')
+                                    : s.tr(
+                                        'Could not zero: keep the plate still and try again.',
+                                        'تعذر التصفير: أبقِ الطبق ثابتاً وحاول مرة أخرى.',
+                                      ),
                               ),
                             ),
-                            const SizedBox(width: 3),
-                            Icon(
-                              Icons.edit_outlined,
-                              size: 10,
-                              color: scale.online
-                                  ? (isLiveMode ? const Color(0xFF059669) : const Color(0xFF2563EB))
-                                  : const Color(0xFF6B7280),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Battery Indicator
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.battery_charging_full_rounded,
-                    size: 15,
-                    color: scale.batteryPercent > 20
-                        ? (isDark ? const Color(0xFF34D399) : const Color(0xFF059669))
-                        : const Color(0xFFEF4444),
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    '${scale.batteryPercent}%',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 10),
-              // Tare Button
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  backgroundColor: isDark
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : const Color(0xFFF2F5F3),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(99),
+                          );
+                        },
+                  icon: const Icon(Icons.exposure_zero_rounded, size: 16),
+                  label: Text(
+                    s.tr('Zero', 'تصفير'),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
                   ),
                 ),
-                onPressed: controller.taringScale
-                    ? null
-                    : () async {
-                        final tared = await controller.tareScale();
-                        if (tared) _setWeight(0, source: PortionSource.scale);
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              tared
-                                  ? s.tr('Scale tared to 0 g.', 'تم تصفير الميزان إلى 0 غرام.')
-                                  : s.tr(
-                                      'Could not zero: keep the plate still and try again.',
-                                      'تعذر التصفير: أبقِ الطبق ثابتاً وحاول مرة أخرى.',
-                                    ),
-                            ),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                icon: const Icon(Icons.exposure_zero_rounded, size: 14),
-                label: Text(
-                  s.tr('Tare', 'تصفير'),
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 10),
-
-          if (scale.online && (scale.simulated || scale.sensorError != null)) ...[
-            Text(
-              scale.sensorError != null
-                  ? s.tr(
-                      'Load cell not responding: check the HX711 wiring.',
-                      'حساس الوزن لا يستجيب: تحقق من توصيلات HX711.',
-                    )
-                  : s.tr(
-                      'Simulation: weight and photo are not from a real scale.',
-                      'محاكاة: الوزن والصورة ليسا من ميزان حقيقي.',
-                    ),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFFD97706),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-
-          // 2. Offline banner OR Live Sync status banner / Revert to Live Scale button
           if (!scale.online)
-            InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => showApiUrlDialog(context, controller),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withValues(alpha: isDark ? 0.15 : 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: const Color(0xFFEF4444).withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.cloud_off_rounded, size: 16, color: Color(0xFFDC2626)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        controller.scaleConnectionIssue ??
-                            s.tr(
-                              'Scale offline • Tap to enter Cloudflare URL',
-                              'الميزان غير متصل • اضغط لضبط رابط النفق',
-                            ),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFDC2626),
-                        ),
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Color(0xFFDC2626)),
-                  ],
-                ),
-              ),
-            )
-          else if (!isLiveMode)
-            InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => _setWeight(scale.effectiveWeightG, source: PortionSource.scale),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.15 : 0.10),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFD97706)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        s.tr(
-                          'Manual portion: ${weight.toStringAsFixed(0)} g',
-                          'وزن يدوي: ${weight.toStringAsFixed(0)} غرام',
-                        ),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFB45309),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      s.tr('↺ Sync Live (${scale.effectiveWeightG.toStringAsFixed(0)}g)', '↺ ربط بالميزان (${scale.effectiveWeightG.toStringAsFixed(0)}غ)'),
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFD97706),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Icon(Icons.link_off_rounded, size: 52, color: textSecondary),
             )
           else
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: isDark ? 0.12 : 0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.25),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.sensors_rounded,
-                    size: 15,
-                    color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      scale.isStable
-                          ? s.tr('Live Weight Active • Place items on scale', 'قراءة الميزان المباشرة نشطة • ضع الصحن على الميزان')
-                          : s.tr('Measuring live weight in motion…', 'جاري قياس الوزن المباشر…'),
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: scale.isStable
-                          ? const Color(0xFF10B981).withValues(alpha: 0.2)
-                          : const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      scale.isStable ? s.tr('STABLE', 'مستقر') : s.tr('MOTION', 'حركة'),
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.4,
-                        color: scale.isStable
-                            ? (isDark ? const Color(0xFF34D399) : const Color(0xFF059669))
-                            : const Color(0xFFD97706),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 12),
-
-          // 3. Tactile Digital Scale Display + Stepper Buttons
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0E1512) : const Color(0xFFF6F8F6),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isDark ? MiqdarColors.darkBorder : const Color(0xFFE4EAE6),
-              ),
-            ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
             child: Row(
+              textDirection: TextDirection.ltr,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
-                _RoundStepButton(
-                  icon: Icons.remove_rounded,
-                  onTap: () => _setWeight(weight - 10, source: PortionSource.manual),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: weightTextCtrl,
-                    textAlign: TextAlign.center,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: textPrimary,
-                      letterSpacing: -0.8,
-                    ),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      filled: false,
-                      contentPadding: EdgeInsets.zero,
-                      suffixText: ' ${s.unitG}',
-                      suffixStyle: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: textSecondary,
-                      ),
-                    ),
-                    onChanged: (raw) {
-                      final parsed = double.tryParse(normalizeDigits(raw).trim());
-                      if (parsed != null && parsed > 0) {
-                        setState(() {
-                          weight = parsed.clamp(1.0, 5000.0);
-                          portionSource = PortionSource.manual;
-                        });
-                      }
-                    },
+                Text(
+                  grams.toStringAsFixed(0),
+                  style: TextStyle(
+                    fontSize: 84,
+                    height: 1.05,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -2,
+                    color: textPrimary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-                _RoundStepButton(
-                  icon: Icons.add_rounded,
-                  onTap: () => _setWeight(weight + 10, source: PortionSource.manual),
+                const SizedBox(width: 6),
+                Text(
+                  s.unitG,
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: textSecondary),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
-
-          // 4. Clean Quick Portion Presets
-          Row(
-            children: [100.0, 150.0, 200.0, 300.0].map((preset) {
-              final selected = (weight - preset).abs() < 2;
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () => _setWeight(preset, source: PortionSource.manual),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? (isDark
-                                ? const Color(0xFF10B981).withValues(alpha: 0.18)
-                                : const Color(0xFF059669).withValues(alpha: 0.12))
-                            : (isDark
-                                ? Colors.white.withValues(alpha: 0.04)
-                                : const Color(0xFFF3F5F3)),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: selected
-                              ? (isDark ? const Color(0xFF10B981) : const Color(0xFF059669))
-                              : Colors.transparent,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Text(
-                        '${preset.toInt()}${s.unitG}',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                          color: selected
-                              ? (isDark ? const Color(0xFF34D399) : const Color(0xFF059669))
-                              : textPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
+          const SizedBox(height: 4),
+          Text(
+            guidance,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textSecondary),
           ),
-          const SizedBox(height: 14),
-
-          // 5. Scale Camera Capture & Recognize Action Button
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              elevation: 0,
-            ),
-            onPressed: controller.scaleWorking ? null : _captureFromScaleCamera,
-            icon: controller.scaleWorking
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.camera_alt_rounded, size: 20),
-            label: Text(
-              controller.scaleWorking
-                  ? s.tr('Capturing & Analyzing via Gemini...', 'جاري الالتقاط والتحليل عبر جيميني...')
-                  : s.tr('Capture from Scale Camera', 'التقاط وزِن بكاميرا الميزان'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // 6. Optional AI Context Input
-          TextField(
-            controller: hintTextCtrl,
-            onChanged: (value) => controller.aiNote = value,
-            style: const TextStyle(fontSize: 13.5),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-              hintText: s.tr(
-                'Optional note for AI (e.g. grilled, homemade, no sauce)…',
-                'ملاحظة اختيارية للذكاء الاصطناعي (مثال: مشوي، منزلي، بدون صوص)…',
+          const SizedBox(height: 16),
+          if (scale.online)
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: green,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(58),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
               ),
-              prefixIcon: const Icon(Icons.edit_outlined, size: 17),
+              onPressed: canCapture ? _captureFromScaleCamera : null,
+              icon: working
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.3, color: Colors.white),
+                    )
+                  : const Icon(Icons.camera_alt_rounded, size: 22),
+              label: Text(
+                s.tr('Capture', 'التقاط'),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
+            )
+          else
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(58),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              onPressed: () => showApiUrlDialog(context, controller),
+              icon: const Icon(Icons.link_rounded),
+              label: Text(
+                s.tr('Connect to Scale', 'الاتصال بالميزان'),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
             ),
-          ),
+          if (scale.online) ...[
+            const SizedBox(height: 10),
+            TextField(
+              controller: hintTextCtrl,
+              onChanged: (value) => controller.aiNote = value,
+              style: const TextStyle(fontSize: 13.5),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                hintText: s.tr(
+                  'Note for AI (optional): grilled, no sauce…',
+                  'ملاحظة للذكاء الاصطناعي (اختياري): مشوي، بدون صوص…',
+                ),
+                prefixIcon: const Icon(Icons.edit_outlined, size: 17),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2490,6 +2206,40 @@ class _RecognitionErrorCard extends StatelessWidget {
 }
 
 /// Review & Recognition Result Screen — Natural Cal AI / Lifesum-style Meal Breakdown.
+class _MacroTile extends StatelessWidget {
+  const _MacroTile({required this.label, required this.grams, required this.color});
+
+  final String label;
+  final double grams;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${grams.toStringAsFixed(grams < 10 ? 1 : 0)} ${S.of(context).unitG}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+              ),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
 class RecognitionResultScreen extends StatefulWidget {
   const RecognitionResultScreen({
     super.key,
@@ -2624,7 +2374,6 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
     final totalNutrients = result.totalNutrients;
     final textPrimary = isDark ? Colors.white : const Color(0xFF111815);
     final textSecondary = isDark ? const Color(0xFF9CA8A1) : const Color(0xFF5A655E);
-    final statusColor = result.isUnsure ? MiqdarColors.warning : MiqdarColors.primary;
     final confidencePct = (result.confidence * 100).round();
 
     final ImageProvider previewImage = widget.previewBytes != null
@@ -2635,34 +2384,145 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                 ? AssetImage(widget.previewAsset!)
                 : AssetImage(_guessAssetForFood(result.nameEn)) as ImageProvider));
 
+    final alternatives = result.candidates.where((c) => c.foodId != result.foodId && c.inDatabase).toList();
+    final kcalColor = isDark ? const Color(0xFF34D399) : const Color(0xFF047857);
+
+    void openPhoto() {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(16),
+          child: Stack(
+            alignment: Alignment.topRight,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: InteractiveViewer(child: Image(image: previewImage, fit: BoxFit.contain)),
+              ),
+              IconButton(
+                tooltip: s.tr('Close', 'إغلاق'),
+                icon: const CircleAvatar(
+                  backgroundColor: Colors.black54,
+                  child: Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                ),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget smallAction({
+      required IconData icon,
+      required String label,
+      required VoidCallback? onPressed,
+      Widget? leading,
+    }) =>
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          onPressed: onPressed,
+          icon: leading ?? Icon(icon, size: 17),
+          label: Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+        );
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(s.reviewBeforeSaving),
+        title: Text(s.tr('Review Meal', 'مراجعة الوجبة')),
+        actions: [
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: MiqdarColors.danger),
+            onPressed: () {
+              controller.discardDraft();
+              Navigator.of(context).pop();
+            },
+            child: Text(s.tr('Discard', 'إلغاء')),
+          ),
+        ],
+      ),
+      // Always in reach, however long the page gets.
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF112A20),
+              foregroundColor: isDark ? const Color(0xFF062117) : Colors.white,
+              minimumSize: const Size.fromHeight(56),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            ),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(context);
+              final meal = await controller.saveLastRecognition(
+                mealType: selectedMealType,
+                eatenAt: consumedAt,
+                notes: notesCtrl.text.trim(),
+              );
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const MainShell()),
+                (_) => false,
+              );
+              if (meal == null) return;
+              messenger.showSnackBar(
+                SnackBar(
+                  behavior: SnackBarBehavior.floating,
+                  persist: false,
+                  duration: const Duration(seconds: 5),
+                  content: Text(
+                    s.tr(
+                      'Saved: ${meal.nameEn}, ${meal.nutrients.calories.toStringAsFixed(0)} kcal',
+                      'تم الحفظ: ${meal.nameAr.isEmpty ? meal.nameEn : meal.nameAr}، ${meal.nutrients.calories.toStringAsFixed(0)} سعرة',
+                    ),
+                  ),
+                  action: SnackBarAction(
+                    label: s.tr('Undo', 'تراجع'),
+                    onPressed: () => controller.deleteMeal(meal.id),
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.check_rounded),
+            label: Text(
+              s.saveMealToDiary,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+          ),
+        ),
       ),
       body: SafeArea(
+        bottom: false,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
               children: [
-                // Natural Cal AI-Style Meal Identity & Photo Summary Card (Zero Overflow!)
-                SurfaceCard(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Top confirmation pill (Wrapped in Flexible so it can NEVER overflow)
-                      Row(
+                // Photo
+                GestureDetector(
+                  onTap: openPhoto,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 10,
+                      child: Stack(
+                        fit: StackFit.expand,
                         children: [
-                          Flexible(
+                          Image(image: previewImage, fit: BoxFit.cover),
+                          PositionedDirectional(
+                            top: 10,
+                            start: 10,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                color: statusColor.withValues(alpha: 0.10),
+                                color: result.isUnsure
+                                    ? MiqdarColors.warning
+                                    : Colors.black.withValues(alpha: 0.65),
                                 borderRadius: BorderRadius.circular(99),
                               ),
                               child: Row(
@@ -2671,29 +2531,22 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                                   Icon(
                                     result.isUnsure
                                         ? Icons.help_outline_rounded
-                                        : Icons.check_circle_rounded,
-                                    size: 14,
-                                    color: statusColor,
+                                        : Icons.auto_awesome_rounded,
+                                    size: 13,
+                                    color: Colors.white,
                                   ),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      result.isUnsure
-                                          ? s.tr(
-                                              'Gemini is unsure ($confidencePct%) — please check',
-                                              'Gemini غير متأكد ($confidencePct%) — يرجى التحقق',
-                                            )
-                                          : s.tr(
-                                              'AI match ready ($confidencePct%) — confirm or adjust',
-                                              'تم التعرف ($confidencePct%) — أكد أو عدّل',
-                                            ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: statusColor,
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    result.isUnsure
+                                        ? s.tr(
+                                            'Gemini is unsure ($confidencePct%), please check',
+                                            'Gemini غير متأكد ($confidencePct%)، يرجى التحقق',
+                                          )
+                                        : s.tr('$confidencePct% sure', 'متأكد $confidencePct%'),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
                                 ],
@@ -2702,328 +2555,170 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
-
-                      // Large Captured Photo Display with Tap-to-Expand
-                      GestureDetector(
-                        onTap: () {
-                          showDialog<void>(
-                            context: context,
-                            builder: (ctx) => Dialog(
-                              backgroundColor: Colors.transparent,
-                              insetPadding: const EdgeInsets.all(16),
-                              child: Stack(
-                                alignment: Alignment.topRight,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: InteractiveViewer(
-                                      child: Image(image: previewImage, fit: BoxFit.contain),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const CircleAvatar(
-                                      backgroundColor: Colors.black54,
-                                      child: Icon(Icons.close_rounded, color: Colors.white, size: 20),
-                                    ),
-                                    onPressed: () => Navigator.of(ctx).pop(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          height: 190,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(18),
-                            color: isDark ? const Color(0xFF131D18) : const Color(0xFFE2E8F0),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(18),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Image(
-                                  image: previewImage,
-                                  fit: BoxFit.cover,
-                                ),
-                                Positioned(
-                                  top: 10,
-                                  left: 10,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.65),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
-                                        const SizedBox(width: 5),
-                                        Text(
-                                          s.tr('Captured Scale Photo', 'صورة كاميرا الميزان'),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 10,
-                                  right: 10,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.65),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.fullscreen_rounded, size: 14, color: Colors.white70),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          s.tr('Tap to expand', 'اضغط للتكبير'),
-                                          style: const TextStyle(color: Colors.white70, fontSize: 10.5),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Meal Photo Thumbnail + Title + Calorie Readout
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(18),
-                            child: Image(
-                              image: previewImage,
-                              width: 84,
-                              height: 84,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  s.isAr && result.nameAr.isNotEmpty
-                                      ? result.nameAr
-                                      : result.nameEn,
-                                  style: TextStyle(
-                                    fontSize: 21,
-                                    fontWeight: FontWeight.w800,
-                                    color: textPrimary,
-                                    height: 1.2,
-                                    letterSpacing: -0.4,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  s.isAr ? result.nameEn : result.nameAr,
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    color: textSecondary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 6,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? const Color(0xFF10B981).withValues(alpha: 0.18)
-                                            : const Color(0xFFECFDF5),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(
-                                        '${totalNutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w900,
-                                          color: isDark
-                                              ? const Color(0xFF34D399)
-                                              : const Color(0xFF047857),
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      '${result.totalWeightG.toStringAsFixed(0)} ${s.unitG} • ${result.portionSource.label(s.isAr)}',
-                                      style: TextStyle(
-                                        color: textSecondary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (result.aiNote.isNotEmpty || result.edibleFraction < 1) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          [
-                            if (result.edibleFraction < 1)
-                              s.tr(
-                                '${(result.edibleFraction * 100).round()}% of the weight counted as edible',
-                                'احتُسب ${(result.edibleFraction * 100).round()}% من الوزن كجزء صالح للأكل',
-                              ),
-                            if (result.aiNote.isNotEmpty) result.aiNote,
-                          ].join(' • '),
-                          style: TextStyle(
-                            color: textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 14),
-
-                      // Quick Actions: Change Food / Add Side Item
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (result.verificationStatus == aiEstimateStatus && result.imageBytes != null)
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size(0, 38),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: correcting ? null : () => _askGeminiToCorrect(context, controller),
-                              icon: correcting
-                                  ? const SizedBox.square(
-                                      dimension: 15,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.auto_awesome_rounded, size: 17),
-                              label: Text(
-                                s.tr('Not right? Tell Gemini', 'غير صحيح؟ أخبر Gemini'),
-                                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 38),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: () => _showReplaceFoodDialog(context, controller),
-                            icon: const Icon(Icons.swap_horiz_rounded, size: 17),
-                            label: Text(
-                              s.tr('Change Food', 'تغيير الصنف'),
-                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 38),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: () => _showAddPlateItemDialog(context, controller),
-                            icon: const Icon(Icons.add_rounded, size: 18),
-                            label: Text(
-                              s.tr('Add Side / Sauce', 'إضافة صنف جانبي / صوص'),
-                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
+                ),
+                const SizedBox(height: 16),
+
+                // The answer
+                Text(
+                  s.isAr && result.nameAr.isNotEmpty ? result.nameAr : result.nameEn,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                    color: textPrimary,
+                  ),
+                ),
+                if ((s.isAr ? result.nameEn : result.nameAr).isNotEmpty)
+                  Text(
+                    s.isAr ? result.nameEn : result.nameAr,
+                    style: TextStyle(fontSize: 14, color: textSecondary, fontWeight: FontWeight.w600),
+                  ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      totalNutrients.calories.toStringAsFixed(0),
+                      style: TextStyle(fontSize: 48, height: 1.1, fontWeight: FontWeight.w900, color: kcalColor),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      s.unitKcal,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kcalColor),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${result.totalWeightG.toStringAsFixed(0)} ${s.unitG}',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textSecondary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _MacroTile(label: s.tr('Protein', 'بروتين'), grams: totalNutrients.protein, color: MiqdarColors.proteinAccent),
+                    const SizedBox(width: 8),
+                    _MacroTile(label: s.tr('Carbs', 'كربوهيدرات'), grams: totalNutrients.carbohydrates, color: MiqdarColors.carbsAccent),
+                    const SizedBox(width: 8),
+                    _MacroTile(label: s.tr('Fat', 'دهون'), grams: totalNutrients.fat, color: MiqdarColors.fatAccent),
+                  ],
+                ),
+                if (result.aiNote.isNotEmpty || result.edibleFraction < 1) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    [
+                      if (result.edibleFraction < 1)
+                        s.tr(
+                          '${(result.edibleFraction * 100).round()}% of the weight counted as edible',
+                          'احتُسب ${(result.edibleFraction * 100).round()}% من الوزن كجزء صالح للأكل',
+                        ),
+                      if (result.aiNote.isNotEmpty) result.aiNote,
+                    ].join(' • '),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: textSecondary, fontSize: 12.5, fontWeight: FontWeight.w600),
+                  ),
+                ],
+
+                if (controller.projectedAlerts.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  ...controller.projectedAlerts.map(
+                    (alert) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: NutrientNoticeCard(alert: alert, isPreview: true),
+                    ),
+                  ),
+                ],
+
+                // Is it wrong?
+                if (alternatives.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    s.tr('Could also be', 'قد يكون أيضاً'),
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: textSecondary),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: alternatives
+                        .map(
+                          (c) => ActionChip(
+                            label: Text(
+                              '${s.isAr && (c.nameAr?.isNotEmpty ?? false) ? c.nameAr : (c.nameEn ?? c.label)}',
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            onPressed: () async {
+                              final updated = await controller.chooseCandidate(c);
+                              if (!mounted) return;
+                              setState(() => currentResult = updated);
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (result.verificationStatus == aiEstimateStatus && result.imageBytes != null)
+                      smallAction(
+                        icon: Icons.auto_awesome_rounded,
+                        label: s.tr('Not right? Tell Gemini', 'غير صحيح؟ أخبر Gemini'),
+                        onPressed: correcting ? null : () => _askGeminiToCorrect(context, controller),
+                        leading: correcting
+                            ? const SizedBox.square(
+                                dimension: 15,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : null,
+                      ),
+                    smallAction(
+                      icon: Icons.swap_horiz_rounded,
+                      label: s.tr('Change Food', 'تغيير الصنف'),
+                      onPressed: () => _showReplaceFoodDialog(context, controller),
+                    ),
+                    smallAction(
+                      icon: Icons.add_rounded,
+                      label: s.tr('Add Side', 'إضافة صنف'),
+                      onPressed: () => _showAddPlateItemDialog(context, controller),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 14),
 
-                // Interactive Portion Weight Adjustment Card with Live Slider
+                // Portion
                 SurfaceCard(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              s.tr('Portion Weight', 'وزن الحصة'),
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
-                            ),
-                          ),
-                          Text(
-                            s.tr('Live nutrient scaling', 'تحديث فوري للقيم الغذائية'),
-                            style: TextStyle(fontSize: 11.5, color: textSecondary),
-                          ),
-                        ],
+                      Text(
+                        s.tr('Portion', 'الحصة'),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           _StepperIconButton(
                             label: '-10g',
-                            onTap: () => _rescalePrimaryWeight(
-                              controller,
-                              result.weightG - 10,
-                            ),
+                            onTap: () => _rescalePrimaryWeight(controller, result.weightG - 10),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: TextField(
                               controller: weightEditCtrl,
                               textAlign: TextAlign.center,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(decimal: true),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                              ),
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                               decoration: InputDecoration(
                                 suffixText: s.unitG,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               ),
                               onSubmitted: (val) {
                                 final parsed = double.tryParse(normalizeDigits(val).trim());
@@ -3036,33 +2731,20 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                           const SizedBox(width: 8),
                           _StepperIconButton(
                             label: '+10g',
-                            onTap: () => _rescalePrimaryWeight(
-                              controller,
-                              result.weightG + 10,
-                            ),
+                            onTap: () => _rescalePrimaryWeight(controller, result.weightG + 10),
                           ),
                         ],
                       ),
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 4.5,
-                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                        ),
-                        child: Slider(
-                          value: result.weightG.clamp(10.0, 800.0).toDouble(),
-                          min: 10,
-                          max: 800,
-                          onChanged: (v) => _rescalePrimaryWeight(
-                            controller,
-                            (v / 5).round() * 5.0,
-                          ),
-                        ),
+                      Slider(
+                        value: result.weightG.clamp(10.0, 800.0).toDouble(),
+                        min: 10,
+                        max: 800,
+                        onChanged: (v) => _rescalePrimaryWeight(controller, (v / 5).round() * 5.0),
                       ),
                     ],
                   ),
                 ),
 
-                // Additional Plate Items if added
                 if (result.additionalItems.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   SurfaceCard(
@@ -3070,10 +2752,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          s.tr(
-                            'Added Plate Components',
-                            'المكونات الإضافية في الطبق',
-                          ),
+                          s.tr('Also on the plate', 'أيضاً في الطبق'),
                           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                         ),
                         const SizedBox(height: 8),
@@ -3089,6 +2768,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                               '${item.weightG.toStringAsFixed(0)} ${s.unitG} • ${item.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
                             ),
                             trailing: IconButton(
+                              tooltip: s.tr('Remove', 'إزالة'),
                               icon: const Icon(Icons.remove_circle_outline, color: MiqdarColors.danger),
                               onPressed: () async {
                                 final updated = await controller.removeDraftPlateItem(item.id);
@@ -3103,213 +2783,106 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                     ),
                   ),
                 ],
-
-                // Alternative Top-3 AI Candidates
-                if (result.candidates
-                    .where((c) => c.foodId != result.foodId && c.inDatabase)
-                    .isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  SurfaceCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.alt_route_rounded, size: 19, color: MiqdarColors.primary),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                s.tr(
-                                  'Other Closest Matches',
-                                  'بدائل أخرى مقترحة',
-                                ),
-                                style: const TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        ...result.candidates
-                            .where((c) => c.foodId != result.foodId && c.inDatabase)
-                            .map(
-                              (c) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: OutlinedButton(
-                                  onPressed: () async {
-                                    final updated = await controller.chooseCandidate(c);
-                                    if (!mounted) return;
-                                    setState(() => currentResult = updated);
-                                  },
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          '${s.isAr && (c.nameAr?.isNotEmpty ?? false) ? c.nameAr : (c.nameEn ?? c.label)}',
-                                          style: const TextStyle(fontWeight: FontWeight.w800),
-                                        ),
-                                      ),
-                                      Text(
-                                        s.tr('Select', 'اختيار'),
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800,
-                                          color: MiqdarColors.primary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 14),
-                // 2x4 Nutrient Grid
-                NutrientGrid2x4(
-                  values: totalNutrients,
-                  goals: controller.goals,
-                ),
                 const SizedBox(height: 14),
 
-                // Provenance & Verification Banner
-                AiVerificationBadge(
-                  verificationStatus: result.verificationStatus,
-                  provider: result.provider,
-                  model: result.model,
-                  isMock: result.isMock,
-                  portionSource: result.portionSource,
-                ),
-
-                if (controller.projectedAlerts.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  ...controller.projectedAlerts.map(
-                    (alert) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: NutrientNoticeCard(alert: alert, isPreview: true),
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 14),
-                // Meal Type, Consumed Time & Notes
+                // Everything else, out of the way until wanted
                 SurfaceCard(
+                  padding: EdgeInsets.zero,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        s.tr('Meal Time & Notes', 'وقت الوجبة والملاحظات'),
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: ['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) {
-                          final selected = selectedMealType == type;
-                          return ChoiceChip(
-                            label: Text(s.mealTypeLabel(type)),
-                            selected: selected,
-                            onSelected: (_) => setState(() => selectedMealType = type),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
+                      ExpansionTile(
+                        shape: const Border(),
+                        collapsedShape: const Border(),
+                        title: Text(
+                          s.tr('All nutrients', 'كل العناصر الغذائية'),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                        ),
+                        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                         children: [
-                          const Icon(Icons.schedule_rounded, size: 18, color: MiqdarColors.primary),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              DateFormat('EEE, d MMM yyyy • h:mm a').format(consumedAt),
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () async {
-                              final pickedDate = await showDatePicker(
-                                context: context,
-                                initialDate: consumedAt,
-                                firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                lastDate: DateTime.now(),
-                              );
-                              if (pickedDate != null && mounted) {
-                                setState(() {
-                                  consumedAt = DateTime(
-                                    pickedDate.year,
-                                    pickedDate.month,
-                                    pickedDate.day,
-                                    consumedAt.hour,
-                                    consumedAt.minute,
-                                  );
-                                });
-                              }
-                            },
-                            child: Text(s.tr('Change Date', 'تغيير التاريخ')),
+                          NutrientGrid2x4(values: totalNutrients, goals: controller.goals),
+                          const SizedBox(height: 12),
+                          AiVerificationBadge(
+                            verificationStatus: result.verificationStatus,
+                            provider: result.provider,
+                            model: result.model,
+                            isMock: result.isMock,
+                            portionSource: result.portionSource,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: notesCtrl,
-                        maxLength: 200,
-                        decoration: InputDecoration(
-                          labelText: s.tr('Optional Meal Note', 'ملاحظة اختيارية على الوجبة'),
-                          prefixIcon: const Icon(Icons.notes_rounded),
+                      const Divider(height: 1),
+                      ExpansionTile(
+                        shape: const Border(),
+                        collapsedShape: const Border(),
+                        title: Text(
+                          s.tr('Meal time & notes', 'وقت الوجبة والملاحظات'),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                         ),
+                        subtitle: Text(
+                          '${s.mealTypeLabel(selectedMealType)} • ${DateFormat('EEE, h:mm a').format(consumedAt)}',
+                          style: TextStyle(fontSize: 12.5, color: textSecondary),
+                        ),
+                        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: ['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) {
+                              return ChoiceChip(
+                                label: Text(s.mealTypeLabel(type)),
+                                selected: selectedMealType == type,
+                                onSelected: (_) => setState(() => selectedMealType = type),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.schedule_rounded, size: 18, color: MiqdarColors.primary),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  DateFormat('EEE, d MMM yyyy • h:mm a').format(consumedAt),
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  final pickedDate = await showDatePicker(
+                                    context: context,
+                                    initialDate: consumedAt,
+                                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                    lastDate: DateTime.now(),
+                                  );
+                                  if (pickedDate != null && mounted) {
+                                    setState(() {
+                                      consumedAt = DateTime(
+                                        pickedDate.year,
+                                        pickedDate.month,
+                                        pickedDate.day,
+                                        consumedAt.hour,
+                                        consumedAt.minute,
+                                      );
+                                    });
+                                  }
+                                },
+                                child: Text(s.tr('Change Date', 'تغيير التاريخ')),
+                              ),
+                            ],
+                          ),
+                          TextField(
+                            controller: notesCtrl,
+                            maxLength: 200,
+                            decoration: InputDecoration(
+                              labelText: s.tr('Note (optional)', 'ملاحظة (اختياري)'),
+                              prefixIcon: const Icon(Icons.notes_rounded),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ),
-
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: isDark ? const Color(0xFF10B981) : const Color(0xFF112A20),
-                    foregroundColor: isDark ? const Color(0xFF062117) : Colors.white,
-                    minimumSize: const Size.fromHeight(56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  onPressed: () async {
-                    await controller.saveLastRecognition(
-                      mealType: selectedMealType,
-                      eatenAt: consumedAt,
-                      notes: notesCtrl.text.trim(),
-                    );
-                    if (!context.mounted) return;
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const MainShell()),
-                      (_) => false,
-                    );
-                  },
-                  icon: const Icon(Icons.check_circle_outline_rounded),
-                  label: Text(
-                    s.saveMealToDiary,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(s.tr('Keep Draft & Back', 'الاحتفاظ بالمسودة والرجوع')),
-                    ),
-                    const SizedBox(width: 12),
-                    TextButton(
-                      style: TextButton.styleFrom(foregroundColor: MiqdarColors.danger),
-                      onPressed: () {
-                        controller.discardDraft();
-                        Navigator.of(context).pop();
-                      },
-                      child: Text(s.tr('Discard Draft', 'إلغاء المسودة')),
-                    ),
-                  ],
                 ),
               ],
             ),
