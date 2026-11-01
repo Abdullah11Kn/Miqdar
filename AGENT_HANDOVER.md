@@ -367,7 +367,7 @@ cd Miqdar
 ```
 The installer adds the apt packages, cloudflared and a virtualenv created with `--system-site-packages` (a plain virtualenv cannot import the apt-installed `lgpio` and `picamera2`). It asks for the Gemini key once, stores it only in `.env`, and puts a **Miqdar Scale** icon on the desktop.
 
-After that, **tap the icon**. `start_all.sh` stops any earlier run, starts the tunnel in the background and opens the scale fullscreen. The first start also walks through calibration.
+After that, **tap the icon**. `start_all.sh` stops any earlier run, starts the tunnel in the background and opens the scale fullscreen. `scale_calibration.json` is tracked in git, so a fresh clone starts with those values rather than asking: check a known weight, and if it reads wrong run `.venv/bin/python scale.py calibrate` once on the Pi. Put the empty plate on before tapping the icon (start-up zeroes the scale) or press ZERO afterwards, otherwise the plate's weight is counted as food.
 
 ### 5.3 Connecting the App (Cloudflare Tunnel or Wi-Fi)
 The bottom of the scale's weigh screen shows the address to use: the tunnel URL once it is up, otherwise the LAN address.
