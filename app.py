@@ -27,7 +27,7 @@ Usage:
   python3 app.py --mock          # Force simulated scale & camera mode
   python3 app.py --self-test     # Runs EE hardware verification routine
   python3 app.py --install-service # Configures systemd auto-start on Raspberry Pi
-  python3 app.py --no-auto-capture # Capture only on button press (default: capture when food settles)
+  python3 app.py --auto-capture    # Also capture by itself when food settles (default: only when CAPTURE is pressed)
   python3 app.py --analyze-on-scale # Recognise here against the database (default: the phone app calls Gemini)
 
 Split setup (Pi = scale, laptop = recognition + database):
@@ -1422,8 +1422,8 @@ def main() -> None:
                         help="Recognition server, e.g. http://192.168.137.1:8080 (Pi sends photo + weight there)")
     parser.add_argument("--analyze-on-scale", action="store_true",
                         help="Recognise on this device against the local database, instead of in the phone app")
-    parser.add_argument("--no-auto-capture", action="store_true",
-                        help="Do not capture automatically when food settles on the plate")
+    parser.add_argument("--auto-capture", action="store_true",
+                        help="Also capture automatically when food settles on the plate")
     args = parser.parse_args()
 
     if args.install_service:
@@ -1446,7 +1446,7 @@ def main() -> None:
         print(f"[Recognition] Sending photos + weights to {args.server}")
     print(f"[API Server] Ready! Mobile app can connect to: http://{get_ip_address()}:{args.port}")
 
-    if api_server is not None and not args.no_auto_capture and os.environ.get("MIQDAR_AUTO_CAPTURE", "1") != "0":
+    if api_server is not None and (args.auto_capture or os.environ.get("MIQDAR_AUTO_CAPTURE") == "1"):
         hw.auto_capture = True
         AutoCaptureMonitor(hw, lambda: perform_capture(hw, args.db, server=args.server, source="auto")).start()
         print("[Auto-capture] On: food is photographed and analysed as soon as the weight settles.")

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -165,6 +166,82 @@ void main() {
       expect(paths.where((path) => path.contains('generateContent')).length, 1);
       expect(paths, contains('/scale/capture/result'));
       expect(controller.analyzingScalePhoto, isFalse);
+    });
+
+    test('the photo is available while Gemini is still thinking', () async {
+      final answer = Completer<http.Response>();
+      final event = {
+        'event_id': 'cap-10', 'status': 'photo', 'source': 'scale', 'age_s': 1, 'weight_g': 240.0,
+        'image_base64': base64Encode(_photo),
+      };
+      final client = MockClient((request) {
+        if (request.url.host.contains('googleapis')) return answer.future;
+        if (request.url.path == '/scale/live') {
+          return Future.value(http.Response(
+            jsonEncode({'mode': 'real', 'live_weight_g': 240.0, 'latest_capture': {...event}..remove('image_base64')}),
+            200,
+          ));
+        }
+        return Future.value(http.Response(jsonEncode(event), 200));
+      });
+      final controller = MiqdarController(
+        localDatabase: LocalDatabase(),
+        apiService: ApiService(
+          baseUrl: 'http://scale.test',
+          client: client,
+          gemini: GeminiNutritionService(apiKey: 'test-key', models: const ['m'], client: client),
+        ),
+        alertService: AlertService(),
+      );
+
+      await controller.syncScaleLive();
+      await pumpEventQueue();
+
+      expect(controller.pendingScaleCapture?.imageBytes, _photo);
+      expect(controller.pendingScaleCapture?.weightG, 240);
+      expect(controller.analyzingScalePhoto, isTrue);
+      expect(controller.latestExternalScaleCapture, isNull);
+
+      answer.complete(_gemini([_candidate('Jareesh')]));
+      await pumpEventQueue();
+
+      expect(controller.latestExternalScaleCapture?.nameEn, 'Jareesh');
+      expect(controller.analyzingScalePhoto, isFalse);
+    });
+
+    test('the same food is sent to Gemini again on every capture', () async {
+      var geminiCalls = 0;
+      var capture = 0;
+      final client = MockClient((request) async {
+        if (request.url.host.contains('googleapis')) {
+          geminiCalls++;
+          return _gemini([_candidate('Jareesh')]);
+        }
+        final event = {
+          'event_id': 'cap-$capture', 'status': 'photo', 'source': 'scale', 'age_s': 1, 'weight_g': 240.0,
+          'image_base64': base64Encode(_photo),
+        };
+        if (request.url.path == '/scale/live') {
+          return http.Response(jsonEncode({'mode': 'real', 'live_weight_g': 240.0, 'latest_capture': event}), 200);
+        }
+        return http.Response(jsonEncode(event), 200);
+      });
+      final controller = MiqdarController(
+        localDatabase: LocalDatabase(),
+        apiService: ApiService(
+          baseUrl: 'http://scale.test',
+          client: client,
+          gemini: GeminiNutritionService(apiKey: 'test-key', models: const ['m'], client: client),
+        ),
+        alertService: AlertService(),
+      );
+
+      for (capture = 1; capture <= 3; capture++) {
+        await controller.syncScaleLive();
+        await pumpEventQueue();
+      }
+
+      expect(geminiCalls, 3);
     });
 
     test('an empty plate from auto-capture does not interrupt the user', () async {

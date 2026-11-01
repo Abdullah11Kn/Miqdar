@@ -174,7 +174,7 @@ flowchart TD
     4. OpenCV `cv2.VideoCapture(0)`: V4L2 USB camera fallback.
     5. If all of these fail on real hardware the capture fails with `CAMERA_UNAVAILABLE`. A stock photo is never substituted, because it would produce calories for food that is not on the plate. Sample dishes are used only in simulation mode (`--mock`, or off-Pi development), and every such result is flagged `simulated`.
 - **No silent simulation on a Pi**: if `lgpio`, the HX711 or the calibration file is unavailable on a Raspberry Pi, `app.py` exits with the fix instead of falling back to fake weights. Pass `--mock` to simulate on purpose.
-- **Auto-capture** (`AutoCaptureMonitor`, on by default, `--no-auto-capture` or `MIQDAR_AUTO_CAPTURE=0` to disable): when at least 20 g has been steady for 2 s the scale captures once. It re-arms when the plate is cleared or the weight changes by 25 g. An auto-capture that finds no food is not reported to the user.
+- **Capture is manual by default**: the touchscreen CAPTURE button or the app's button. `--auto-capture` or `MIQDAR_AUTO_CAPTURE=1` also captures when at least 20 g has been steady for 2 s.
 - **One pipeline**: the phone, the touchscreen and auto-capture all run `perform_capture()`, one at a time (a concurrent request gets `409 CAPTURE_IN_PROGRESS`). Results and failures are both published as capture events.
 
 ### 3.2 Backend Service & Recognition Engine (`backend/miqdar_backend/`)
@@ -417,7 +417,7 @@ This runs:
 
 The full flow in the real app, on a simulator, against a freshly started scale in simulation mode:
 ```bash
-./start_scale_app.sh --headless --mock    # terminal 1 (this writes to database/miqdar_nutrition.db)
+./start_scale_app.sh --headless --mock --auto-capture    # terminal 1 (this writes to database/miqdar_nutrition.db)
 cd mobile && flutter test integration_test/scale_flow_test.dart -d <simulator-id> --dart-define=GEMINI_API_KEY=<key>    # terminal 2
 ```
 
