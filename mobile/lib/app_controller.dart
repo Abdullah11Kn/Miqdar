@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
 import 'data/food_catalog.dart';
@@ -57,6 +58,7 @@ class MiqdarController extends ChangeNotifier {
     apiService.gemini.noteInArabic = isAr;
     _remember('locale', locale.languageCode);
     notifyListeners();
+    unawaited(refreshRecommendations());
   }
 
   void setLocale(Locale value) {
@@ -65,6 +67,7 @@ class MiqdarController extends ChangeNotifier {
     apiService.gemini.noteInArabic = isAr;
     _remember('locale', locale.languageCode);
     notifyListeners();
+    unawaited(refreshRecommendations());
   }
 
   void toggleThemeMode() {
@@ -92,11 +95,11 @@ class MiqdarController extends ChangeNotifier {
     final cleanEmail = email.trim();
     final name = (displayName != null && displayName.trim().isNotEmpty)
         ? displayName.trim()
-        : (isDemo ? 'Demo Evaluator' : account.displayName);
+        : account.displayName;
     account = account.copyWith(
       email: cleanEmail,
       displayName: name,
-      displayNameAr: isDemo ? 'مقيّم العرض التجريبي' : account.displayNameAr,
+      displayNameAr: isDemo ? 'حساب تجريبي' : account.displayNameAr,
       isDemo: isDemo,
       authenticated: true,
     );
@@ -115,31 +118,45 @@ class MiqdarController extends ChangeNotifier {
     String? displayName,
     String? displayNameAr,
     String? email,
-    String? trackingIntention,
   }) {
     account = account.copyWith(
       displayName: displayName,
       displayNameAr: displayNameAr,
       email: email,
-      trackingIntention: trackingIntention,
     );
     if (!account.isDemo) _rememberAccount();
-    if (trackingIntention == 'track_only') {
-      goals = goals.copyWith(trackingOnly: true);
-    } else if (trackingIntention != null) {
-      goals = goals.copyWith(trackingOnly: false);
-    }
     notifyListeners();
   }
 
-  void signOut() {
+  /// Leaves the sample workspace and drops everything done inside it.
+  Future<void> exitDemo() async {
     lastRecognition = null;
-    final wasDemo = account.isDemo;
-    account = account.copyWith(authenticated: false, isDemo: false);
-    onboarded = false;
-    _remember('onboarded', '0');
-    if (wasDemo) unawaited(_reloadMeals());
+    projectedAlerts = [];
+    _sessionPhotos.clear();
+    _photoCache.clear();
+    account = const UserAccount();
+    goals = await localDatabase.loadGoals();
+    await _reloadMeals();
     notifyListeners();
+  }
+
+  /// Deletes everything stored on this phone and returns the app to its first launch.
+  Future<void> deleteAllData() async {
+    await localDatabase.deleteAllData();
+    lastRecognition = null;
+    projectedAlerts = [];
+    _lastDeletedMeal = null;
+    _lastDeletedPhoto = null;
+    _sessionPhotos.clear();
+    _photoCache.clear();
+    account = const UserAccount();
+    onboarded = false;
+    meals = [];
+    alerts = [];
+    goals = await localDatabase.loadGoals();
+    healthProfile = await localDatabase.loadHealthProfile();
+    notifyListeners();
+    unawaited(refreshRecommendations());
   }
 
   void _rememberAccount() {
@@ -150,7 +167,7 @@ class MiqdarController extends ChangeNotifier {
 
   Future<void> _reloadMeals() async {
     try {
-      meals = await localDatabase.loadMeals(days: 90);
+      meals = await localDatabase.loadMeals(days: _diaryDays);
       notifyListeners();
     } catch (_) {}
   }
@@ -160,6 +177,7 @@ class MiqdarController extends ChangeNotifier {
     apiService.gemini.noteInArabic = isAr;
     if (await localDatabase.getSetting('theme') == 'dark') themeMode = ThemeMode.dark;
     onboarded = await localDatabase.getSetting('onboarded') == '1';
+    _lastSeenCaptureEventId = await localDatabase.getSetting('last_capture_event');
     final name = await localDatabase.getSetting('account_name');
     if (name != null && name.isNotEmpty) {
       account = account.copyWith(
@@ -171,16 +189,8 @@ class MiqdarController extends ChangeNotifier {
   }
 
   // Domain State
-  NutritionGoals goals = const NutritionGoals(
-    calories: 2200,
-    sugar: 50,
-    sodium: 2300,
-    potassium: 3500,
-    carbohydrates: 275,
-    protein: 120,
-    fat: 70,
-    fiber: 28,
-  );
+  static const _diaryDays = 365;
+  NutritionGoals goals = LocalDatabase.defaultGoals;
   List<MealEntry> meals = [];
   List<HealthAlert> alerts = [];
   HealthProfile healthProfile = const HealthProfile();
@@ -192,13 +202,11 @@ class MiqdarController extends ChangeNotifier {
   bool recommendationsOffline = false;
   RecognitionResult? lastRecognition;
   List<HealthAlert> projectedAlerts = [];
-  int alertEvaluationMs = 0;
 
   // Per-operation busy flags (ARCH-03)
   bool busy = false;
   bool recommendationsBusy = false;
   bool taringScale = false;
-  bool syncingOutbox = false;
 
   // Selected diary/dashboard date (NAV-01)
   DateTime selectedDate = DateTime.now();
@@ -210,13 +218,21 @@ class MiqdarController extends ChangeNotifier {
 
   // Undoable deletion buffer (UI-02, LOG-05)
   MealEntry? _lastDeletedMeal;
-  MealEntry? get lastDeletedMeal => _lastDeletedMeal;
+  Uint8List? _lastDeletedPhoto;
 
-  // Outbox Operations (SYNC-01, S49)
-  final List<SyncOperation> syncOperations = [];
+  // Meal photos taken in the demo workspace are never written to disk.
+  final Map<String, Uint8List> _sessionPhotos = {};
+  final Map<String, Uint8List?> _photoCache = {};
+  static const _photoCacheSize = 60;
 
-  int get pendingSyncCount =>
-      syncOperations.where((op) => op.status != 'synced').length;
+  Future<Uint8List?> mealPhoto(String mealId) async {
+    if (_sessionPhotos.containsKey(mealId)) return _sessionPhotos[mealId];
+    if (_photoCache.containsKey(mealId)) return _photoCache[mealId];
+    final bytes = await localDatabase.loadMealPhoto(mealId).catchError((Object _) => null);
+    if (_photoCache.length >= _photoCacheSize) _photoCache.clear();
+    _photoCache[mealId] = bytes;
+    return bytes;
+  }
 
   int get unreadAlertsCount =>
       alerts.where((a) => !a.read && !a.acknowledged && !a.superseded).length;
@@ -235,6 +251,9 @@ class MiqdarController extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    await initializeDateFormatting();
+    // Dates use the same digits as every other number in the app.
+    DateFormat.useNativeDigitsByDefaultFor('ar', false);
     await localDatabase.initialize();
     await _restorePreferences();
     final savedUrl = await localDatabase.getSetting('api_base_url');
@@ -245,7 +264,7 @@ class MiqdarController extends ChangeNotifier {
     }
     goals = await localDatabase.loadGoals();
     healthProfile = await localDatabase.loadHealthProfile();
-    meals = await localDatabase.loadMeals(days: 90);
+    meals = await localDatabase.loadMeals(days: _diaryDays);
     alerts = await localDatabase.loadAlerts();
     scaleDevice = scaleDevice.copyWith(lastSeen: DateTime.now());
     notifyListeners();
@@ -273,11 +292,9 @@ class MiqdarController extends ChangeNotifier {
         final scaleInfo = status['scale'] as Map<String, dynamic>;
         final w = (scaleInfo['live_weight_g'] as num?)?.toDouble() ?? scaleDevice.liveWeightG;
         final stable = scaleInfo['is_stable'] as bool? ?? true;
-        final battery = (scaleInfo['battery_pct'] as num?)?.toInt() ?? scaleDevice.batteryPercent;
         scaleDevice = scaleDevice.copyWith(
           liveWeightG: w,
           isStable: stable,
-          batteryPercent: battery,
           online: true,
           lastSeen: DateTime.now(),
         );
@@ -297,6 +314,25 @@ class MiqdarController extends ChangeNotifier {
     unawaited(localDatabase.saveSetting('api_base_url', cleaned));
     unawaited(checkServer().then((_) => syncScaleLive()));
     notifyListeners();
+  }
+
+  /// Saves the scale's address and reports whether the scale actually answered there.
+  Future<bool> connectToScale(String address) async {
+    final cleaned = normalizeScaleAddress(address);
+    apiService.updateBaseUrl(cleaned);
+    _scaleFailures = 0;
+    scaleConnectionIssue = null;
+    scaleDevice = scaleDevice.copyWith(online: false);
+    notifyListeners();
+    unawaited(localDatabase.saveSetting('api_base_url', cleaned));
+    await checkServer();
+    // A poll to the old address may still be finishing, so give this one a few tries.
+    for (var attempt = 0; attempt < 3; attempt++) {
+      await syncScaleLive();
+      if (scaleDevice.online) break;
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    }
+    return scaleDevice.online;
   }
 
   @override
@@ -392,7 +428,6 @@ class MiqdarController extends ChangeNotifier {
         scaleDevice = previous.copyWith(
           liveWeightG: (data['live_weight_g'] as num).toDouble(),
           isStable: data['is_stable'] as bool? ?? true,
-          batteryPercent: (data['battery_pct'] as num?)?.toInt() ?? previous.batteryPercent,
           online: true,
           lastSeen: DateTime.now(),
           simulated: data['mode'] == 'simulated',
@@ -458,6 +493,8 @@ class MiqdarController extends ChangeNotifier {
 
   Future<RecognitionResult?> _ingestCaptureEvent(Map<String, dynamic> event) async {
     _lastSeenCaptureEventId = event['event_id'] as String?;
+    // Survives a restart, so reopening the app does not offer a saved capture again.
+    _remember('last_capture_event', _lastSeenCaptureEventId ?? '');
     final status = event['status'] as String?;
     if (status == 'error') {
       _publishCaptureFailure(ApiService.recognitionExceptionFromJson(event), event);
@@ -582,28 +619,6 @@ class MiqdarController extends ChangeNotifier {
 
   void unlockScaleWeight() {
     scaleDevice = scaleDevice.copyWith(clearLockedWeight: true);
-    notifyListeners();
-  }
-
-  void updateScaleSettings({
-    String? displayName,
-    bool? paired,
-    bool? online,
-    String? wifiSsid,
-    bool? autoSync,
-    bool? soundEnabled,
-    double? brightness,
-  }) {
-    scaleDevice = scaleDevice.copyWith(
-      displayName: displayName,
-      paired: paired,
-      online: online,
-      wifiSsid: wifiSsid,
-      autoSync: autoSync,
-      soundEnabled: soundEnabled,
-      brightness: brightness,
-      lastSeen: DateTime.now(),
-    );
     notifyListeners();
   }
 
@@ -822,7 +837,6 @@ class MiqdarController extends ChangeNotifier {
       incoming: result.totalNutrients,
       goals: goals,
     );
-    alertEvaluationMs = evaluation.elapsedMs;
     projectedAlerts = evaluation.alerts;
     lastRecognition = result;
     return result;
@@ -832,81 +846,47 @@ class MiqdarController extends ChangeNotifier {
     String mealType = 'Meal',
     DateTime? eatenAt,
     String notes = '',
+    Uint8List? photo,
   }) async {
     final result = lastRecognition;
     if (result == null) return null;
 
-    // A Gemini estimate has no record on the server to link a meal to, so it stays on this phone.
-    final localOnly = result.foodId.startsWith(aiFoodIdPrefix);
-    var syncState = localOnly ? 'saved_locally' : (isApiOnline ? 'synced' : 'pending_sync');
+    final isDemo = account.isDemo;
     final meal = await localDatabase.saveRecognition(
       result,
       mealType: mealType,
       eatenAt: eatenAt,
       notes: notes,
-      syncStatus: syncState,
+      persist: !isDemo,
     );
     meals = [meal, ...meals]..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
 
-    if (projectedAlerts.isNotEmpty) {
-      alerts = [...projectedAlerts, ...alerts];
-      await localDatabase.saveAlerts(projectedAlerts);
+    final mealPhoto = photo ?? result.imageBytes;
+    if (mealPhoto != null && mealPhoto.isNotEmpty) {
+      if (isDemo) {
+        _sessionPhotos[meal.id] = mealPhoto;
+      } else {
+        _photoCache[meal.id] = mealPhoto;
+        unawaited(localDatabase.saveMealPhoto(meal.id, mealPhoto).catchError((Object _) {}));
+      }
     }
 
-    final opId = 'op-meal-${DateTime.now().microsecondsSinceEpoch}';
-    if (localOnly) {
-      // Nothing to send.
-    } else if (isApiOnline) {
-      try {
-        await apiService.logMeal(
-          foodId: result.foodId,
-          weightG: result.totalWeightG,
-          confidence: result.confidence,
-          mealType: mealType,
-        );
-        syncOperations.insert(
-          0,
-          SyncOperation(
-            operationId: opId,
-            entityType: 'meal',
-            entityId: meal.id,
-            action: 'create',
-            status: 'synced',
-            createdAt: DateTime.now(),
-            detail: '${meal.nameEn} (${meal.weightG.toStringAsFixed(0)} g)',
-          ),
-        );
-      } catch (_) {
-        syncState = 'pending_sync';
-        final updatedMeal = meal.copyWith(syncStatus: syncState);
-        await localDatabase.updateMeal(updatedMeal);
-        meals = meals.map((m) => m.id == meal.id ? updatedMeal : m).toList();
-        syncOperations.insert(
-          0,
-          SyncOperation(
-            operationId: opId,
-            entityType: 'meal',
-            entityId: meal.id,
-            action: 'create',
-            status: 'pending',
-            createdAt: DateTime.now(),
-            detail: '${meal.nameEn} (${meal.weightG.toStringAsFixed(0)} g) — queued offline',
-          ),
-        );
-      }
-    } else {
-      syncOperations.insert(
-        0,
-        SyncOperation(
-          operationId: opId,
-          entityType: 'meal',
-          entityId: meal.id,
-          action: 'create',
-          status: 'pending',
-          createdAt: DateTime.now(),
-          detail: '${meal.nameEn} (${meal.weightG.toStringAsFixed(0)} g) — saved locally',
-        ),
-      );
+    if (projectedAlerts.isNotEmpty) {
+      alerts = [...projectedAlerts, ...alerts];
+      if (!isDemo) await localDatabase.saveAlerts(projectedAlerts);
+    }
+
+    // The phone holds the diary. A Gemini estimate has no food record on the scale to link to;
+    // anything else is also logged there when it can be, without holding up the save.
+    if (!isDemo && !result.foodId.startsWith(aiFoodIdPrefix) && isApiOnline) {
+      unawaited(apiService
+          .logMeal(
+            foodId: result.foodId,
+            weightG: result.totalWeightG,
+            confidence: result.confidence,
+            mealType: mealType,
+          )
+          .then((_) {}, onError: (Object _) {}));
     }
 
     lastRecognition = null;
@@ -923,7 +903,7 @@ class MiqdarController extends ChangeNotifier {
   }
 
   Future<void> updateMeal(MealEntry meal) async {
-    await localDatabase.updateMeal(meal);
+    if (!account.isDemo) await localDatabase.updateMeal(meal);
     meals = meals.map((item) => item.id == meal.id ? meal : item).toList()
       ..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
     notifyListeners();
@@ -933,8 +913,13 @@ class MiqdarController extends ChangeNotifier {
     final target = meals.where((m) => m.id == id).firstOrNull;
     if (target != null) {
       _lastDeletedMeal = target;
+      _lastDeletedPhoto = await mealPhoto(id);
     }
-    await localDatabase.deleteMeal(id);
+    if (!account.isDemo) {
+      await localDatabase.deleteMeal(id);
+      await localDatabase.deleteMealPhoto(id).catchError((Object _) {});
+    }
+    _photoCache.remove(id);
     meals = meals.where((meal) => meal.id != id).toList();
     notifyListeners();
     unawaited(refreshRecommendations());
@@ -944,7 +929,13 @@ class MiqdarController extends ChangeNotifier {
     final restored = _lastDeletedMeal;
     if (restored == null) return null;
     _lastDeletedMeal = null;
-    await localDatabase.insertMealEntry(restored);
+    final photo = _lastDeletedPhoto;
+    _lastDeletedPhoto = null;
+    if (!account.isDemo) {
+      await localDatabase.insertMealEntry(restored);
+      if (photo != null) await localDatabase.saveMealPhoto(restored.id, photo).catchError((Object _) {});
+    }
+    if (photo != null) _photoCache[restored.id] = photo;
     meals = [restored, ...meals.where((m) => m.id != restored.id)]
       ..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
     notifyListeners();
@@ -952,18 +943,15 @@ class MiqdarController extends ChangeNotifier {
     return restored;
   }
 
-  Future<void> setHistoryWindow(int days) async {
-    meals = await localDatabase.loadMeals(days: days);
-    notifyListeners();
-  }
-
   Future<void> updateGoals(NutritionGoals value) async {
     goals = value;
-    await localDatabase.saveGoals(value);
-    if (isApiOnline) {
-      try {
-        await apiService.saveGoalsOnServer(value);
-      } catch (_) {}
+    if (!account.isDemo) {
+      await localDatabase.saveGoals(value);
+      if (isApiOnline) {
+        try {
+          await apiService.saveGoalsOnServer(value);
+        } catch (_) {}
+      }
     }
     notifyListeners();
     unawaited(refreshRecommendations());
@@ -971,12 +959,12 @@ class MiqdarController extends ChangeNotifier {
 
   Future<void> updateHealthProfile(HealthProfile value) async {
     healthProfile = value;
-    await localDatabase.saveHealthProfile(value);
-    if (isApiOnline) {
-      try {
-        await apiService.saveHealthProfile(value);
-      } catch (_) {
-        connectionStatus = 'Profile saved locally • server unavailable';
+    if (!account.isDemo) {
+      await localDatabase.saveHealthProfile(value);
+      if (isApiOnline) {
+        try {
+          await apiService.saveHealthProfile(value);
+        } catch (_) {}
       }
     }
     notifyListeners();
@@ -992,6 +980,7 @@ class MiqdarController extends ChangeNotifier {
         profile: healthProfile,
         recentMeals: meals,
         offlineOnly: !isApiOnline,
+        isAr: isAr,
       );
       mealSuggestions = result.suggestions;
       recommendationDisclaimer = result.disclaimer;
@@ -1006,38 +995,19 @@ class MiqdarController extends ChangeNotifier {
     alerts = alerts
         .map((a) => a.id == alertId ? a.copyWith(acknowledged: true, read: true) : a)
         .toList();
+    _rememberAlertStates();
     notifyListeners();
   }
 
   void markAllAlertsRead() {
     alerts = alerts.map((a) => a.copyWith(read: true)).toList();
+    _rememberAlertStates();
     notifyListeners();
   }
 
-  Future<void> retrySyncOutbox() async {
-    if (syncingOutbox) return;
-    syncingOutbox = true;
-    notifyListeners();
-    await checkServer();
-    if (isApiOnline) {
-      for (var i = 0; i < syncOperations.length; i++) {
-        final op = syncOperations[i];
-        if (op.status != 'synced') {
-          syncOperations[i] = SyncOperation(
-            operationId: op.operationId,
-            entityType: op.entityType,
-            entityId: op.entityId,
-            action: op.action,
-            status: 'synced',
-            createdAt: op.createdAt,
-            detail: op.detail.replaceAll('— saved locally', '— synced').replaceAll('— queued offline', '— synced'),
-          );
-        }
-      }
-      meals = meals.map((m) => m.copyWith(syncStatus: 'synced')).toList();
-    }
-    syncingOutbox = false;
-    notifyListeners();
+  void _rememberAlertStates() {
+    if (account.isDemo) return;
+    unawaited(localDatabase.updateAlertStates(alerts).catchError((Object _) {}));
   }
 
   /// Generates a safe CSV export of logged meals (S47, AT-38: prevents spreadsheet formula injection).

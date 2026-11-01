@@ -8,6 +8,9 @@ import '../theme.dart';
 import 'screens.dart';
 import 'widgets/charts_and_gauges.dart';
 
+/// Server text may be English only, so Arabic screens show it only when it is translated.
+bool hasArabicText(String text) => RegExp(r'[؀-ۿ]').hasMatch(text);
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -27,7 +30,6 @@ class ProfileScreen extends StatelessWidget {
         ),
         const SizedBox(height: 18),
 
-        // Account Hero Card
         Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
@@ -37,7 +39,7 @@ class ProfileScreen extends StatelessWidget {
           child: Row(
             children: [
               CircleAvatar(
-                radius: 32,
+                radius: 30,
                 backgroundColor: Colors.white,
                 foregroundColor: MiqdarColors.emeraldDeep,
                 child: Text(
@@ -58,36 +60,20 @@ class ProfileScreen extends StatelessWidget {
                         color: Colors.white,
                       ),
                     ),
-                    if (account.email.isNotEmpty)
-                      Text(
-                        account.email,
-                        style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 13),
-                      ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        account.isDemo
-                            ? s.tr('Demo Workspace Account', 'حساب مساحة العرض التجريبي')
-                            : s.tr('Saved on this phone', 'محفوظ على هذا الهاتف'),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
+                    const SizedBox(height: 2),
+                    Text(
+                      account.isDemo
+                          ? s.tr('Demo with sample data', 'عرض تجريبي ببيانات نموذجية')
+                          : s.tr('Your diary stays on this phone', 'سجلك محفوظ على هذا الهاتف'),
+                      style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 12.5),
                     ),
                   ],
                 ),
               ),
               IconButton(
                 style: IconButton.styleFrom(foregroundColor: Colors.white),
-                tooltip: s.tr('Edit Personal Info', 'تعديل البيانات الشخصية'),
-                onPressed: () => _showEditPersonalSheet(context, controller),
+                tooltip: s.tr('Change your name', 'تغيير الاسم'),
+                onPressed: () => _showEditNameSheet(context, controller),
                 icon: const Icon(Icons.edit_outlined),
               ),
             ],
@@ -95,7 +81,6 @@ class ProfileScreen extends StatelessWidget {
         ),
         const SizedBox(height: 22),
 
-        // Section: Language, Theme & Viewport (S45)
         Text(
           s.tr('Appearance', 'المظهر'),
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
@@ -136,39 +121,27 @@ class ProfileScreen extends StatelessWidget {
                   s.tr('Dark Mode', 'المظهر الداكن'),
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                subtitle: Text(
-                  s.tr('Easier on the eyes at night', 'مريح للعين ليلاً'),
-                  style: const TextStyle(fontSize: 12),
-                ),
                 value: isDark,
                 onChanged: (_) => controller.toggleThemeMode(),
               ),
               if (MediaQuery.sizeOf(context).width >= 780) ...[
-              const Divider(height: 24),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                secondary: const Icon(Icons.devices_rounded, color: MiqdarColors.primary),
-                title: Text(
-                  s.tr('Compact Mobile Handset Preview Frame', 'إطار معاينة الهاتف المحمول'),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                subtitle: Text(
-                  s.tr(
-                    'Toggle between full-width responsive desktop dashboard and 460px mobile handset frame.',
-                    'التبديل بين لوحة التحكم العريضة وإطار شاشة الجوال.',
+                const Divider(height: 24),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const Icon(Icons.devices_rounded, color: MiqdarColors.primary),
+                  title: Text(
+                    s.tr('Phone-sized layout', 'عرض بحجم الهاتف'),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  style: const TextStyle(fontSize: 12),
+                  value: controller.forceMobileFrameOnDesktop,
+                  onChanged: (_) => controller.toggleViewportFrame(),
                 ),
-                value: controller.forceMobileFrameOnDesktop,
-                onChanged: (_) => controller.toggleViewportFrame(),
-              ),
               ],
             ],
           ),
         ),
         const SizedBox(height: 22),
 
-        // Section: Nutrition, Hardware & Diagnostics
         Text(
           s.tr('Settings', 'الإعدادات'),
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
@@ -177,126 +150,103 @@ class ProfileScreen extends StatelessWidget {
         _ProfileNavRow(
           icon: Icons.track_changes_rounded,
           title: s.tr('Daily Goals', 'الأهداف اليومية'),
-          subtitle: s.tr(
-            'Calories, protein, carbs, sugar and more',
-            'السعرات، العناصر الكبرى، الصوديوم، السكر، البوتاسيوم ووضع التتبع',
-          ),
+          subtitle: controller.goals.trackingOnly
+              ? s.tr('Tracking without goals', 'تتبع بدون أهداف')
+              : s.tr(
+                  '${controller.goals.calories.toStringAsFixed(0)} kcal a day',
+                  '${controller.goals.calories.toStringAsFixed(0)} سعرة في اليوم',
+                ),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const GoalsScreen()),
           ),
         ),
         _ProfileNavRow(
           icon: Icons.restaurant_menu_rounded,
-          title: s.tr('Food Preferences & Meal Ideas', 'التفضيلات واقتراحات الوجبات'),
-          subtitle: s.tr(
-            'Allergies, foods to avoid and suggestions',
-            'الاستثناءات والحساسيات والاقتراحات المبنية على سجل 14 يوماً',
-          ),
+          title: s.tr('Food Preferences', 'تفضيلات الطعام'),
+          subtitle: s.tr('Allergies, foods to avoid, meal ideas', 'الحساسية، أطعمة تتجنبها، أفكار للوجبات'),
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const MealSuggestionsScreen()),
+            MaterialPageRoute(builder: (_) => const MealSuggestionsScreen(showPreferences: true)),
           ),
         ),
         _ProfileNavRow(
           icon: Icons.scale_rounded,
-          title: s.tr('Scale', 'الميزان'),
-          subtitle: controller.scaleDevice.paired
-              ? (controller.scaleDevice.online
-                  ? s.tr('Connected', 'متصل')
-                  : s.tr('Not connected', 'غير متصل'))
-              : s.tr('Unpaired — Tap to claim scale', 'غير مقترن — اضغط لربط الميزان'),
+          title: s.navDevices,
+          subtitle: controller.scaleDevice.online
+              ? s.tr('Connected', 'متصل')
+              : s.tr('Not connected', 'غير متصل'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
           ),
         ),
         _ProfileNavRow(
-          icon: Icons.sync_rounded,
+          icon: Icons.shield_outlined,
           title: s.tr('Privacy & Data', 'الخصوصية والبيانات'),
-          subtitle: s.tr('Export, sync and account deletion', 'التصدير والمزامنة وحذف الحساب'),
+          subtitle: s.tr('Where your data goes, export, delete', 'أين تذهب بياناتك، التصدير، الحذف'),
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SyncAndDiagnosticsScreen()),
+            MaterialPageRoute(builder: (_) => const PrivacyAndDataScreen()),
           ),
         ),
-        const SizedBox(height: 18),
-
-        // Sign Out Button (UI-14)
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: MiqdarColors.danger,
-            side: BorderSide(color: MiqdarColors.danger.withValues(alpha: 0.4)),
+        if (account.isDemo) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              await controller.exitDemo();
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                (_) => false,
+              );
+            },
+            icon: const Icon(Icons.logout_rounded),
+            label: Text(s.tr('Exit Demo', 'الخروج من العرض التجريبي')),
           ),
-          onPressed: () {
-            controller.signOut();
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-              (_) => false,
-            );
-          },
-          icon: const Icon(Icons.logout_rounded),
-          label: Text(s.tr('Sign Out', 'تسجيل الخروج من الحساب')),
-        ),
+        ],
       ],
     );
   }
 
-  void _showEditPersonalSheet(BuildContext context, MiqdarController controller) {
+  void _showEditNameSheet(BuildContext context, MiqdarController controller) {
     final s = S.of(context);
-    final nameEnCtrl = TextEditingController(text: controller.account.displayName);
-    final nameArCtrl = TextEditingController(text: controller.account.displayNameAr);
-    final emailCtrl = TextEditingController(text: controller.account.email);
+    final account = controller.account;
+    final nameCtrl = TextEditingController(
+      text: account.hasPersonalName ? account.localizedName(s.isAr) : '',
+    );
 
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          22,
-          22,
-          22,
-          MediaQuery.viewInsetsOf(ctx).bottom + 24,
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                s.tr('Personal Information', 'المعلومات الشخصية'),
-                style: Theme.of(ctx).textTheme.titleLarge,
+        padding: EdgeInsets.fromLTRB(22, 22, 22, MediaQuery.viewInsetsOf(ctx).bottom + 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              s.tr('Your name', 'اسمك'),
+              style: Theme.of(ctx).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                hintText: s.tr('What should we call you?', 'بماذا نناديك؟'),
               ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: nameEnCtrl,
-                decoration: InputDecoration(
-                  labelText: s.tr('Display Name (English)', 'الاسم (إنجليزي)'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: nameArCtrl,
-                decoration: InputDecoration(
-                  labelText: s.tr('Display Name (Arabic)', 'الاسم (عربي)'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: emailCtrl,
-                decoration: InputDecoration(labelText: s.emailLabel),
-              ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: () {
-                  controller.updateAccountProfile(
-                    displayName: nameEnCtrl.text.trim(),
-                    displayNameAr: nameArCtrl.text.trim(),
-                    email: emailCtrl.text.trim(),
-                  );
-                  Navigator.of(ctx).pop();
-                },
-                child: Text(s.tr('Save Profile', 'حفظ البيانات')),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                controller.updateAccountProfile(
+                  displayName: name.isEmpty ? UserAccount.defaultName : name,
+                  displayNameAr: name.isEmpty ? UserAccount.defaultNameAr : name,
+                );
+                Navigator.of(ctx).pop();
+              },
+              child: Text(s.tr('Save', 'حفظ')),
+            ),
+          ],
         ),
       ),
     );
@@ -354,9 +304,12 @@ class _ProfileNavRow extends StatelessWidget {
       );
 }
 
-/// Dietary Preferences & Smart Meal Ideas Screen (S36, S39, S40).
+/// Meal ideas, and the preferences that shape them.
 class MealSuggestionsScreen extends StatefulWidget {
-  const MealSuggestionsScreen({super.key});
+  const MealSuggestionsScreen({super.key, this.showPreferences = false});
+
+  /// Opened from Food Preferences rather than from the ideas on the Home screen.
+  final bool showPreferences;
 
   @override
   State<MealSuggestionsScreen> createState() => _MealSuggestionsScreenState();
@@ -387,7 +340,7 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
   }
 
   List<String> _csv(String value) => value
-      .split(',')
+      .split(RegExp('[,،]'))
       .map((item) => item.trim().toLowerCase())
       .where((item) => item.isNotEmpty)
       .toSet()
@@ -405,6 +358,22 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
     setState(() => draft = draft!.copyWith(dietaryPreferences: values.toSet().toList()));
   }
 
+  Future<void> _save(MiqdarController controller, S s) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final value = (draft ?? controller.healthProfile).copyWith(
+      allergens: _csv(allergensCtrl.text),
+      dislikedFoods: _csv(dislikesCtrl.text),
+    );
+    setState(() => draft = value);
+    await controller.updateHealthProfile(value);
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(s.tr('Preferences saved', 'تم حفظ التفضيلات')),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = MiqdarScope.of(context);
@@ -412,19 +381,17 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
     final profile = draft ?? controller.healthProfile;
 
     final conditionLabels = <String, String>{
-      'diabetes': s.tr('Blood-sugar / Sugar awareness', 'مراعاة السكريات في الوجبات'),
-      'hypertension': s.tr('Sodium awareness', 'مراعاة الصوديوم والملح'),
-      'high_cholesterol': s.tr('Lower total fat focus', 'مراعاة الدهون الكلية'),
-      'weight_management': s.tr('Energy density balance', 'توازن الكثافة الحرارية'),
-      'kidney_disease': s.tr(
-        'Clinician sodium/potassium targets',
-        'حدود الصوديوم والبوتاسيوم بإشراف مختص',
-      ),
+      'weight_management': s.tr('Managing my weight', 'إدارة الوزن'),
+      'diabetes': s.tr('Watching sugar', 'الانتباه للسكر'),
+      'hypertension': s.tr('Watching salt', 'الانتباه للملح'),
+      'high_cholesterol': s.tr('Watching fat', 'الانتباه للدهون'),
+      'kidney_disease': s.tr('Kidney diet', 'حمية الكلى'),
     };
     final preferenceLabels = <String, String>{
       'vegetarian': s.tr('Vegetarian', 'نباتي'),
-      'vegan': s.tr('Plant-based / Vegan', 'نباتي صرف'),
+      'vegan': s.tr('Vegan', 'نباتي صرف'),
     };
+    final disclaimer = controller.recommendationDisclaimer;
 
     return Scaffold(
       appBar: AppBar(title: Text(s.mealIdeasTitle)),
@@ -433,132 +400,81 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 740),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(22, 12, 22, 32),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: MiqdarColors.warningBg,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: MiqdarColors.warning.withValues(alpha: 0.35)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.info_outline_rounded, color: MiqdarColors.warning),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          s.tr(
-                            'Miqdar filters suggestions using your declared exclusions, targets, and 14-day meal variety. A photo or suggestion cannot certify allergen absence or replace medical advice (S36, SUG-02).',
-                            'يصفّي مقدار الاقتراحات بناءً على الاستثناءات والأهداف وتنوع آخر 14 يوماً. لا تعد الاقتراحات وصفة طبية أو ضماناً لخلو الطعام من مسببات الحساسية (S36, SUG-02).',
-                          ),
-                          style: const TextStyle(color: MiqdarColors.dark, fontSize: 12.5),
-                        ),
+                SurfaceCard(
+                  padding: EdgeInsets.zero,
+                  child: Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      initiallyExpanded: widget.showPreferences,
+                      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+                      leading: const Icon(Icons.tune_rounded, color: MiqdarColors.primary),
+                      title: Text(
+                        s.tr('Your preferences', 'تفضيلاتك'),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
-                    ],
+                      children: [
+                        Text(
+                          s.tr('I am', 'أنا'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ...conditionLabels.entries.map((entry) => FilterChip(
+                                  label: Text(entry.value),
+                                  selected: profile.conditions.contains(entry.key),
+                                  onSelected: (selected) => _toggleCondition(entry.key, selected),
+                                )),
+                            ...preferenceLabels.entries.map((entry) => FilterChip(
+                                  label: Text(entry.value),
+                                  selected: profile.dietaryPreferences.contains(entry.key),
+                                  onSelected: (selected) => _togglePreference(entry.key, selected),
+                                )),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: allergensCtrl,
+                          decoration: InputDecoration(
+                            labelText: s.tr('Allergies', 'الحساسية'),
+                            hintText: s.tr('e.g. nuts, dairy, fish', 'مثال: مكسرات، ألبان، سمك'),
+                            prefixIcon: const Icon(Icons.no_food_rounded),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: dislikesCtrl,
+                          decoration: InputDecoration(
+                            labelText: s.tr('Foods to avoid', 'أطعمة تتجنبها'),
+                            hintText: s.tr('e.g. tomato, egg', 'مثال: طماطم، بيض'),
+                            prefixIcon: const Icon(Icons.remove_circle_outline_rounded),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: controller.recommendationsBusy ? null : () => _save(controller, s),
+                          child: Text(s.tr('Save', 'حفظ')),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                Text(
-                  s.tr('Optional Planning Considerations', 'اعتبارات التخطيط الغذائي الاختيارية'),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: conditionLabels.entries
-                      .map((entry) => FilterChip(
-                            label: Text(entry.value),
-                            selected: profile.conditions.contains(entry.key),
-                            onSelected: (selected) => _toggleCondition(entry.key, selected),
-                          ))
-                      .toList(),
-                ),
-                const SizedBox(height: 18),
-
-                Text(
-                  s.tr('Dietary Pattern', 'النمط الغذائي'),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  children: preferenceLabels.entries
-                      .map((entry) => FilterChip(
-                            label: Text(entry.value),
-                            selected: profile.dietaryPreferences.contains(entry.key),
-                            onSelected: (selected) => _togglePreference(entry.key, selected),
-                          ))
-                      .toList(),
-                ),
-                const SizedBox(height: 16),
-
-                TextField(
-                  controller: allergensCtrl,
-                  decoration: InputDecoration(
-                    labelText: s.tr('Allergens or Excluded Ingredients', 'الحساسيات أو المكونات المستبعدة'),
-                    hintText: s.tr('e.g., nuts, dairy, fish', 'مثال: لوز، ألبان، سمك'),
-                    prefixIcon: const Icon(Icons.no_food_rounded),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: dislikesCtrl,
-                  decoration: InputDecoration(
-                    labelText: s.tr('Disliked Foods', 'الأطعمة غير المفضلة'),
-                    hintText: s.tr('e.g., tomato, egg', 'مثال: طماطم، بيض'),
-                    prefixIcon: const Icon(Icons.remove_circle_outline_rounded),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                FilledButton.icon(
-                  onPressed: controller.recommendationsBusy
-                      ? null
-                      : () async {
-                          final value = profile.copyWith(
-                            allergens: _csv(allergensCtrl.text),
-                            dislikedFoods: _csv(dislikesCtrl.text),
-                          );
-                          setState(() => draft = value);
-                          await controller.updateHealthProfile(value);
-                        },
-                  icon: controller.recommendationsBusy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.auto_awesome_rounded),
-                  label: Text(
-                    controller.recommendationsBusy
-                        ? s.tr('Refreshing suggestions…', 'جارٍ تحديث الاقتراحات…')
-                        : s.tr('Save Preferences & Refresh Ideas', 'حفظ التفضيلات وتحديث الاقتراحات'),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      s.tr('Recommended Next Meals', 'الوجبات المقترحة لك'),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                    ),
-                    if (controller.recommendationsOffline)
-                      Chip(label: Text(s.tr('Local Catalog Scoring', 'تقييم محلي'))),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (controller.mealSuggestions.isEmpty && !controller.recommendationsBusy)
+                if (controller.recommendationsBusy && controller.mealSuggestions.isEmpty)
+                  const LinearProgressIndicator()
+                else if (controller.mealSuggestions.isEmpty)
                   SurfaceCard(
                     child: Text(
                       s.tr(
-                        'No compatible meal suggestions found. Try relaxing exclusions or saving your profile.',
-                        'لا توجد اقتراحات متوافقة حالياً. جرب تعديل الاستثناءات أو حفظ التفضيلات.',
+                        'No ideas fit your preferences. Try removing something you excluded.',
+                        'لا توجد أفكار تناسب تفضيلاتك. جرّب إزالة بعض ما استبعدته.',
                       ),
                     ),
                   )
@@ -569,11 +485,246 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
                       child: SuggestionCardWidget(suggestion: suggestion),
                     ),
                   ),
-                if (controller.recommendationDisclaimer.isNotEmpty) ...[
+                if (disclaimer.isNotEmpty && (!s.isAr || hasArabicText(disclaimer))) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    controller.recommendationDisclaimer,
-                    style: const TextStyle(fontSize: 12),
+                  Text(disclaimer, style: const TextStyle(fontSize: 12)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The scale's true state and how to reach it.
+class DeviceSettingsScreen extends StatefulWidget {
+  const DeviceSettingsScreen({super.key});
+
+  @override
+  State<DeviceSettingsScreen> createState() => _DeviceSettingsScreenState();
+}
+
+class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
+  bool checking = false;
+
+  Future<void> _tryAgain(MiqdarController controller) async {
+    setState(() => checking = true);
+    await controller.connectToScale(controller.apiService.baseUrl);
+    if (mounted) setState(() => checking = false);
+  }
+
+  Future<void> _zero(MiqdarController controller, S s) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await controller.tareScale();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          ok
+              ? s.tr('Scale set to 0 g', 'تم تصفير الميزان إلى 0 غ')
+              : s.tr('The scale did not respond', 'لم يستجب الميزان'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = MiqdarScope.of(context);
+    final s = S.of(context);
+    final scale = controller.scaleDevice;
+
+    final String status;
+    final Color statusColor;
+    if (!scale.online) {
+      status = s.tr('Not connected', 'غير متصل');
+      statusColor = MiqdarColors.warning;
+    } else if (scale.sensorError != null) {
+      status = s.tr('Weight sensor not responding', 'حساس الوزن لا يستجيب');
+      statusColor = MiqdarColors.danger;
+    } else if (scale.simulated) {
+      status = s.tr('Simulated scale, not real food', 'ميزان محاكاة، ليس طعاماً حقيقياً');
+      statusColor = MiqdarColors.warning;
+    } else {
+      status = s.tr('Connected', 'متصل');
+      statusColor = MiqdarColors.primary;
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: Text(s.navDevices)),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                SurfaceCard(
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.circle, size: 10, color: statusColor),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              status,
+                              style: TextStyle(fontWeight: FontWeight.w800, color: statusColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (scale.online) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          '${scale.effectiveWeightG.toStringAsFixed(0)} ${s.unitG}',
+                          style: const TextStyle(fontSize: 52, fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          scale.isStable
+                              ? s.tr('Steady', 'مستقر')
+                              : s.tr('Settling…', 'جارٍ الثبات…'),
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.tonalIcon(
+                            onPressed: controller.taringScale ? null : () => _zero(controller, s),
+                            icon: const Icon(Icons.exposure_zero_rounded),
+                            label: Text(s.tareScale),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          s.tr(
+                            'Reading looks wrong? Leave only the empty plate on the scale, then zero it.',
+                            'القراءة غير صحيحة؟ اترك الطبق الفارغ فقط على الميزان ثم صفّره.',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                if (!scale.online) ...[
+                  SurfaceCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          s.tr('To connect', 'للاتصال'),
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          s.tr(
+                            '1. Turn on the scale and wait about a minute.\n'
+                            '2. Tap the Miqdar icon on its screen.\n'
+                            '3. Keep this phone on the same Wi-Fi as the scale.',
+                            '1. شغّل الميزان وانتظر دقيقة تقريباً.\n'
+                            '2. اضغط أيقونة مقدار على شاشته.\n'
+                            '3. أبقِ هذا الهاتف على شبكة Wi-Fi نفسها.',
+                          ),
+                          style: const TextStyle(height: 1.6),
+                        ),
+                        const SizedBox(height: 14),
+                        FilledButton.icon(
+                          onPressed: checking ? null : () => _tryAgain(controller),
+                          icon: checking
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.refresh_rounded),
+                          label: Text(s.tr('Try Again', 'حاول مجدداً')),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
+                SurfaceCard(
+                  padding: const EdgeInsets.all(16),
+                  onTap: () => showScaleAddressDialog(context, controller),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.link_rounded, color: MiqdarColors.primary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              s.tr('Scale address', 'عنوان الميزان'),
+                              style: const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Text(
+                                controller.apiService.baseUrl,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        s.tr('Change', 'تغيير'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: MiqdarColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (scale.online) ...[
+                  const SizedBox(height: 14),
+                  SurfaceCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.camera_alt_outlined, color: MiqdarColors.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                scale.autoCapture
+                                    ? s.tr('Automatic capture is on', 'الالتقاط التلقائي مفعّل')
+                                    : s.tr('Automatic capture is off', 'الالتقاط التلقائي متوقف'),
+                                style: const TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                scale.autoCapture
+                                    ? s.tr(
+                                        'The scale takes the photo by itself when food settles.',
+                                        'يلتقط الميزان الصورة تلقائياً عند ثبات الطعام.',
+                                      )
+                                    : s.tr(
+                                        'Press Capture in Add Meal or on the scale.',
+                                        'اضغط التقاط في إضافة وجبة أو على الميزان.',
+                                      ),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ],
@@ -585,293 +736,9 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
   }
 }
 
-/// Hardware & Device Settings Screen (S09–S13).
-class DeviceSettingsScreen extends StatelessWidget {
-  const DeviceSettingsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = MiqdarScope.of(context);
-    final s = S.of(context);
-    final scale = controller.scaleDevice;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(s.tr('Scale Hardware & Controls', 'إعدادات الميزان الذكي')),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: ListView(
-              padding: const EdgeInsets.all(22),
-              children: [
-                // Scale Identity & Live Telemetry Card
-                SurfaceCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 72,
-                            height: 72,
-                            decoration: BoxDecoration(
-                              color: scale.paired
-                                  ? MiqdarColors.softGreen
-                                  : MiqdarColors.border,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Icon(
-                              Icons.scale_rounded,
-                              size: 40,
-                              color: scale.paired ? MiqdarColors.primary : MiqdarColors.muted,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  scale.displayName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 17,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  scale.paired
-                                      ? '${scale.deviceId} • ${s.tr("Connected & Ready", "متصل وجاهز")}'
-                                      : '${scale.deviceId} • ${s.tr("Unpaired", "غير مقترن")}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    color: scale.paired
-                                        ? MiqdarColors.primary
-                                        : MiqdarColors.warning,
-                                  ),
-                                ),
-                                Text(
-                                  '${s.tr("Firmware", "النظام")}: ${scale.firmwareVersion} • ${s.tr("Capacity", "السعة")}: ${scale.capacityG.toStringAsFixed(0)} ${s.unitG} (${scale.resolutionG.toStringAsFixed(0)} ${s.unitG})',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 26),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _DeviceStatColumn(
-                            label: s.tr('Live Reading', 'القراءة الحالية'),
-                            value: '${scale.effectiveWeightG.toStringAsFixed(0)} ${s.unitG}',
-                          ),
-                          _DeviceStatColumn(
-                            label: s.tr('Stability', 'الاستقرار'),
-                            value: scale.isStable
-                                ? s.tr('Stable', 'مستقر')
-                                : s.tr('Moving', 'متحرك'),
-                          ),
-                          _DeviceStatColumn(
-                            label: s.tr('Battery', 'البطارية'),
-                            value: '${scale.batteryPercent}%',
-                          ),
-                          _DeviceStatColumn(
-                            label: 'Wi-Fi',
-                            value: scale.wifiSsid,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: FilledButton.tonalIcon(
-                              onPressed: scale.paired ? controller.tareScale : null,
-                              icon: const Icon(Icons.exposure_zero_rounded),
-                              label: Text(s.tareScale),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _showCalibrationGuide(context),
-                              icon: const Icon(Icons.straighten_rounded),
-                              label: Text(s.tr('Calibration Check', 'فحص المعايرة')),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // Capability-based Controls (PRD-10, S12)
-                SurfaceCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        s.tr('Supported Hardware Controls', 'عناصر التحكم المدعومة'),
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-                      ),
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          s.tr('Auto-sync scale capture events', 'مزامنة تلقائية لأحداث الميزان'),
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        subtitle: Text(
-                          s.tr(
-                            'Create a reviewable draft when a stable placement is captured',
-                            'إنشاء مسودة قابلة للمراجعة عند استقرار الوزن والتقاط الصورة',
-                          ),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        value: scale.autoSync,
-                        onChanged: scale.paired
-                            ? (v) => controller.updateScaleSettings(autoSync: v)
-                            : null,
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          s.tr('Scale acoustic feedback', 'التنبيه الصوتي للميزان'),
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        value: scale.soundEnabled,
-                        onChanged: scale.paired
-                            ? (v) => controller.updateScaleSettings(soundEnabled: v)
-                            : null,
-                      ),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          s.tr('Scale OLED Display Brightness', 'سطوع شاشة الميزان'),
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        subtitle: Slider(
-                          value: scale.brightness,
-                          onChanged: scale.paired
-                              ? (v) => controller.updateScaleSettings(brightness: v)
-                              : null,
-                        ),
-                        trailing: Text('${(scale.brightness * 100).round()}%'),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // Pair / Unpair Action (UI-08)
-                if (scale.paired)
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: MiqdarColors.danger,
-                      side: BorderSide(color: MiqdarColors.danger.withValues(alpha: 0.4)),
-                    ),
-                    onPressed: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          title: Text(s.tr('Unpair Miqdar-015?', 'إلغاء اقتران الميزان؟')),
-                          content: Text(
-                            s.tr(
-                              'Your saved meal history remains intact. You can re-claim the scale anytime.',
-                              'سيبقى سجل وجباتك محفوظاً بالكامل، ويمكنك إعادة ربط الميزان في أي وقت.',
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(dialogContext).pop(false),
-                              child: Text(s.tr('Cancel', 'إلغاء')),
-                            ),
-                            FilledButton(
-                              style: FilledButton.styleFrom(backgroundColor: MiqdarColors.danger),
-                              onPressed: () => Navigator.of(dialogContext).pop(true),
-                              child: Text(s.tr('Unpair', 'إلغاء الاقتران')),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirmed == true) {
-                        controller.updateScaleSettings(paired: false, online: false);
-                      }
-                    },
-                    icon: const Icon(Icons.link_off_rounded),
-                    label: Text(s.tr('Unpair Scale Device', 'إلغاء اقتران الميزان')),
-                  )
-                else
-                  FilledButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const PairingScreen()),
-                    ),
-                    icon: const Icon(Icons.add_link_rounded),
-                    label: Text(s.tr('Pair & Claim Scale', 'ربط وتوثيق الميزان')),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showCalibrationGuide(BuildContext context) {
-    final s = S.of(context);
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(s.tr('Zero vs Sensor Calibration', 'التصفير مقابل معايرة الحساس')),
-        content: Text(
-          s.tr(
-            '• Zero / Tare establishes a 0.0 g net baseline for your current empty plate.\n\n'
-            '• Sensor Calibration requires placing the scale on a level, vibration-free surface and using a certified 500 g reference mass. Never use guessed household items to recalibrate the load cell.',
-            '• التصفير (Tare): يضبط نقطة الصفر الصافية للطبق الفارغ الحالي.\n\n'
-            '• معايرة الحساس: تتطلب وضع الميزان على سطح مستوٍ تماماً واستخدام كتلة مرجعية معيارية موثقة (500 غ). لا تستخدم أوزاناً تقديرية لمعايرة الحساس.',
-          ),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(s.tr('Understood', 'حسناً')),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeviceStatColumn extends StatelessWidget {
-  const _DeviceStatColumn({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Column(
-        children: [
-          Text(label, style: const TextStyle(fontSize: 11)),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 13.5,
-              color: MiqdarColors.primary,
-            ),
-          ),
-        ],
-      );
-}
-
-/// Sync Outbox, Privacy & Technical Diagnostics Screen (S46–S59).
-class SyncAndDiagnosticsScreen extends StatelessWidget {
-  const SyncAndDiagnosticsScreen({super.key});
+/// What happens to the user's data, in plain words, with real export and delete.
+class PrivacyAndDataScreen extends StatelessWidget {
+  const PrivacyAndDataScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -879,156 +746,102 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
     final s = S.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(s.tr('Sync, Privacy & Diagnostics', 'المزامنة والخصوصية والتشخيص')),
-      ),
+      appBar: AppBar(title: Text(s.tr('Privacy & Data', 'الخصوصية والبيانات'))),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 700),
             child: ListView(
-              padding: const EdgeInsets.all(22),
+              padding: const EdgeInsets.all(20),
               children: [
-                // Server & AI Telemetry (S59)
-                SurfaceCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.memory_rounded, color: MiqdarColors.primary),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              s.tr('System & AI Telemetry', 'حالة الخادم والذكاء الاصطناعي'),
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: controller.checkServer,
-                            icon: const Icon(Icons.refresh_rounded, size: 16),
-                            label: Text(s.tr('Ping /health', 'فحص الاتصال')),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text('${s.tr("Connection status", "حالة الاتصال")}: ${controller.connectionStatus}'),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${s.tr("API Endpoint", "عنوان الخادم")}: ${controller.apiService.baseUrl}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          TextButton.icon(
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                            ),
-                            onPressed: () => _showEndpointDialog(context, controller),
-                            icon: const Icon(Icons.edit_rounded, size: 15),
-                            label: Text(s.tr('Change', 'تغيير'), style: const TextStyle(fontSize: 12)),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        '${s.tr("Last local alert evaluation", "زمن تقييم التنبيهات المحلي")}: ${controller.alertEvaluationMs} ms (Target ≤ 4,000 ms)',
-                      ),
-                      Text(
-                        '${s.tr("Catalog records loaded", "السجلات الغذائية المحملة")}: ${38 + controller.localDatabase.customFoods.length}',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // Sync Outbox Queue (S49)
-                SurfaceCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.cloud_sync_rounded, color: MiqdarColors.primary),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              s.tr('Outbox & Sync Activity', 'صندوق المزامنة والعمليات'),
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
-                            ),
-                          ),
-                          if (controller.pendingSyncCount > 0)
-                            FilledButton.tonal(
-                              onPressed: controller.retrySyncOutbox,
-                              child: Text(s.tr('Sync Now', 'مزامنة الآن')),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      if (controller.syncOperations.isEmpty)
-                        Text(
-                          s.tr(
-                            'All local records are synchronized. New meal saves appear here with idempotent operation IDs.',
-                            'جميع السجلات المحلية متزامنة. ستظهر عمليات الحفظ الجديدة هنا مع معرفات عدم التكرار.',
-                          ),
-                          style: const TextStyle(fontSize: 12.5),
-                        )
-                      else
-                        ...controller.syncOperations.take(8).map(
-                              (op) => ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                dense: true,
-                                leading: Icon(
-                                  op.status == 'synced'
-                                      ? Icons.check_circle_rounded
-                                      : Icons.schedule_send_rounded,
-                                  color: op.status == 'synced'
-                                      ? MiqdarColors.primary
-                                      : MiqdarColors.warning,
-                                ),
-                                title: Text(
-                                  op.detail,
-                                  style: const TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                                subtitle: Text('${op.operationId} • ${op.status.toUpperCase()}'),
-                              ),
-                            ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // Privacy & Account Deletion (S46, S48)
                 SurfaceCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        s.tr('Privacy & Data Lifecycle', 'الخصوصية ودورة حياة البيانات'),
+                        s.tr('Where your data goes', 'أين تذهب بياناتك'),
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        s.tr(
-                          '• Structured meal records remain in your personal diary until you delete them.\n'
-                          '• Recognition photos are processed transiently for identification and are not used for undisclosed model training.',
-                          '• تبقى سجلات الوجبات المنظمة في حسابك حتى تقوم بحذفها.\n'
-                          '• تُعالج صور الوجبات مؤقتاً للتعرف الغذائي فقط ولا تُستخدم لتدريب النماذج دون إذن صريح.',
-                        ),
-                        style: const TextStyle(fontSize: 12.5),
-                      ),
                       const SizedBox(height: 14),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: MiqdarColors.danger,
-                          side: BorderSide(color: MiqdarColors.danger.withValues(alpha: 0.4)),
+                      _PrivacyRow(
+                        icon: Icons.phone_iphone_rounded,
+                        title: s.tr('This phone', 'هذا الهاتف'),
+                        body: s.tr(
+                          'Your meals, meal photos, goals and preferences are stored here. There is no Miqdar account or cloud copy, so removing the app removes them.',
+                          'تُحفظ هنا وجباتك وصورها وأهدافك وتفضيلاتك. لا يوجد حساب أو نسخة سحابية لمقدار، لذا فإن حذف التطبيق يحذفها.',
                         ),
-                        onPressed: () => _showDeleteAccountDialog(context, controller),
-                        icon: const Icon(Icons.person_remove_outlined),
-                        label: Text(s.tr('Request Account Deletion', 'طلب حذف الحساب والبيانات')),
+                      ),
+                      _PrivacyRow(
+                        icon: Icons.auto_awesome_rounded,
+                        title: s.tr('Google Gemini', 'Google Gemini'),
+                        body: s.tr(
+                          'Each food photo you analyze is sent to Google, with its weight and any note you typed. On Gemini\'s free plan, Google may use what it receives to improve its products, so avoid including people or private items in the photo.',
+                          'تُرسل كل صورة طعام تحللها إلى Google مع وزنها وأي ملاحظة كتبتها. في خطة Gemini المجانية قد تستخدم Google ما تتلقاه لتحسين منتجاتها، لذا تجنب ظهور أشخاص أو أشياء خاصة في الصورة.',
+                        ),
+                      ),
+                      _PrivacyRow(
+                        icon: Icons.scale_rounded,
+                        title: s.tr('Your scale', 'ميزانك'),
+                        body: s.tr(
+                          'The scale keeps the photos it takes in its own storage. Deleting data in this app does not remove them.',
+                          'يحتفظ الميزان بالصور التي يلتقطها في ذاكرته. حذف البيانات من هذا التطبيق لا يزيلها.',
+                        ),
+                        isLast: true,
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: () => showExportSheet(context, days: 365),
+                  icon: const Icon(Icons.download_rounded),
+                  label: Text(s.tr('Export My Meals', 'تصدير وجباتي')),
+                ),
+                if (!controller.account.isDemo) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: MiqdarColors.danger,
+                      side: BorderSide(color: MiqdarColors.danger.withValues(alpha: 0.4)),
+                    ),
+                    onPressed: () => _confirmDeleteAll(context, controller),
+                    icon: const Icon(Icons.delete_forever_outlined),
+                    label: Text(s.tr('Delete All My Data', 'حذف جميع بياناتي')),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                SurfaceCard(
+                  padding: EdgeInsets.zero,
+                  child: Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                      leading: const Icon(Icons.build_outlined, color: MiqdarColors.primary),
+                      title: Text(
+                        s.tr('Troubleshooting', 'استكشاف الأخطاء'),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      children: [
+                        _DiagnosticLine(
+                          label: s.tr('Scale address', 'عنوان الميزان'),
+                          value: controller.apiService.baseUrl,
+                        ),
+                        _DiagnosticLine(
+                          label: s.tr('Scale status', 'حالة الميزان'),
+                          value: controller.scaleConnectionIssue ??
+                              (controller.scaleDevice.online
+                                  ? s.tr('Connected', 'متصل')
+                                  : s.tr('Not connected', 'غير متصل')),
+                        ),
+                        if (controller.activeModelName != null)
+                          _DiagnosticLine(
+                            label: s.tr('Last AI model', 'آخر نموذج ذكاء اصطناعي'),
+                            value: controller.activeModelName!,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -1039,53 +852,171 @@ class SyncAndDiagnosticsScreen extends StatelessWidget {
     );
   }
 
-  void _showDeleteAccountDialog(BuildContext context, MiqdarController controller) {
+  Future<void> _confirmDeleteAll(BuildContext context, MiqdarController controller) async {
     final s = S.of(context);
-    showDialog<void>(
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(s.tr('Delete Account & Personal Data?', 'حذف الحساب والبيانات الشخصية؟')),
+        title: Text(s.tr('Delete all your data?', 'حذف جميع بياناتك؟')),
         content: Text(
           s.tr(
-            'This submits an account deletion request to remove your cloud profile, meal history, and paired scale claims, and clears local credentials.',
-            'سيؤدي هذا إلى تقديم طلب حذف نهائي لبيانات الحساب وسجل الوجبات وارتباط الميزان، ومسح بيانات الجلسة المحلية.',
+            'This permanently deletes your meals, meal photos, goals and preferences from this phone. It cannot be undone. Photos stored on the scale stay there.',
+            'سيحذف هذا وجباتك وصورها وأهدافك وتفضيلاتك نهائياً من هذا الهاتف ولا يمكن التراجع عنه. تبقى الصور المحفوظة في الميزان كما هي.',
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
+            onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(s.tr('Cancel', 'إلغاء')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: MiqdarColors.danger),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              controller.signOut();
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                (_) => false,
-              );
-            },
-            child: Text(s.tr('Confirm Deletion Request', 'تأكيد طلب الحذف')),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(s.tr('Delete Everything', 'حذف كل شيء')),
           ),
         ],
       ),
     );
-  }
-
-  void _showEndpointDialog(BuildContext context, MiqdarController controller) {
-    showApiUrlDialog(context, controller);
+    if (confirmed != true) return;
+    try {
+      await controller.deleteAllData();
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(s.tr('Could not delete your data. Try again.', 'تعذر حذف بياناتك. حاول مجدداً.')),
+        ),
+      );
+      return;
+    }
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      (_) => false,
+    );
   }
 }
 
-Future<void> showApiUrlDialog(BuildContext context, MiqdarController controller) {
-  final s = S.of(context);
-  final textController = TextEditingController(text: controller.apiService.baseUrl);
+class _PrivacyRow extends StatelessWidget {
+  const _PrivacyRow({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.isLast = false,
+  });
 
-  return showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(s.tr('Set API Server URL', 'تعيين عنوان خادم مقدار')),
+  final IconData icon;
+  final String title;
+  final String body;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: MiqdarColors.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(body, style: const TextStyle(fontSize: 12.5, height: 1.45)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _DiagnosticLine extends StatelessWidget {
+  const _DiagnosticLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+            SelectableText(value, style: const TextStyle(fontSize: 13)),
+          ],
+        ),
+      );
+}
+
+Future<void> showScaleAddressDialog(BuildContext context, MiqdarController controller) =>
+    showDialog<void>(
+      context: context,
+      builder: (_) => _ScaleAddressDialog(controller: controller),
+    );
+
+class _ScaleAddressDialog extends StatefulWidget {
+  const _ScaleAddressDialog({required this.controller});
+
+  final MiqdarController controller;
+
+  @override
+  State<_ScaleAddressDialog> createState() => _ScaleAddressDialogState();
+}
+
+class _ScaleAddressDialogState extends State<_ScaleAddressDialog> {
+  late final String originalAddress = widget.controller.apiService.baseUrl;
+  late final TextEditingController address = TextEditingController(text: originalAddress);
+  bool connecting = false;
+  bool failed = false;
+
+  @override
+  void dispose() {
+    address.dispose();
+    super.dispose();
+  }
+
+  Future<void> _connect(S s) async {
+    if (address.text.trim().isEmpty) return;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      connecting = true;
+      failed = false;
+    });
+    final ok = await widget.controller.connectToScale(address.text);
+    if (!mounted) return;
+    if (ok) {
+      navigator.pop();
+      messenger.showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(s.tr('Scale connected', 'تم الاتصال بالميزان')),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      connecting = false;
+      failed = true;
+    });
+  }
+
+  void _cancel() {
+    // Do not stay pointed at an address that was tried and did not answer.
+    if (failed) widget.controller.setApiBaseUrl(originalAddress);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    return AlertDialog(
+      title: Text(s.tr('Scale address', 'عنوان الميزان')),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1093,77 +1024,54 @@ Future<void> showApiUrlDialog(BuildContext context, MiqdarController controller)
           children: [
             Text(
               s.tr(
-                'Enter your Cloudflare Tunnel URL (for internet connection) or local IP of your Raspberry Pi scale.',
-                'أدخل رابط نفق كلاودفلير (للاتصال عبر الإنترنت) أو عنوان IP المحلي لميزان الراسبيري باي.',
+                'Type the address shown on the scale\'s screen.',
+                'اكتب العنوان الظاهر على شاشة الميزان.',
               ),
               style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: textController,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'API Base URL',
-                hintText: 'https://xxxx.trycloudflare.com',
-                border: OutlineInputBorder(),
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: TextField(
+                controller: address,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                enabled: !connecting,
+                onSubmitted: (_) => _connect(s),
+                decoration: const InputDecoration(hintText: 'foodscale.local'),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(s.tr('Quick Presets & Cloudflare:', 'إعدادات سريعة وكلاودفلير:'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                ActionChip(
-                  avatar: const Icon(Icons.cloud_sync, size: 16),
-                  label: const Text('Cloudflare Tunnel (https://)'),
-                  onPressed: () {
-                    if (!textController.text.startsWith('https://')) {
-                      textController.text = 'https://';
-                      textController.selection = TextSelection.fromPosition(
-                        TextPosition(offset: textController.text.length),
-                      );
-                    }
-                  },
-                ),
-                ActionChip(
-                  label: const Text('Pi LAN (192.168.137.166)'),
-                  onPressed: () => textController.text = 'http://192.168.137.166:8080',
-                ),
-                ActionChip(
-                  label: const Text('Localhost (127.0.0.1)'),
-                  onPressed: () => textController.text = 'http://127.0.0.1:8080',
-                ),
-                ActionChip(
-                  label: const Text('Android Sim (10.0.2.2)'),
-                  onPressed: () => textController.text = 'http://10.0.2.2:8080',
-                ),
-              ],
+            const SizedBox(height: 8),
+            ActionChip(
+              avatar: const Icon(Icons.wifi_rounded, size: 16),
+              label: Text(s.tr('On my Wi-Fi: foodscale.local', 'على شبكتي: foodscale.local')),
+              onPressed: connecting ? null : () => address.text = 'foodscale.local',
             ),
+            if (failed) ...[
+              const SizedBox(height: 10),
+              Text(
+                s.tr(
+                  'No answer from this address. Check that the scale is on and on the same Wi-Fi.',
+                  'لا يوجد رد من هذا العنوان. تأكد أن الميزان يعمل وعلى شبكة Wi-Fi نفسها.',
+                ),
+                style: const TextStyle(color: MiqdarColors.danger, fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ],
           ],
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(ctx).pop(),
+          onPressed: connecting ? null : _cancel,
           child: Text(s.tr('Cancel', 'إلغاء')),
         ),
         FilledButton(
-          onPressed: () {
-            var newUrl = textController.text.trim();
-            if (newUrl.isNotEmpty) {
-              if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
-                newUrl = 'https://$newUrl';
-              }
-              controller.setApiBaseUrl(newUrl);
-            }
-            Navigator.of(ctx).pop();
-          },
-          child: Text(s.tr('Save & Connect', 'حفظ والاتصال')),
+          onPressed: connecting ? null : () => _connect(s),
+          child: connecting
+              ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : Text(failed ? s.tr('Try Again', 'حاول مجدداً') : s.tr('Connect', 'اتصال')),
         ),
       ],
-    ),
-  );
+    );
+  }
 }
-

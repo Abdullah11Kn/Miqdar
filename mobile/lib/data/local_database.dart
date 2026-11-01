@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -10,7 +11,7 @@ class LocalDatabase {
   Database? _database;
   bool _useInMemory = false;
 
-  NutritionGoals _memGoals = const NutritionGoals(
+  static const defaultGoals = NutritionGoals(
     calories: 2200,
     sugar: 50,
     sodium: 2300,
@@ -20,12 +21,16 @@ class LocalDatabase {
     fat: 70,
     fiber: 28,
   );
-  HealthProfile _memHealthProfile = const HealthProfile(
+  static const _defaultHealthProfile = HealthProfile(
     conditions: ['weight_management'],
     dietaryPreferences: [],
     allergens: [],
     dislikedFoods: [],
   );
+
+  NutritionGoals _memGoals = defaultGoals;
+  HealthProfile _memHealthProfile = _defaultHealthProfile;
+  final Map<String, Uint8List> _memPhotos = {};
   final List<MealEntry> _memMeals = [];
   final List<HealthAlert> _memAlerts = [];
   final List<FoodCatalogItem> _memCustomFoods = [];
@@ -154,7 +159,7 @@ class LocalDatabase {
       final root = await getDatabasesPath();
       _database = await openDatabase(
         p.join(root, 'miqdar_mobile.db'),
-        version: 2,
+        version: 3,
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE goals(
@@ -178,9 +183,11 @@ class LocalDatabase {
             )
           ''');
           await _createHealthProfileTable(db);
+          await _addRestartSafeColumns(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) await _createHealthProfileTable(db);
+          if (oldVersion < 3) await _addRestartSafeColumns(db);
         },
       );
       await _seedGoals();
@@ -242,6 +249,18 @@ class LocalDatabase {
     )
   ''');
 
+  /// Fields that used to live only in memory and were lost on every restart.
+  static Future<void> _addRestartSafeColumns(Database db) async {
+    await db.execute('ALTER TABLE goals ADD COLUMN fat REAL');
+    await db.execute('ALTER TABLE goals ADD COLUMN fiber REAL');
+    await db.execute('ALTER TABLE goals ADD COLUMN tracking_only INTEGER NOT NULL DEFAULT 0');
+    await db.execute("ALTER TABLE meals ADD COLUMN notes TEXT NOT NULL DEFAULT ''");
+    await db.execute("ALTER TABLE meals ADD COLUMN portion_source TEXT NOT NULL DEFAULT 'scale'");
+    await db.execute("ALTER TABLE alerts ADD COLUMN message_ar TEXT NOT NULL DEFAULT ''");
+    await db.execute('ALTER TABLE alerts ADD COLUMN is_read INTEGER NOT NULL DEFAULT 0');
+    await db.execute('ALTER TABLE alerts ADD COLUMN acknowledged INTEGER NOT NULL DEFAULT 0');
+  }
+
   Database get db {
     final value = _database;
     if (value == null) throw StateError('Local database is not initialized');
@@ -288,11 +307,11 @@ class LocalDatabase {
       potassium: (row['potassium'] as num).toDouble(),
       carbohydrates: (row['carbohydrates'] as num).toDouble(),
       protein: (row['protein'] as num).toDouble(),
-      fat: _memGoals.fat,
-      fiber: _memGoals.fiber,
+      fat: (row['fat'] as num?)?.toDouble() ?? defaultGoals.fat,
+      fiber: (row['fiber'] as num?)?.toDouble() ?? defaultGoals.fiber,
       goalTypes: _memGoals.goalTypes,
       source: _memGoals.source,
-      trackingOnly: _memGoals.trackingOnly,
+      trackingOnly: row['tracking_only'] == 1,
     );
   }
 
@@ -308,6 +327,9 @@ class LocalDatabase {
         'potassium': goals.potassium,
         'carbohydrates': goals.carbohydrates,
         'protein': goals.protein,
+        'fat': goals.fat,
+        'fiber': goals.fiber,
+        'tracking_only': goals.trackingOnly ? 1 : 0,
       },
       where: 'id=1',
     );
@@ -380,6 +402,8 @@ class LocalDatabase {
       weightG: weightG,
       confidence: (row['confidence'] as num).toDouble(),
       nutrients: nutrients,
+      notes: row['notes'] as String? ?? '',
+      portionSource: PortionSource.values.asNameMap()[row['portion_source']] ?? PortionSource.scale,
       basisPer100g: weightG > 0 ? nutrients.scaledBy(100.0 / weightG) : nutrients,
       verificationStatus: (row['food_id'] as String).startsWith(aiFoodIdPrefix)
           ? aiEstimateStatus
@@ -395,6 +419,7 @@ class LocalDatabase {
     DateTime? eatenAt,
     String notes = '',
     String syncStatus = 'saved_locally',
+    bool persist = true,
   }) async {
     final stamp = (eatenAt ?? DateTime.now()).toUtc();
     final totalNutrients = result.totalNutrients;
@@ -433,7 +458,7 @@ class LocalDatabase {
         ...result.additionalItems,
       ],
     );
-    return insertMealEntry(meal);
+    return persist ? insertMealEntry(meal) : meal;
   }
 
   Future<MealEntry> insertMealEntry(MealEntry meal) async {
@@ -454,6 +479,8 @@ class LocalDatabase {
         'meal_type': meal.mealType,
         'weight_g': meal.weightG,
         'confidence': meal.confidence,
+        'notes': meal.notes,
+        'portion_source': meal.portionSource.name,
         ...meal.nutrients.toDatabase(),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -473,6 +500,8 @@ class LocalDatabase {
         'eaten_at': meal.eatenAt.toUtc().toIso8601String(),
         'meal_type': meal.mealType,
         'weight_g': meal.weightG,
+        'notes': meal.notes,
+        'portion_source': meal.portionSource.name,
         ...meal.nutrients.toDatabase(),
       },
       where: 'id = ?',
@@ -506,9 +535,32 @@ class LocalDatabase {
         'current_value': alert.currentValue,
         'threshold_value': alert.thresholdValue,
         'message': alert.message,
+        'message_ar': alert.messageAr,
         'created_at': alert.createdAt.toIso8601String(),
         'evaluation_ms': alert.evaluationMs,
+        'is_read': alert.read ? 1 : 0,
+        'acknowledged': alert.acknowledged ? 1 : 0,
       });
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Remembers which notices were already read, so they stay read after a restart.
+  Future<void> updateAlertStates(List<HealthAlert> alerts) async {
+    if (_useInMemory) {
+      _memAlerts
+        ..clear()
+        ..addAll(alerts);
+      return;
+    }
+    final batch = db.batch();
+    for (final alert in alerts) {
+      batch.update(
+        'alerts',
+        {'is_read': alert.read ? 1 : 0, 'acknowledged': alert.acknowledged ? 1 : 0},
+        where: 'id = ?',
+        whereArgs: [alert.id],
+      );
     }
     await batch.commit(noResult: true);
   }
@@ -526,10 +578,63 @@ class LocalDatabase {
               currentValue: (row['current_value'] as num).toDouble(),
               thresholdValue: (row['threshold_value'] as num).toDouble(),
               message: row['message'] as String,
+              messageAr: row['message_ar'] as String? ?? '',
+              read: row['is_read'] == 1,
+              acknowledged: row['acknowledged'] == 1,
               createdAt: DateTime.parse(row['created_at'] as String),
               evaluationMs: row['evaluation_ms'] as int,
             ))
         .toList();
+  }
+
+  /// Meal photos live as files named after the meal, so the database stays small.
+  Future<File> _photoFile(String mealId) async =>
+      File(p.join(await getDatabasesPath(), 'meal_photos', '$mealId.jpg'));
+
+  Future<void> saveMealPhoto(String mealId, Uint8List bytes) async {
+    if (_useInMemory) {
+      _memPhotos[mealId] = bytes;
+      return;
+    }
+    final file = await _photoFile(mealId);
+    await file.parent.create(recursive: true);
+    await file.writeAsBytes(bytes);
+  }
+
+  Future<Uint8List?> loadMealPhoto(String mealId) async {
+    if (_useInMemory) return _memPhotos[mealId];
+    final file = await _photoFile(mealId);
+    return await file.exists() ? file.readAsBytes() : null;
+  }
+
+  Future<void> deleteMealPhoto(String mealId) async {
+    if (_useInMemory) {
+      _memPhotos.remove(mealId);
+      return;
+    }
+    final file = await _photoFile(mealId);
+    if (await file.exists()) await file.delete();
+  }
+
+  /// Removes everything this app stored on this phone and goes back to the defaults.
+  Future<void> deleteAllData() async {
+    _memGoals = defaultGoals;
+    _memHealthProfile = _defaultHealthProfile;
+    _memMeals.clear();
+    _memAlerts.clear();
+    _memCustomFoods.clear();
+    _memPhotos.clear();
+    _memSettings.clear();
+    if (_useInMemory) return;
+    await db.delete('meals');
+    await db.delete('alerts');
+    await db.delete('goals');
+    await db.delete('health_profile');
+    await db.execute('DROP TABLE IF EXISTS settings');
+    await _seedGoals();
+    await _seedHealthProfile();
+    final photos = Directory(p.join(await getDatabasesPath(), 'meal_photos'));
+    if (await photos.exists()) await photos.delete(recursive: true);
   }
 
   List<FoodCatalogItem> get customFoods => List.unmodifiable(_memCustomFoods);

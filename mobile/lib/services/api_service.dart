@@ -112,6 +112,21 @@ class RecognitionException implements Exception {
   String toString() => 'RecognitionException($code): $message';
 }
 
+/// Turns what a person types ("foodscale.local", "192.168.1.20", a tunnel link) into a full URL.
+String normalizeScaleAddress(String input) {
+  var address = input.trim();
+  while (address.endsWith('/')) {
+    address = address.substring(0, address.length - 1);
+  }
+  if (address.isEmpty || address.contains('://')) return address;
+  final host = address.split(':').first;
+  final isLocal = host == 'localhost' ||
+      host.endsWith('.local') ||
+      RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(host);
+  if (!isLocal) return 'https://$address';
+  return address.contains(':') ? 'http://$address' : 'http://$address:8080';
+}
+
 class ApiService {
   ApiService({
     String? baseUrl,
@@ -360,7 +375,7 @@ class ApiService {
       return 'The scale requires an API token (MIQDAR_API_TOKEN).';
     }
     if (body.contains('<!DOCTYPE') || body.contains('<html')) {
-      return 'Server returned HTTP $status. Check your Scale API URL.';
+      return 'Server returned HTTP $status. Check the scale address.';
     }
     return 'The scale returned HTTP $status.';
   }
@@ -518,8 +533,9 @@ class ApiService {
     required List<MealEntry> recentMeals,
     int limit = 6,
     bool offlineOnly = false,
+    bool isAr = false,
   }) async {
-    if (offlineOnly) return _offlineRecommendations(profile, recentMeals, limit);
+    if (offlineOnly) return _offlineRecommendations(profile, recentMeals, limit, isAr);
     try {
       final response = await _client
           .post(
@@ -539,7 +555,7 @@ class ApiService {
         jsonDecode(response.body) as Map<String, dynamic>,
       );
     } catch (_) {
-      return _offlineRecommendations(profile, recentMeals, limit);
+      return _offlineRecommendations(profile, recentMeals, limit, isAr);
     }
   }
 
@@ -547,7 +563,9 @@ class ApiService {
     HealthProfile profile,
     List<MealEntry> recentMeals,
     int limit,
+    bool isAr,
   ) {
+    String tr(String en, String ar) => isAr ? ar : en;
     final recentCounts = <String, int>{};
     final cutoff = DateTime.now().subtract(const Duration(days: 14));
     for (final meal in recentMeals.where((meal) => meal.eatenAt.isAfter(cutoff))) {
@@ -593,34 +611,34 @@ class ApiService {
       final why = <String>[];
 
       if ((recentCounts[item.foodId] ?? 0) == 0) {
-        why.add('Adds variety compared with the last 14 days');
+        why.add(tr('Something different from your last two weeks', 'مختلف عما تناولته في آخر أسبوعين'));
       }
       if (conditions.contains('diabetes')) {
         score += nutrients.sugar <= 8 ? 12 : -nutrients.sugar * 0.6;
-        if (nutrients.sugar <= 8) why.add('Lower-sugar option (${nutrients.sugar.toStringAsFixed(1)} g sugar)');
+        if (nutrients.sugar <= 8) why.add(tr('Lower in sugar (${nutrients.sugar.toStringAsFixed(1)} g)', 'سكر أقل (${nutrients.sugar.toStringAsFixed(1)} غ)'));
       }
       if (conditions.contains('hypertension')) {
         score += nutrients.sodium <= 220 ? 12 : -nutrients.sodium / 35;
-        if (nutrients.sodium <= 220) why.add('Moderate/low sodium (${nutrients.sodium.toStringAsFixed(0)} mg)');
+        if (nutrients.sodium <= 220) why.add(tr('Lower in sodium (${nutrients.sodium.toStringAsFixed(0)} mg)', 'صوديوم أقل (${nutrients.sodium.toStringAsFixed(0)} ملغ)'));
       }
       if (conditions.contains('weight_management') && item.per100g.calories <= 175) {
         score += 9;
-        why.add('Balanced energy density (${item.per100g.calories.toStringAsFixed(0)} kcal/100g)');
+        why.add(tr('Lighter choice (${item.per100g.calories.toStringAsFixed(0)} kcal per 100 g)', 'خيار أخف (${item.per100g.calories.toStringAsFixed(0)} سعرة لكل 100 غ)'));
       }
       if (conditions.contains('high_cholesterol') && nutrients.fat <= 8) {
         score += 8;
-        why.add('Lower total fat per portion (${nutrients.fat.toStringAsFixed(1)} g)');
+        why.add(tr('Lower in fat (${nutrients.fat.toStringAsFixed(1)} g)', 'دهون أقل (${nutrients.fat.toStringAsFixed(1)} غ)'));
       }
       if (conditions.contains('kidney_disease')) {
         score -= nutrients.potassium > 260 ? 14 : 0;
-        why.add('Compare against clinician-supplied sodium & potassium targets');
+        why.add(tr('Check against the sodium and potassium limits from your clinician', 'قارنه بحدود الصوديوم والبوتاسيوم من مختصك الصحي'));
       }
       if (nutrients.protein >= 15) {
         score += 5;
-        why.add('Provides ${nutrients.protein.toStringAsFixed(1)} g protein per serving');
+        why.add(tr('${nutrients.protein.toStringAsFixed(1)} g protein per serving', '${nutrients.protein.toStringAsFixed(1)} غ بروتين في الحصة'));
       }
       if (why.isEmpty) {
-        why.add('Balances variety with your configured nutrition targets');
+        why.add(tr('Fits your goals and adds variety', 'يناسب أهدافك ويضيف تنوعاً'));
       }
 
       suggestions.add(MealSuggestion(
@@ -638,8 +656,10 @@ class ApiService {
     suggestions.sort((a, b) => b.score.compareTo(a.score));
     return RecommendationResponse(
       suggestions: suggestions.take(limit).toList(),
-      disclaimer:
-          'General planning ideas based on your configured exclusions, targets, and 14-day meal history. Not a medical prescription or allergy guarantee.',
+      disclaimer: tr(
+        'General ideas based on your preferences and recent meals. Not medical advice, and not a guarantee that a food is free of an allergen.',
+        'أفكار عامة مبنية على تفضيلاتك ووجباتك الأخيرة. ليست نصيحة طبية ولا ضماناً لخلو الطعام من مسببات الحساسية.',
+      ),
       method: 'transparent_catalog_scoring_v3',
       offline: true,
     );

@@ -150,6 +150,25 @@ void main() {
     expect(result.model, 'second-model');
   });
 
+  test('a model skipped for being slow gets another try when the others fail', () async {
+    final calls = <String>[];
+    final service = GeminiNutritionService(
+      apiKey: 'test',
+      models: const ['slow', 'out-of-quota'],
+      client: MockClient((request) {
+        final model = request.url.pathSegments.last.split(':').first;
+        calls.add(model);
+        if (model == 'out-of-quota') return Future.value(http.Response('{}', 429));
+        // Only the first request hangs past the per-model limit.
+        if (calls.where((c) => c == 'slow').length == 1) return Completer<http.Response>().future;
+        return Future.value(_gemini([_candidate('Jareesh')]));
+      }),
+    );
+    final result = await service.analyze(imageBytes: _photo, weightG: 100);
+    expect(result.nameEn, 'Jareesh');
+    expect(calls, ['slow', 'out-of-quota', 'slow']);
+  });
+
   test('a rejected key stops at once and is reported', () async {
     var calls = 0;
     await expectLater(

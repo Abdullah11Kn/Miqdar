@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' show DateFormat;
 
 import '../app.dart';
+import '../app_controller.dart';
 import '../l10n/strings.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
@@ -70,14 +71,10 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 ],
               ),
             ),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 40),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              onPressed: () => _showExportSheet(context, periodDays),
-              icon: const Icon(Icons.download_rounded, size: 18),
-              label: Text(s.tr('Export CSV', 'تصدير CSV')),
+            IconButton.filledTonal(
+              tooltip: s.tr('Export', 'تصدير'),
+              onPressed: () => showExportSheet(context, days: periodDays),
+              icon: const Icon(Icons.download_rounded),
             ),
           ],
         ),
@@ -95,17 +92,39 @@ class _TrendsScreenState extends State<TrendsScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Top KPI Cards (TREND-02 denominator explicitly shown)
+        if (periodMeals.isEmpty)
+          SurfaceCard(
+            child: Column(
+              children: [
+                const Icon(Icons.insights_rounded, size: 36, color: MiqdarColors.muted),
+                const SizedBox(height: 10),
+                Text(
+                  s.tr('Nothing to show yet', 'لا يوجد ما يُعرض بعد'),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  s.tr(
+                    'Save a meal and your averages appear here.',
+                    'احفظ وجبة وستظهر متوسطاتك هنا.',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          )
+        else ...[
+        // Top averages, counted over the days that have meals
         Row(
           children: [
             Expanded(
               child: _InsightMetricTile(
-                label: s.tr('Daily Average Energy', 'متوسط الطاقة اليومي'),
+                label: s.tr('Calories per day', 'السعرات في اليوم'),
                 value: '${dailyAvg.calories.toStringAsFixed(0)} ${s.unitKcal}',
                 detail:
                     s.tr(
-                  'Over ${byDate.length} ${byDate.length == 1 ? 'day' : 'days'}',
-                  'خلال ${byDate.length} يوم',
+                  '${byDate.length} logged ${byDate.length == 1 ? 'day' : 'days'}',
+                  '${byDate.length} يوم مسجل',
                 ),
                 accent: MiqdarColors.primary,
               ),
@@ -113,10 +132,11 @@ class _TrendsScreenState extends State<TrendsScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: _InsightMetricTile(
-                label: s.tr('Daily Protein Avg', 'متوسط البروتين اليومي'),
+                label: s.tr('Protein per day', 'البروتين في اليوم'),
                 value: '${dailyAvg.protein.toStringAsFixed(1)} ${s.unitG}',
-                detail:
-                    '${s.tr("Target", "الهدف")}: ${goals.protein.toStringAsFixed(0)} ${s.unitG}/${s.tr("day", "يوم")}',
+                detail: goals.trackingOnly
+                    ? s.tr('Average', 'المتوسط')
+                    : '${s.tr("Goal", "الهدف")}: ${goals.protein.toStringAsFixed(0)} ${s.unitG}',
                 accent: MiqdarColors.proteinAccent,
               ),
             ),
@@ -126,7 +146,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
 
         // Daily Calorie Trend Curve vs Daily Target (TREND-01)
         Text(
-          s.tr('Daily Calorie Intake vs Target', 'السعرات اليومية مقارنة بالهدف اليومي'),
+          s.tr('Calories by day', 'السعرات حسب اليوم'),
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
         ),
         const SizedBox(height: 10),
@@ -138,163 +158,39 @@ class _TrendsScreenState extends State<TrendsScreen> {
 
         // Macronutrient Energy Distribution Donut Chart
         Text(
-          s.tr('Macronutrient Energy Balance', 'توزيع طاقة العناصر الغذائية الكبرى'),
+          s.tr('Where your calories come from', 'مصدر سعراتك'),
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
         ),
         const SizedBox(height: 10),
         MacroDonutChart(values: periodTotals),
         const SizedBox(height: 22),
 
-        // Daily Average per Nutrient (Tap any bar to open S34 Nutrient Drill-Down)
+        // Daily average per nutrient; tap one to see which meals contributed most
         Text(
-          s.tr('Daily Nutrient Averages', 'المتوسط اليومي للعناصر'),
+          s.tr('Daily averages', 'المتوسطات اليومية'),
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
         ),
         const SizedBox(height: 10),
-        _NutrientTrendBar(
-          nutrientKey: 'calories_kcal',
-          label: s.calories,
-          value: dailyAvg.calories,
-          target: goals.calories,
-          unit: s.unitKcal,
-          color: MiqdarColors.caloriesAccent,
-          onTap: () => _showNutrientDrillDown(
-            context,
-            'calories_kcal',
-            s.calories,
-            s.unitKcal,
-            dailyAvg.calories,
-            goals.calories,
-            periodMeals,
-            (m) => m.nutrients.calories,
+        ...[
+          (s.calories, dailyAvg.calories, goals.calories, s.unitKcal, MiqdarColors.caloriesAccent, (MealEntry m) => m.nutrients.calories),
+          (s.protein, dailyAvg.protein, goals.protein, s.unitG, MiqdarColors.proteinAccent, (MealEntry m) => m.nutrients.protein),
+          (s.carbs, dailyAvg.carbohydrates, goals.carbohydrates, s.unitG, MiqdarColors.carbsAccent, (MealEntry m) => m.nutrients.carbohydrates),
+          (s.fat, dailyAvg.fat, goals.fat, s.unitG, MiqdarColors.fatAccent, (MealEntry m) => m.nutrients.fat),
+          (s.sugar, dailyAvg.sugar, goals.sugar, s.unitG, MiqdarColors.sugarAccent, (MealEntry m) => m.nutrients.sugar),
+          (s.sodium, dailyAvg.sodium, goals.sodium, s.unitMg, MiqdarColors.sodiumAccent, (MealEntry m) => m.nutrients.sodium),
+          (s.potassium, dailyAvg.potassium, goals.potassium, s.unitMg, MiqdarColors.potassiumAccent, (MealEntry m) => m.nutrients.potassium),
+          (s.fiber, dailyAvg.fiber, goals.fiber, s.unitG, MiqdarColors.fiberAccent, (MealEntry m) => m.nutrients.fiber),
+        ].map(
+          (n) => _NutrientTrendBar(
+            label: n.$1,
+            value: n.$2,
+            target: goals.trackingOnly ? 0 : n.$3,
+            unit: n.$4,
+            color: n.$5,
+            onTap: () => _showNutrientDrillDown(context, n.$1, n.$4, n.$2, n.$3, periodMeals, n.$6),
           ),
         ),
-        _NutrientTrendBar(
-          nutrientKey: 'protein_g',
-          label: s.protein,
-          value: dailyAvg.protein,
-          target: goals.protein,
-          unit: s.unitG,
-          color: MiqdarColors.proteinAccent,
-          onTap: () => _showNutrientDrillDown(
-            context,
-            'protein_g',
-            s.protein,
-            s.unitG,
-            dailyAvg.protein,
-            goals.protein,
-            periodMeals,
-            (m) => m.nutrients.protein,
-          ),
-        ),
-        _NutrientTrendBar(
-          nutrientKey: 'carbohydrate_g',
-          label: s.carbs,
-          value: dailyAvg.carbohydrates,
-          target: goals.carbohydrates,
-          unit: s.unitG,
-          color: MiqdarColors.carbsAccent,
-          onTap: () => _showNutrientDrillDown(
-            context,
-            'carbohydrate_g',
-            s.carbs,
-            s.unitG,
-            dailyAvg.carbohydrates,
-            goals.carbohydrates,
-            periodMeals,
-            (m) => m.nutrients.carbohydrates,
-          ),
-        ),
-        _NutrientTrendBar(
-          nutrientKey: 'fat_g',
-          label: s.fat,
-          value: dailyAvg.fat,
-          target: goals.fat,
-          unit: s.unitG,
-          color: MiqdarColors.fatAccent,
-          onTap: () => _showNutrientDrillDown(
-            context,
-            'fat_g',
-            s.fat,
-            s.unitG,
-            dailyAvg.fat,
-            goals.fat,
-            periodMeals,
-            (m) => m.nutrients.fat,
-          ),
-        ),
-        _NutrientTrendBar(
-          nutrientKey: 'sugar_g',
-          label: s.sugar,
-          value: dailyAvg.sugar,
-          target: goals.sugar,
-          unit: s.unitG,
-          color: MiqdarColors.sugarAccent,
-          onTap: () => _showNutrientDrillDown(
-            context,
-            'sugar_g',
-            s.sugar,
-            s.unitG,
-            dailyAvg.sugar,
-            goals.sugar,
-            periodMeals,
-            (m) => m.nutrients.sugar,
-          ),
-        ),
-        _NutrientTrendBar(
-          nutrientKey: 'sodium_mg',
-          label: s.sodium,
-          value: dailyAvg.sodium,
-          target: goals.sodium,
-          unit: s.unitMg,
-          color: MiqdarColors.sodiumAccent,
-          onTap: () => _showNutrientDrillDown(
-            context,
-            'sodium_mg',
-            s.sodium,
-            s.unitMg,
-            dailyAvg.sodium,
-            goals.sodium,
-            periodMeals,
-            (m) => m.nutrients.sodium,
-          ),
-        ),
-        _NutrientTrendBar(
-          nutrientKey: 'potassium_mg',
-          label: s.potassium,
-          value: dailyAvg.potassium,
-          target: goals.potassium,
-          unit: s.unitMg,
-          color: MiqdarColors.potassiumAccent,
-          onTap: () => _showNutrientDrillDown(
-            context,
-            'potassium_mg',
-            s.potassium,
-            s.unitMg,
-            dailyAvg.potassium,
-            goals.potassium,
-            periodMeals,
-            (m) => m.nutrients.potassium,
-          ),
-        ),
-        _NutrientTrendBar(
-          nutrientKey: 'fiber_g',
-          label: s.fiber,
-          value: dailyAvg.fiber,
-          target: goals.fiber,
-          unit: s.unitG,
-          color: MiqdarColors.fiberAccent,
-          onTap: () => _showNutrientDrillDown(
-            context,
-            'fiber_g',
-            s.fiber,
-            s.unitG,
-            dailyAvg.fiber,
-            goals.fiber,
-            periodMeals,
-            (m) => m.nutrients.fiber,
-          ),
-        ),
+        ],
       ],
     );
 
@@ -314,7 +210,6 @@ class _TrendsScreenState extends State<TrendsScreen> {
 
   void _showNutrientDrillDown(
     BuildContext context,
-    String key,
     String label,
     String unit,
     double dailyAvg,
@@ -338,17 +233,17 @@ class _TrendsScreenState extends State<TrendsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$label • ${s.tr("Nutrient Detail", "تفاصيل العنصر الغذائي")}',
+                label,
                 style: Theme.of(ctx).textTheme.titleLarge,
               ),
               const SizedBox(height: 6),
               Text(
-                '${s.tr("Daily Average", "المتوسط اليومي")}: ${dailyAvg.toStringAsFixed(1)} $unit • ${s.tr("Configured Target", "الهدف المحدد")}: ${target.toStringAsFixed(0)} $unit',
+                '${s.tr("Average per day", "المتوسط اليومي")}: ${dailyAvg.toStringAsFixed(1)} $unit • ${s.tr("Goal", "الهدف")}: ${target.toStringAsFixed(0)} $unit',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 14),
               Text(
-                s.tr('Top Contributing Meals in Period', 'أعلى الوجبات مساهمة في هذه الفترة'),
+                s.tr('Meals with the most', 'الوجبات الأعلى'),
                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
               ),
               const SizedBox(height: 8),
@@ -361,7 +256,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   subtitle: Text(
-                    '${DateFormat('d MMM').format(m.eatenAt.toLocal())} • ${m.weightG.toStringAsFixed(0)} ${s.unitG}',
+                    '${s.date(m.eatenAt.toLocal(), 'd MMM')} • ${m.weightG.toStringAsFixed(0)} ${s.unitG}',
                   ),
                   trailing: Text(
                     '${selector(m).toStringAsFixed(1)} $unit',
@@ -378,77 +273,73 @@ class _TrendsScreenState extends State<TrendsScreen> {
       ),
     );
   }
+}
 
-  void _showExportSheet(BuildContext context, int days) {
-    final controller = MiqdarScope.of(context);
-    final s = S.of(context);
-    final csv = controller.exportMealsCsv(days: days);
+/// Lets the user copy their meals as CSV, which opens in any spreadsheet.
+void showExportSheet(BuildContext context, {required int days}) {
+  final controller = MiqdarScope.of(context);
+  final s = S.of(context);
+  final csv = controller.exportMealsCsv(days: days);
 
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(22),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                s.tr('Export Portable Nutrition Data', 'تصدير البيانات الغذائية'),
-                style: Theme.of(ctx).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                s.tr(
-                  'CSV includes Unicode Arabic names, portion provenance, verification status, and formula-injection sanitization.',
-                  'يشمل ملف CSV الأسماء العربية ومصدر الوزن وحالة التوثيق مع حماية كاملة ضد حقن المعادلات.',
-                ),
-                style: const TextStyle(fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                height: 150,
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    csv,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: csv));
-                  if (!ctx.mounted) return;
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        s.tr(
-                          'CSV data copied to clipboard!',
-                          'تم نسخ بيانات CSV إلى الحافظة بنجاح!',
-                        ),
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.copy_rounded),
-                label: Text(s.tr('Copy CSV to Clipboard', 'نسخ CSV إلى الحافظة')),
-              ),
-            ],
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => Padding(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            s.tr('Export Meals', 'تصدير الوجبات'),
+            style: Theme.of(ctx).textTheme.titleLarge,
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(
+            s.tr(
+              'Copy your meals from the last $days days, then paste them into a spreadsheet or note.',
+              'انسخ وجباتك من آخر $days يوماً ثم الصقها في جدول بيانات أو ملاحظة.',
+            ),
+            style: const TextStyle(fontSize: 12.5),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 150,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: SingleChildScrollView(
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: SelectableText(
+                  csv,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: csv));
+              if (!ctx.mounted) return;
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  behavior: SnackBarBehavior.floating,
+                  content: Text(s.tr('Copied', 'تم النسخ')),
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded),
+            label: Text(s.tr('Copy', 'نسخ')),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _InsightMetricTile extends StatelessWidget {
@@ -505,7 +396,6 @@ class _InsightMetricTile extends StatelessWidget {
 
 class _NutrientTrendBar extends StatelessWidget {
   const _NutrientTrendBar({
-    required this.nutrientKey,
     required this.label,
     required this.value,
     required this.target,
@@ -514,9 +404,10 @@ class _NutrientTrendBar extends StatelessWidget {
     required this.onTap,
   });
 
-  final String nutrientKey;
   final String label;
   final double value;
+
+  /// Zero when there is no goal to compare with.
   final double target;
   final String unit;
   final Color color;
@@ -525,11 +416,12 @@ class _NutrientTrendBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final ratio = target > 0 ? (value / target).clamp(0.0, 1.0) : 0.0;
+    final percent = target > 0 ? (value / target * 100).round() : null;
+    final amount = value.toStringAsFixed(value >= 100 ? 0 : 1);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: SurfaceCard(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -549,28 +441,32 @@ class _NutrientTrendBar extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${value.toStringAsFixed(value >= 100 ? 0 : 1)} / ${target.toStringAsFixed(0)} $unit',
+                  percent == null
+                      ? '$amount $unit'
+                      : '$amount / ${target.toStringAsFixed(0)} $unit',
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 const Icon(Icons.chevron_right_rounded, size: 18, color: MiqdarColors.muted),
               ],
             ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(99),
-              child: LinearProgressIndicator(
-                value: ratio,
-                minHeight: 9,
-                backgroundColor: color.withValues(alpha: 0.14),
-                color: color,
+            if (percent != null) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(
+                  value: (percent / 100).clamp(0.0, 1.0),
+                  minHeight: 8,
+                  backgroundColor: color.withValues(alpha: 0.14),
+                  color: color,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${s.tr("Of daily target", "من الهدف اليومي")}: ${(ratio * 100).round()}%',
-              style: const TextStyle(fontSize: 11),
-            ),
+              const SizedBox(height: 6),
+              Text(
+                s.tr('$percent% of your goal', '$percent% من هدفك'),
+                style: const TextStyle(fontSize: 11),
+              ),
+            ],
           ],
         ),
       ),
@@ -578,7 +474,7 @@ class _NutrientTrendBar extends StatelessWidget {
   }
 }
 
-/// Goals & Nutrient Targets Configuration Screen (S35, GOAL-01–GOAL-05).
+/// Daily goals, grouped by what people usually change.
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
 
@@ -589,6 +485,25 @@ class GoalsScreen extends StatefulWidget {
 class _GoalsScreenState extends State<GoalsScreen> {
   NutritionGoals? draft;
 
+  Widget _heading(String text) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
+        child: Text(text, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+      );
+
+  Future<void> _save(MiqdarController controller, S s) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    await controller.updateGoals(draft!);
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(s.tr('Goals saved', 'تم حفظ الأهداف')),
+      ),
+    );
+    navigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = MiqdarScope.of(context);
@@ -596,50 +511,43 @@ class _GoalsScreenState extends State<GoalsScreen> {
     draft ??= controller.goals;
 
     return Scaffold(
-      appBar: AppBar(title: Text(s.tr('Goals & Nutrient Targets', 'الأهداف والحدود الغذائية'))),
+      appBar: AppBar(title: Text(s.tr('Daily Goals', 'الأهداف اليومية'))),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          child: FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            onPressed: () => _save(controller, s),
+            child: Text(s.tr('Save Goals', 'حفظ الأهداف')),
+          ),
+        ),
+      ),
       body: SafeArea(
+        bottom: false,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 680),
             child: ListView(
-              padding: const EdgeInsets.all(22),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               children: [
                 SurfaceCard(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        s.tr(
-                          'User-controlled targets & notice rules',
-                          'أهداف وحدود مخصصة بإدارة المستخدم',
-                        ),
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        s.tr(
-                          'Configure targets, maximum limits, or minimums using keyboard input, steppers, or sliders. Enable "Track without goals" to disable all threshold notices.',
-                          'اضبط الأهداف أو الحدود القصوى أو الدنيا عبر الإدخال الرقمي أو الأزرار أو شريط التمرير. يمكنك تفعيل "التتبع فقط" لإيقاف جميع التنبيهات.',
-                        ),
-                        style: const TextStyle(fontSize: 12.5),
-                      ),
-                      const SizedBox(height: 10),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          s.tr('Track without goals (Disable threshold notices)', 'التتبع بدون أهداف (إيقاف التنبيهات)'),
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                        ),
-                        value: draft!.trackingOnly,
-                        onChanged: (v) => setState(() => draft = draft!.copyWith(trackingOnly: v)),
-                      ),
-                    ],
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      s.tr('Just track, no goals', 'تتبع فقط بدون أهداف'),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                    subtitle: Text(
+                      s.tr('Hides goals and turns off notices', 'يخفي الأهداف ويوقف التنبيهات'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    value: draft!.trackingOnly,
+                    onChanged: (v) => setState(() => draft = draft!.copyWith(trackingOnly: v)),
                   ),
                 ),
-                const SizedBox(height: 16),
-
                 if (!draft!.trackingOnly) ...[
+                  _heading(s.tr('Eat about this much', 'تناول هذا المقدار تقريباً')),
                   _GoalNumericEditorCard(
                     label: s.calories,
                     value: draft!.calories,
@@ -647,18 +555,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     max: 4500,
                     step: 50,
                     unit: s.unitKcal,
-                    goalTypeLabel: GoalType.target.label(s.isAr),
                     onChanged: (v) => setState(() => draft = draft!.copyWith(calories: v)),
-                  ),
-                  _GoalNumericEditorCard(
-                    label: s.protein,
-                    value: draft!.protein,
-                    min: 20,
-                    max: 300,
-                    step: 5,
-                    unit: s.unitG,
-                    goalTypeLabel: GoalType.minimum.label(s.isAr),
-                    onChanged: (v) => setState(() => draft = draft!.copyWith(protein: v)),
                   ),
                   _GoalNumericEditorCard(
                     label: s.carbs,
@@ -667,7 +564,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     max: 500,
                     step: 10,
                     unit: s.unitG,
-                    goalTypeLabel: GoalType.target.label(s.isAr),
                     onChanged: (v) => setState(() => draft = draft!.copyWith(carbohydrates: v)),
                   ),
                   _GoalNumericEditorCard(
@@ -677,9 +573,37 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     max: 200,
                     step: 5,
                     unit: s.unitG,
-                    goalTypeLabel: GoalType.target.label(s.isAr),
                     onChanged: (v) => setState(() => draft = draft!.copyWith(fat: v)),
                   ),
+                  _GoalNumericEditorCard(
+                    label: s.potassium,
+                    value: draft!.potassium,
+                    min: 1000,
+                    max: 6000,
+                    step: 100,
+                    unit: s.unitMg,
+                    onChanged: (v) => setState(() => draft = draft!.copyWith(potassium: v)),
+                  ),
+                  _heading(s.tr('At least', 'على الأقل')),
+                  _GoalNumericEditorCard(
+                    label: s.protein,
+                    value: draft!.protein,
+                    min: 20,
+                    max: 300,
+                    step: 5,
+                    unit: s.unitG,
+                    onChanged: (v) => setState(() => draft = draft!.copyWith(protein: v)),
+                  ),
+                  _GoalNumericEditorCard(
+                    label: s.fiber,
+                    value: draft!.fiber,
+                    min: 10,
+                    max: 70,
+                    step: 2,
+                    unit: s.unitG,
+                    onChanged: (v) => setState(() => draft = draft!.copyWith(fiber: v)),
+                  ),
+                  _heading(s.tr('No more than', 'بحد أقصى')),
                   _GoalNumericEditorCard(
                     label: s.sugar,
                     value: draft!.sugar,
@@ -687,7 +611,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     max: 150,
                     step: 5,
                     unit: s.unitG,
-                    goalTypeLabel: GoalType.maximum.label(s.isAr),
                     onChanged: (v) => setState(() => draft = draft!.copyWith(sugar: v)),
                   ),
                   _GoalNumericEditorCard(
@@ -697,40 +620,9 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     max: 5000,
                     step: 100,
                     unit: s.unitMg,
-                    goalTypeLabel: GoalType.maximum.label(s.isAr),
                     onChanged: (v) => setState(() => draft = draft!.copyWith(sodium: v)),
                   ),
-                  _GoalNumericEditorCard(
-                    label: s.potassium,
-                    value: draft!.potassium,
-                    min: 1000,
-                    max: 6000,
-                    step: 100,
-                    unit: s.unitMg,
-                    goalTypeLabel: GoalType.target.label(s.isAr),
-                    onChanged: (v) => setState(() => draft = draft!.copyWith(potassium: v)),
-                  ),
-                  _GoalNumericEditorCard(
-                    label: s.fiber,
-                    value: draft!.fiber,
-                    min: 10,
-                    max: 70,
-                    step: 2,
-                    unit: s.unitG,
-                    goalTypeLabel: GoalType.minimum.label(s.isAr),
-                    onChanged: (v) => setState(() => draft = draft!.copyWith(fiber: v)),
-                  ),
                 ],
-
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: () async {
-                    await controller.updateGoals(draft!);
-                    if (context.mounted) Navigator.of(context).pop();
-                  },
-                  icon: const Icon(Icons.check_rounded),
-                  label: Text(s.tr('Save Targets & Thresholds', 'حفظ الأهداف والحدود')),
-                ),
               ],
             ),
           ),
@@ -748,7 +640,6 @@ class _GoalNumericEditorCard extends StatefulWidget {
     required this.max,
     required this.step,
     required this.unit,
-    required this.goalTypeLabel,
     required this.onChanged,
   });
 
@@ -758,7 +649,6 @@ class _GoalNumericEditorCard extends StatefulWidget {
   final double max;
   final double step;
   final String unit;
-  final String goalTypeLabel;
   final ValueChanged<double> onChanged;
 
   @override
@@ -771,90 +661,81 @@ class _GoalNumericEditorCardState extends State<_GoalNumericEditorCard> {
   );
 
   @override
-  void didUpdateWidget(covariant _GoalNumericEditorCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if ((oldWidget.value - widget.value).abs() >= 1) {
-      _ctrl.text = widget.value.toStringAsFixed(0);
-    }
-  }
-
-  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
   }
 
-  void _update(double v) {
-    final clamped = v.clamp(widget.min, widget.max).toDouble();
-    _ctrl.text = clamped.toStringAsFixed(0);
-    widget.onChanged(clamped);
+  void _step(double delta) {
+    final next = (widget.value + delta).clamp(widget.min, widget.max).toDouble();
+    _ctrl.text = next.toStringAsFixed(0);
+    widget.onChanged(next);
+  }
+
+  /// Typed values count straight away, so Save never misses one.
+  void _typed(String raw) {
+    final parsed = double.tryParse(normalizeDigits(raw).trim());
+    if (parsed != null && parsed >= widget.min && parsed <= widget.max) {
+      widget.onChanged(parsed);
+    }
+  }
+
+  /// The number pad has no Done key, so tapping elsewhere finishes typing.
+  void _finishTyping() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final parsed = double.tryParse(normalizeDigits(_ctrl.text).trim()) ?? widget.value;
+    final next = parsed.clamp(widget.min, widget.max).toDouble();
+    _ctrl.text = next.toStringAsFixed(0);
+    widget.onChanged(next);
   }
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(bottom: 10),
         child: SurfaceCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.label,
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-                        ),
-                        Text(
-                          widget.goalTypeLabel,
-                          style: const TextStyle(fontSize: 11.5, color: MiqdarColors.primary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton.outlined(
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _update(widget.value - widget.step),
-                    icon: const Icon(Icons.remove_rounded, size: 16),
-                  ),
-                  const SizedBox(width: 6),
-                  SizedBox(
-                    width: 96,
-                    child: TextField(
-                      controller: _ctrl,
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: MiqdarColors.primary,
-                      ),
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                        suffixText: widget.unit,
-                      ),
-                      onSubmitted: (raw) {
-                        final parsed = double.tryParse(normalizeDigits(raw).trim());
-                        if (parsed != null) _update(parsed);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  IconButton.outlined(
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _update(widget.value + widget.step),
-                    icon: const Icon(Icons.add_rounded, size: 16),
-                  ),
-                ],
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
+                ),
               ),
-              Slider(
-                value: widget.value.clamp(widget.min, widget.max).toDouble(),
-                min: widget.min,
-                max: widget.max,
-                divisions: ((widget.max - widget.min) / widget.step).round().clamp(1, 200),
-                onChanged: _update,
+              IconButton.outlined(
+                visualDensity: VisualDensity.compact,
+                tooltip: '-${widget.step.toStringAsFixed(0)}',
+                onPressed: () => _step(-widget.step),
+                icon: const Icon(Icons.remove_rounded, size: 16),
+              ),
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 112,
+                child: TextField(
+                  controller: _ctrl,
+                  textAlign: TextAlign.center,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: MiqdarColors.primary,
+                  ),
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    suffixText: widget.unit,
+                  ),
+                  onChanged: _typed,
+                  onSubmitted: (_) => _finishTyping(),
+                  onTapOutside: (_) {
+                    if (FocusScope.of(context).hasFocus) _finishTyping();
+                  },
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton.outlined(
+                visualDensity: VisualDensity.compact,
+                tooltip: '+${widget.step.toStringAsFixed(0)}',
+                onPressed: () => _step(widget.step),
+                icon: const Icon(Icons.add_rounded, size: 16),
               ),
             ],
           ),
@@ -862,7 +743,7 @@ class _GoalNumericEditorCardState extends State<_GoalNumericEditorCard> {
       );
 }
 
-/// Inbox & Nutrient Notices Screen (S37, S38, PRD-07).
+/// Notices about the day's meals compared with the user's goals.
 class AlertsScreen extends StatelessWidget {
   const AlertsScreen({super.key});
 
@@ -872,77 +753,27 @@ class AlertsScreen extends StatelessWidget {
     final s = S.of(context);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    s.tr('Nutrient Notices & Inbox', 'صندوق التنبيهات الغذائية'),
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  Text(
-                    s.tr(
-                      'Calm, neutral comparisons with your configured targets (S37, PRD-07).',
-                      'مقارنات إرشادية هادئة ومحايدة مع الأهداف الغذائية المحددة (S37, PRD-07).',
-                    ),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
             if (controller.unreadAlertsCount > 0)
               TextButton.icon(
                 onPressed: controller.markAllAlertsRead,
                 icon: const Icon(Icons.done_all_rounded, size: 18),
-                label: Text(s.tr('Mark read', 'تحديد كمقروء')),
+                label: Text(s.tr('Mark all read', 'تحديد الكل كمقروء')),
               ),
-            IconButton.filledTonal(
-              tooltip: s.tr('Configure limits', 'تعديل الحدود'),
+            TextButton.icon(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const GoalsScreen()),
               ),
-              icon: const Icon(Icons.tune_rounded),
+              icon: const Icon(Icons.tune_rounded, size: 18),
+              label: Text(s.tr('Goals', 'الأهداف')),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-
-        SurfaceCard(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              const Icon(Icons.bolt_rounded, color: MiqdarColors.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${s.tr("Last notice evaluation", "آخر تقييم للتنبيهات")}: ${controller.alertEvaluationMs} ms',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: MiqdarColors.softGreen,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: const Text(
-                  'SLO ≤ 4,000 ms',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    color: MiqdarColors.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-
+        const SizedBox(height: 8),
         if (controller.alerts.isEmpty)
           SurfaceCard(
             child: Row(
@@ -954,13 +785,13 @@ class AlertsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        s.tr('No active nutrient notices', 'لا توجد تنبيهات غذائية نشطة'),
+                        s.tr('No notices', 'لا توجد تنبيهات'),
                         style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                       ),
                       Text(
                         s.tr(
-                          'Recorded intake is within your configured thresholds based on available data.',
-                          'الاستهلاك المسجل ضمن الحدود المحددة بناءً على البيانات المتاحة.',
+                          'You will see a note here when a meal takes you past a goal.',
+                          'سترى تنبيهاً هنا عندما تتجاوز وجبة أحد أهدافك.',
                         ),
                         style: const TextStyle(fontSize: 12.5),
                       ),
