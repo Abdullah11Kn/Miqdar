@@ -85,16 +85,11 @@ void main() {
 
     // Saving logs it once, and a plate still resting there does not capture again.
     final meals = controller.meals.length;
-    await tester.dragUntilVisible(
-      find.text('Confirm & Save Meal to Diary'),
-      find.byType(ListView).last,
-      const Offset(0, -300),
-    );
-    expect(find.text('Gemini AI Estimate — Not a Verified Record'), findsOneWidget);
-    await tester.tap(find.text('Confirm & Save Meal to Diary'));
+    await tester.tap(find.text('Save to Diary'));
     await pumpUntil(() => controller.meals.length == meals + 1, seconds: 10);
     await hold(4);
     expect(find.byType(RecognitionResultScreen), findsNothing);
+    expect(find.textContaining('Saved:'), findsOneWidget);
     expect(controller.meals.first.nameEn.toLowerCase(), contains('jareesh'));
 
     await placeFood(0, 'jareesh');
