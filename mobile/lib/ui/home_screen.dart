@@ -9,7 +9,9 @@ import '../l10n/strings.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
 import 'screens.dart';
+import 'widgets/brand.dart';
 import 'widgets/charts_and_gauges.dart';
+import 'widgets/miq_icons.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -21,137 +23,104 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback onScan;
   final ValueChanged<int>? onOpenTab;
 
-  String _greeting(S s) {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return s.greetingMorning;
-    if (hour < 17) return s.greetingAfternoon;
-    return s.greetingEvening;
-  }
+  void _openNotices(BuildContext context, S s) => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: Text(s.navNotices)),
+            body: const SafeArea(child: AlertsScreen()),
+          ),
+        ),
+      );
+
+  void _openMealIdeas(BuildContext context) => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MealSuggestionsScreen()),
+      );
 
   @override
   Widget build(BuildContext context) {
     final controller = MiqdarScope.of(context);
     final s = S.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final miq = Miq.of(context);
     final selectedDate = controller.selectedDate;
     final isToday = MiqdarController.isSameLocalDay(selectedDate, DateTime.now());
     final totals = controller.selectedDateTotals;
     final dayMeals = controller.mealsForDate(selectedDate);
     final goals = controller.goals;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 780;
-        return ListView(
-          padding: EdgeInsets.fromLTRB(isWide ? 28 : 20, 18, isWide ? 28 : 20, 32),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
           children: [
-            // Demo Workspace Banner
-            if (controller.account.isDemo)
-              Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: MiqdarColors.warning.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: MiqdarColors.warning.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.science_rounded, color: MiqdarColors.warning, size: 18),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        s.demoBanner,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: MiqdarColors.warning,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // Header Row: Greeting + Quick Controls
             Row(
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        controller.account.hasPersonalName
-                            ? _greeting(s)
-                            : _greeting(s).replaceAll(RegExp(r'[,،]\s*$'), ''),
-                        style: controller.account.hasPersonalName
-                            ? TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
-                              )
-                            : Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      if (controller.account.hasPersonalName) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          controller.account.localizedName(s.isAr),
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                // Inbox / Notices button with badge
+                const MiqdarMark(size: 34),
+                const Spacer(),
                 Badge(
                   isLabelVisible: controller.unreadAlertsCount > 0,
                   label: Text('${controller.unreadAlertsCount}'),
-                  backgroundColor: MiqdarColors.warning,
-                  child: IconButton.outlined(
+                  backgroundColor: MiqdarColors.danger,
+                  child: IconButton(
                     tooltip: s.navNotices,
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => Scaffold(
-                          appBar: AppBar(title: Text(s.navNotices)),
-                          body: const SafeArea(child: AlertsScreen()),
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.notifications_none_rounded, size: 20),
+                    color: miq.text,
+                    onPressed: () => _openNotices(context, s),
+                    icon: const Icon(MiqIcons.bell),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            if (controller.account.isDemo)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  s.demoBanner,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: miq.accent),
+                ),
+              ),
+            const SizedBox(height: 6),
 
-            // Day picker
+            // The day
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 IconButton(
                   tooltip: s.tr('Previous day', 'اليوم السابق'),
+                  color: miq.muted,
                   onPressed: () => controller.setSelectedDate(
                     selectedDate.subtract(const Duration(days: 1)),
                   ),
                   icon: const Icon(Icons.chevron_left_rounded),
                 ),
-                TextButton(
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) controller.setSelectedDate(picked);
-                  },
-                  child: Text(
-                    isToday ? s.tr('Today', 'اليوم') : s.date(selectedDate, 'EEE, d MMM'),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) controller.setSelectedDate(picked);
+                    },
+                    child: Column(
+                      children: [
+                        Text(
+                          isToday ? s.tr('Today', 'اليوم') : s.date(selectedDate, 'EEEE'),
+                          style: MiqType.display(32, color: miq.text, height: 1.2),
+                        ),
+                        Text(
+                          s.date(selectedDate, 'd MMMM'),
+                          style: TextStyle(fontSize: 13, color: miq.muted),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 IconButton(
                   tooltip: s.tr('Next day', 'اليوم التالي'),
+                  color: miq.muted,
                   onPressed: isToday
                       ? null
                       : () => controller.setSelectedDate(
@@ -161,154 +130,79 @@ class HomeScreen extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
 
-            // Resume Draft Banner if an unsaved recognition draft exists (NAV-06, PRD-06)
+            Center(child: _CalorieDial(consumed: totals.calories, goals: goals)),
+            const SizedBox(height: 24),
+
+            _NutrientSummary(totals: totals, goals: goals),
+            const SizedBox(height: 22),
+
             if (controller.lastRecognition != null)
               Padding(
-                padding: const EdgeInsets.only(bottom: 18),
-                child: SurfaceCard(
-                  color: MiqdarColors.softGreen,
-                  borderColor: MiqdarColors.mintBorder,
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.edit_note_rounded, color: MiqdarColors.primary, size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              s.tr('Meal not saved yet', 'وجبة لم تُحفظ بعد'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: MiqdarColors.emeraldDeep,
-                              ),
-                            ),
-                            Text(
-                              '${s.isAr && controller.lastRecognition!.nameAr.isNotEmpty ? controller.lastRecognition!.nameAr : controller.lastRecognition!.nameEn} • ${controller.lastRecognition!.totalWeightG.toStringAsFixed(0)} ${s.unitG}',
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: MiqdarColors.emeraldDeep,
-                              ),
-                            ),
-                          ],
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Ledger(
+                  children: [
+                    LedgerRow(
+                      icon: MiqIcons.notePencil,
+                      title: s.tr('Meal not saved yet', 'وجبة لم تُحفظ بعد'),
+                      subtitle:
+                          '${s.isAr && controller.lastRecognition!.nameAr.isNotEmpty ? controller.lastRecognition!.nameAr : controller.lastRecognition!.nameEn} • ${controller.lastRecognition!.totalWeightG.toStringAsFixed(0)} ${s.unitG}',
+                      trailing: Text(
+                        s.tr('Resume', 'متابعة'),
+                        style: TextStyle(fontWeight: FontWeight.w600, color: miq.accent),
+                      ),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => RecognitionResultScreen(result: controller.lastRecognition!),
                         ),
                       ),
-                      FilledButton.tonal(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                RecognitionResultScreen(result: controller.lastRecognition!),
-                          ),
-                        ),
-                        child: Text(s.tr('Resume', 'متابعة')),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
 
-            // Responsive Top Grid: Daily Nutrition Summary + Add Meal
-            if (isWide)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 7,
-                    child: _DailySummaryCard(totals: totals, goals: goals),
-                  ),
-                  const SizedBox(width: 18),
-                  Expanded(
-                    flex: 5,
-                    child: _QuickCaptureHeroCard(onScan: onScan),
-                  ),
-                ],
-              )
-            else ...[
-              _DailySummaryCard(totals: totals, goals: goals),
-              const SizedBox(height: 16),
-              _QuickCaptureHeroCard(onScan: onScan),
-            ],
+            _ScalePanel(onScan: onScan),
+            const SizedBox(height: 28),
 
-            const SizedBox(height: 24),
-
-            // Selected Day's Meals & Recent History
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isToday
-                      ? s.recentMealsTitle
-                      : '${s.tr("Meals on", "وجبات يوم")} ${s.date(selectedDate, 'd MMM')}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                ),
-                TextButton(
-                  onPressed: () {
-                    if (onOpenTab != null) {
-                      onOpenTab!(2); // Diary tab
-                    } else {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => Scaffold(
-                            appBar: AppBar(title: Text(s.navDiary)),
-                            body: const SafeArea(child: HistoryScreen()),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: Text(s.tr('See diary', 'عرض السجل')),
-                ),
-              ],
+            SectionHeading(
+              isToday
+                  ? s.recentMealsTitle
+                  : '${s.tr("Meals on", "وجبات يوم")} ${s.date(selectedDate, 'd MMM')}',
+              action: s.tr('See diary', 'عرض السجل'),
+              onAction: () {
+                if (onOpenTab != null) {
+                  onOpenTab!(2); // Diary tab
+                } else {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(title: Text(s.navDiary)),
+                        body: const SafeArea(child: HistoryScreen()),
+                      ),
+                    ),
+                  );
+                }
+              },
             ),
             const SizedBox(height: 8),
             if (dayMeals.isEmpty)
-              SurfaceCard(
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.restaurant_outlined,
-                      size: 36,
-                      color: MiqdarColors.muted,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      s.noMealsToday,
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Text(
+                  s.noMealsToday,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: miq.muted),
                 ),
               )
             else
-              ...dayMeals.map((meal) => MealRowCard(meal: meal)),
+              Ledger(children: dayMeals.map((meal) => MealRowCard(meal: meal)).toList()),
+            const SizedBox(height: 28),
 
-
-            const SizedBox(height: 24),
-
-            // Meal Ideas
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome_rounded, color: MiqdarColors.primary, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      s.mealIdeasTitle,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                    ),
-                  ],
-                ),
-                TextButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const MealSuggestionsScreen()),
-                  ),
-                  icon: const Icon(Icons.tune_rounded, size: 16),
-                  label: Text(s.seeAll),
-                ),
-              ],
+            SectionHeading(
+              s.mealIdeasTitle,
+              action: s.seeAll,
+              onAction: () => _openMealIdeas(context),
             ),
             const SizedBox(height: 8),
             if (controller.recommendationsBusy && controller.mealSuggestions.isEmpty)
@@ -317,372 +211,208 @@ class HomeScreen extends StatelessWidget {
                 child: LinearProgressIndicator(),
               )
             else if (controller.mealSuggestions.isEmpty)
-              SurfaceCard(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const MealSuggestionsScreen()),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.restaurant_menu_rounded, color: MiqdarColors.primary),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        s.tr(
-                          'Tell us what you like and what to avoid to get meal ideas.',
-                          'أخبرنا بما تحبه وما تتجنبه لتحصل على أفكار للوجبات.',
-                        ),
-                      ),
+              Ledger(
+                children: [
+                  LedgerRow(
+                    icon: MiqIcons.forkKnife,
+                    title: s.tr(
+                      'Tell us what you like and what to avoid to get meal ideas.',
+                      'أخبرنا بما تحبه وما تتجنبه لتحصل على أفكار للوجبات.',
                     ),
-                    const Icon(Icons.chevron_right_rounded),
-                  ],
-                ),
-              )
-            else if (isWide)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: controller.mealSuggestions
-                    .take(2)
-                    .map(
-                      (suggestion) => Expanded(
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.only(end: 12),
-                          child: SuggestionCardWidget(
-                            suggestion: suggestion,
-                            compact: true,
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
+                    onTap: () => _openMealIdeas(context),
+                  ),
+                ],
               )
             else
-              ...controller.mealSuggestions.take(2).map(
-                    (suggestion) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: SuggestionCardWidget(
-                        suggestion: suggestion,
-                        compact: true,
-                      ),
-                    ),
-                  ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: controller.mealSuggestions
+                      .take(4)
+                      .map(
+                        (suggestion) => Padding(
+                          padding: const EdgeInsetsDirectional.only(end: 12),
+                          child: SizedBox(
+                            width: 268,
+                            child: SuggestionCardWidget(suggestion: suggestion, compact: true),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }
 
-class _DailySummaryCard extends StatelessWidget {
-  const _DailySummaryCard({
-    required this.totals,
-    required this.goals,
-  });
+/// The day's calories on the brand's dial: what is left, unless there is no goal.
+class _CalorieDial extends StatelessWidget {
+  const _CalorieDial({required this.consumed, required this.goals});
 
-  final NutritionValues totals;
+  final double consumed;
   final NutritionGoals goals;
 
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    return SurfaceCard(
+    final miq = Miq.of(context);
+    final target = goals.calories;
+    final hasGoal = !goals.trackingOnly && target > 0;
+    final isOver = hasGoal && consumed > target;
+    final left = (target - consumed).abs();
+    final String headline;
+    final String caption;
+    if (!hasGoal) {
+      headline = consumed.toStringAsFixed(0);
+      caption = s.tr('kcal eaten', 'سعرة مسجلة');
+    } else if (isOver) {
+      headline = left.toStringAsFixed(0);
+      caption = s.tr('kcal over goal', 'سعرة فوق الهدف');
+    } else {
+      headline = left.toStringAsFixed(0);
+      caption = s.tr('kcal left', 'سعرة متبقية');
+    }
+    return MeasureDial(
+      size: 248,
+      progress: hasGoal ? consumed / target : 0,
+      strokeWidth: 10,
+      color: isOver ? MiqdarColors.danger : MiqdarColors.saffron,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                s.dailyIntakeTitle,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-              ),
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                ),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const GoalsScreen()),
-                ),
-                icon: const Icon(Icons.tune_rounded, size: 15),
-                label: Text(
-                  s.tr('Goals', 'الأهداف'),
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              RadialCalorieMeter(
-                consumed: totals.calories,
-                target: goals.calories,
-                trackingOnly: goals.trackingOnly,
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  children: [
-                    _MacroProgressLine(
-                      label: s.protein,
-                      value: totals.protein,
-                      target: goals.protein,
-                      unit: s.unitG,
-                      color: MiqdarColors.proteinAccent,
-                      trackingOnly: goals.trackingOnly,
-                    ),
-                    _MacroProgressLine(
-                      label: s.carbs,
-                      value: totals.carbohydrates,
-                      target: goals.carbohydrates,
-                      unit: s.unitG,
-                      color: MiqdarColors.carbsAccent,
-                      trackingOnly: goals.trackingOnly,
-                    ),
-                    _MacroProgressLine(
-                      label: s.fat,
-                      value: totals.fat,
-                      target: goals.fat,
-                      unit: s.unitG,
-                      color: MiqdarColors.fatAccent,
-                      trackingOnly: goals.trackingOnly,
-                    ),
-                    _MacroProgressLine(
-                      label: s.sugar,
-                      value: totals.sugar,
-                      target: goals.sugar,
-                      unit: s.unitG,
-                      color: MiqdarColors.sugarAccent,
-                      trackingOnly: goals.trackingOnly,
-                      isLast: true,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 26),
-          // Secondary Micronutrients Row (Fiber, Sodium, Potassium)
-          Row(
-            children: [
-              Expanded(
-                child: _SecondaryNutrientChip(
-                  label: s.fiber,
-                  value: '${totals.fiber.toStringAsFixed(1)} ${s.unitG}',
-                  target: goals.trackingOnly ? '' : '/ ${goals.fiber.toStringAsFixed(0)} ${s.unitG}',
-                  color: MiqdarColors.fiberAccent,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _SecondaryNutrientChip(
-                  label: s.sodium,
-                  value: '${totals.sodium.toStringAsFixed(0)} ${s.unitMg}',
-                  target: goals.trackingOnly ? '' : '/ ${goals.sodium.toStringAsFixed(0)} ${s.unitMg}',
-                  color: MiqdarColors.sodiumAccent,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _SecondaryNutrientChip(
-                  label: s.potassium,
-                  value: '${totals.potassium.toStringAsFixed(0)} ${s.unitMg}',
-                  target: goals.trackingOnly ? '' : '/ ${goals.potassium.toStringAsFixed(0)} ${s.unitMg}',
-                  color: MiqdarColors.potassiumAccent,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MacroProgressLine extends StatelessWidget {
-  const _MacroProgressLine({
-    required this.label,
-    required this.value,
-    required this.target,
-    required this.unit,
-    required this.color,
-    this.trackingOnly = false,
-    this.isLast = false,
-  });
-
-  final String label;
-  final double value;
-  final double target;
-  final String unit;
-  final Color color;
-  final bool trackingOnly;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final ratio = (target > 0 && !trackingOnly && !value.isNaN)
-        ? (value / target).clamp(0.0, 1.0)
-        : 0.0;
-    return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 11),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : MiqdarColors.dark,
-                  ),
-                ),
-              ),
-              Text(
-                trackingOnly || target <= 0
-                    ? '${value.toStringAsFixed(1)} $unit'
-                    : '${value.toStringAsFixed(0)} / ${target.toStringAsFixed(0)} $unit',
-                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: ratio,
-              minHeight: 7,
-              backgroundColor: color.withValues(alpha: 0.14),
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SecondaryNutrientChip extends StatelessWidget {
-  const _SecondaryNutrientChip({
-    required this.label,
-    required this.value,
-    required this.target,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final String target;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.12 : 0.07),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
+          Text(headline, style: MiqType.display(68, color: miq.text, height: 1)),
           const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-              color: isDark ? Colors.white : MiqdarColors.dark,
+          Text(caption, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: miq.text)),
+          if (hasGoal)
+            Text(
+              s.tr(
+                '${consumed.toStringAsFixed(0)} of ${target.toStringAsFixed(0)}',
+                '${consumed.toStringAsFixed(0)} من ${target.toStringAsFixed(0)}',
+              ),
+              style: TextStyle(fontSize: 12.5, color: miq.muted),
             ),
-          ),
-          if (target.isNotEmpty) Text(target, style: const TextStyle(fontSize: 10)),
         ],
       ),
     );
   }
 }
 
-class _QuickCaptureHeroCard extends StatelessWidget {
-  const _QuickCaptureHeroCard({required this.onScan});
+class _NutrientSummary extends StatelessWidget {
+  const _NutrientSummary({required this.totals, required this.goals});
+
+  final NutritionValues totals;
+  final NutritionGoals goals;
+
+  double? _ratio(double value, double goal) =>
+      goals.trackingOnly || goal <= 0 ? null : value / goal;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    Widget column(String label, double value, double goal, String unit, Color color) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: MacroColumn(
+              label: label,
+              value: '${value.toStringAsFixed(0)} $unit',
+              color: color,
+              progress: _ratio(value, goal),
+            ),
+          ),
+        );
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const GoalsScreen()),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              column(s.protein, totals.protein, goals.protein, s.unitG, MiqdarColors.proteinAccent),
+              column(s.carbs, totals.carbohydrates, goals.carbohydrates, s.unitG, MiqdarColors.carbsAccent),
+              column(s.fat, totals.fat, goals.fat, s.unitG, MiqdarColors.fatAccent),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              column(s.sugar, totals.sugar, goals.sugar, s.unitG, MiqdarColors.sugarAccent),
+              column(s.fiber, totals.fiber, goals.fiber, s.unitG, MiqdarColors.fiberAccent),
+              column(s.sodium, totals.sodium, goals.sodium, s.unitMg, MiqdarColors.sodiumAccent),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The scale, live, with the way into Add Meal. The one dark panel on the page.
+class _ScalePanel extends StatelessWidget {
+  const _ScalePanel({required this.onScan});
   final VoidCallback onScan;
 
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final controller = MiqdarScope.of(context);
-    final scale = controller.scaleDevice;
+    final scale = MiqdarScope.of(context).scaleDevice;
+    final grams = scale.effectiveWeightG < 0 ? 0.0 : scale.effectiveWeightG;
+    const soft = Color(0xFFBFB1A0);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
       decoration: BoxDecoration(
-        gradient: MiqdarColors.heroGradient,
+        color: MiqdarColors.ink,
         borderRadius: BorderRadius.circular(24),
+        border: Theme.of(context).brightness == Brightness.dark
+            ? Border.all(color: MiqdarColors.darkBorder)
+            : null,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.scale_rounded,
-                color: scale.online ? const Color(0xFFD1FAE5) : MiqdarColors.warning,
-                size: 20,
+          Expanded(
+            child: InkWell(
+              onTap: scale.online
+                  ? null
+                  : () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
+                      ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    scale.online ? s.tr('On the scale', 'على الميزان') : s.tr('Scale', 'الميزان'),
+                    style: const TextStyle(color: soft, fontSize: 12.5, fontWeight: FontWeight.w500),
+                  ),
+                  if (scale.online)
+                    Text(
+                      '${grams.toStringAsFixed(0)} ${s.unitG}',
+                      style: MiqType.display(36, color: MiqdarColors.paper, height: 1.15),
+                    )
+                  else ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      s.tr('Not connected', 'غير متصل'),
+                      style: const TextStyle(color: MiqdarColors.paper, fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      s.tr('Tap to connect', 'اضغط للاتصال'),
+                      style: const TextStyle(color: MiqdarColors.accentGlow, fontSize: 12.5),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  scale.online
-                      ? s.tr(
-                          'On the scale: ${scale.effectiveWeightG.toStringAsFixed(0)} g',
-                          'على الميزان: ${scale.effectiveWeightG.toStringAsFixed(0)} غ',
-                        )
-                      : s.tr('Scale not connected', 'الميزان غير متصل'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              if (!scale.online)
-                TextButton(
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
-                  ),
-                  child: Text(s.tr('Connect', 'اتصال')),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: MiqdarColors.emeraldDeep,
-              minimumSize: const Size(0, 48),
             ),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 18)),
             onPressed: onScan,
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(MiqIcons.plus, size: 20),
             label: Text(s.startCapture),
           ),
         ],
@@ -705,83 +435,36 @@ class SuggestionCardWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = S.of(context);
     final controller = MiqdarScope.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final miq = Miq.of(context);
 
     return SurfaceCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: MiqdarColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.restaurant_rounded, color: MiqdarColors.primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      suggestion.displayName(s.isAr),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15.5,
-                        color: isDark ? Colors.white : MiqdarColors.dark,
-                      ),
-                    ),
-                    if (suggestion.nameAr.isNotEmpty && !s.isAr)
-                      Text(suggestion.nameAr, style: const TextStyle(fontSize: 12)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: MiqdarColors.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  '${suggestion.portionG.toStringAsFixed(0)} ${s.unitG}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                    color: MiqdarColors.primary,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            suggestion.displayName(s.isAr),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: MiqType.display(25, color: miq.text, height: 1.2),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              _MiniBadge(
-                text: '${suggestion.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
-                color: MiqdarColors.caloriesAccent,
-              ),
-              _MiniBadge(
-                text: '${suggestion.nutrients.protein.toStringAsFixed(1)} ${s.unitG} ${s.protein}',
-                color: MiqdarColors.proteinAccent,
-              ),
-              if (!compact)
-                _MiniBadge(
-                  text: '${suggestion.nutrients.sodium.toStringAsFixed(0)} ${s.unitMg} ${s.sodium}',
-                  color: MiqdarColors.sodiumAccent,
-                ),
-            ],
+          const SizedBox(height: 4),
+          Text(
+            [
+              '${suggestion.portionG.toStringAsFixed(0)} ${s.unitG}',
+              '${suggestion.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
+              '${suggestion.nutrients.protein.toStringAsFixed(0)} ${s.unitG} ${s.protein}',
+              if (!compact) '${suggestion.nutrients.sodium.toStringAsFixed(0)} ${s.unitMg} ${s.sodium}',
+            ].join(' • '),
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: miq.accent),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           if (!s.isAr || hasArabicText(suggestion.why.join()))
             Text(
-              suggestion.why.join(' • '),
+              () {
+                final why = suggestion.why.join(' • ');
+                return why.isEmpty ? why : why[0].toUpperCase() + why.substring(1);
+              }(),
               maxLines: compact ? 2 : null,
               overflow: compact ? TextOverflow.ellipsis : null,
               style: const TextStyle(fontSize: 12),
@@ -820,7 +503,7 @@ class SuggestionCardWidget extends StatelessWidget {
                   ),
                 );
               },
-              icon: const Icon(Icons.edit_calendar_rounded, size: 16),
+              icon: const Icon(MiqIcons.calendarPlus, size: 16),
               label: Text(s.tr('Log This', 'سجّل هذه الوجبة')),
             ),
           ),
@@ -828,29 +511,6 @@ class SuggestionCardWidget extends StatelessWidget {
       ),
     );
   }
-}
-
-class _MiniBadge extends StatelessWidget {
-  const _MiniBadge({required this.text, required this.color});
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w800,
-            color: color,
-          ),
-        ),
-      );
 }
 
 /// Loads a saved meal's photo. Shows [fallback] when the meal has no photo.
@@ -897,6 +557,7 @@ class _MealPhotoState extends State<MealPhoto> {
       );
 }
 
+/// A meal as a row in a [Ledger]: the plate, what it was, when, and its calories.
 class MealRowCard extends StatelessWidget {
   const MealRowCard({super.key, required this.meal});
   final MealEntry meal;
@@ -904,41 +565,35 @@ class MealRowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final miq = Miq.of(context);
     final name = meal.displayName(s.isAr);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: SurfaceCard(
-        padding: const EdgeInsets.all(12),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => MealDetailScreen(meal: meal)),
-        ),
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => MealDetailScreen(meal: meal)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
+            ClipOval(
               child: SizedBox.square(
-                dimension: 52,
+                dimension: 54,
                 child: MealPhoto(
                   mealId: meal.id,
-                  builder: (bytes) => Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 160),
+                  builder: (bytes) => Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 170),
                   fallback: ColoredBox(
-                    color: MiqdarColors.primary.withValues(alpha: 0.12),
+                    color: miq.track,
                     child: Center(
                       child: Text(
                         name.isEmpty ? '?' : name.characters.first.toUpperCase(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                          color: MiqdarColors.primary,
-                        ),
+                        style: MiqType.display(25, color: miq.text),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 13),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -947,36 +602,25 @@ class MealRowCard extends StatelessWidget {
                     name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                      color: isDark ? Colors.white : MiqdarColors.dark,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: miq.text),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${s.mealTypeLabel(meal.mealType)} • ${s.date(meal.eatenAt.toLocal(), 'h:mm a')} • ${meal.weightG.toStringAsFixed(0)} ${s.unitG}',
-                    style: const TextStyle(fontSize: 12),
+                    style: TextStyle(fontSize: 12.5, color: miq.muted),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
                   meal.nutrients.calories.toStringAsFixed(0),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 17,
-                    color: MiqdarColors.primary,
-                  ),
+                  style: MiqType.display(26, color: miq.text, height: 1.1),
                 ),
-                Text(
-                  s.unitKcal,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                ),
+                Text(s.unitKcal, style: TextStyle(fontSize: 11.5, color: miq.muted)),
               ],
             ),
           ],

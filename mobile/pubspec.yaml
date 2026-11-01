@@ -30,9 +30,36 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/miqdar-logo.png
-    - assets/branding/miqdar-food.png
     - assets/demo/kabsa.jpg
     - assets/demo/shawarma.jpeg
     - assets/demo/jareesh.jpeg
     - assets/demo/pizza.jpeg
     - assets/demo/burger.jpg
+
+  fonts:
+    # UI text, Arabic and Latin
+    - family: Plex
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+          weight: 700
+    # Display: numbers, names and titles. Arabic falls back to Amiri.
+    - family: MiqdarSerif
+      fonts:
+        - asset: assets/fonts/InstrumentSerif-Regular.ttf
+        - asset: assets/fonts/InstrumentSerif-Italic.ttf
+          style: italic
+    - family: Amiri
+      fonts:
+        - asset: assets/fonts/Amiri-Regular.ttf
+    - family: PhosphorLight
+      fonts:
+        - asset: assets/fonts/Phosphor-Light.ttf
+    - family: PhosphorFill
+      fonts:
+        - asset: assets/fonts/Phosphor-Fill.ttf

@@ -112,6 +112,23 @@ class S {
         _ => isAr ? 'وجبة' : 'Meal',
       };
 
+  String foodCategoryLabel(String category) => isAr
+      ? switch (category) {
+          'Traditional Dish' => 'طبق تقليدي',
+          'Fruit' => 'فاكهة',
+          'Protein' => 'بروتين',
+          'Grain' => 'حبوب',
+          'Legume' => 'بقوليات',
+          'Vegetable' => 'خضار',
+          'Dairy' => 'ألبان',
+          'Sandwich' => 'شطائر',
+          'Fast Food' => 'وجبات سريعة',
+          'Salad' => 'سلطة',
+          'Custom' => 'مخصص',
+          _ => category,
+        }
+      : category;
+
   // Capture & Scale
   String get tareScale => isAr ? 'تصفير الميزان' : 'Zero the Scale';
   String get recognizingFood => isAr ? 'جارٍ تحليل الصورة ومطابقة الغذاء…' : 'Analyzing photo & matching nutrition…';

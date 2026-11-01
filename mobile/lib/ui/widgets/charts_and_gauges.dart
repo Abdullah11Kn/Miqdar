@@ -7,13 +7,14 @@ import 'package:intl/intl.dart';
 import '../../l10n/strings.dart';
 import '../../models/nutrition.dart';
 import '../../theme.dart';
+import 'miq_icons.dart';
 
 class SurfaceCard extends StatelessWidget {
   const SurfaceCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(20),
-    this.borderRadius = 22,
+    this.borderRadius = 20,
     this.color,
     this.borderColor,
     this.onTap,
@@ -29,7 +30,7 @@ class SurfaceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = color ?? (isDark ? MiqdarColors.darkCard : Colors.white);
+    final bg = color ?? (isDark ? MiqdarColors.darkCard : MiqdarColors.cream);
     final border = borderColor ?? (isDark ? MiqdarColors.darkBorder : MiqdarColors.border);
 
     final card = Container(
@@ -53,233 +54,6 @@ class SurfaceCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class GlassCard extends StatelessWidget {
-  const GlassCard({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(18),
-    this.borderRadius = 22,
-    this.blur = 14,
-  });
-
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final double borderRadius;
-  final double blur;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.white.withValues(alpha: 0.78),
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.14)
-                  : Colors.white.withValues(alpha: 0.65),
-            ),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-/// Smooth animated circular calorie gauge with centered target readout (Section 3 & DES-09).
-class RadialCalorieMeter extends StatelessWidget {
-  const RadialCalorieMeter({
-    super.key,
-    required this.consumed,
-    required this.target,
-    this.size = 152,
-    this.trackingOnly = false,
-  });
-
-  final double consumed;
-  final double target;
-  final double size;
-  final bool trackingOnly;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = S.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final ratio = (target > 0 && !trackingOnly) ? (consumed / target) : 0.0;
-    final clampedRatio = ratio.isNaN || ratio.isInfinite ? 0.0 : ratio.clamp(0.0, 1.0);
-    final isOver = !trackingOnly && target > 0 && consumed > target;
-    final diff = (target - consumed).abs();
-
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: clampedRatio),
-      duration: const Duration(milliseconds: 650),
-      curve: Curves.easeOutCubic,
-      builder: (context, animatedRatio, _) => SizedBox(
-        width: size,
-        height: size,
-        child: CustomPaint(
-          painter: _RadialCaloriePainter(
-            progress: animatedRatio,
-            isOver: isOver,
-            isDark: isDark,
-          ),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.local_fire_department_rounded,
-                    size: 18,
-                    color: isOver ? MiqdarColors.warning : MiqdarColors.emeraldBright,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    consumed.toStringAsFixed(0),
-                    style: TextStyle(
-                      fontSize: size * 0.21,
-                      fontWeight: FontWeight.w900,
-                      height: 1.05,
-                      color: isDark ? Colors.white : MiqdarColors.dark,
-                    ),
-                  ),
-                  Text(
-                    trackingOnly || target <= 0
-                        ? s.unitKcal
-                        : '/ ${target.toStringAsFixed(0)} ${s.unitKcal}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
-                    ),
-                  ),
-                  if (!trackingOnly && target > 0) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isOver
-                            ? MiqdarColors.warning.withValues(alpha: 0.16)
-                            : MiqdarColors.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        isOver
-                            ? '+${diff.toStringAsFixed(0)} ${s.tr("above", "إضافية")}'
-                            : '${diff.toStringAsFixed(0)} ${s.tr("left", "متبقية")}',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: isOver ? MiqdarColors.warning : MiqdarColors.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RadialCaloriePainter extends CustomPainter {
-  const _RadialCaloriePainter({
-    required this.progress,
-    required this.isOver,
-    required this.isDark,
-  });
-
-  final double progress;
-  final bool isOver;
-  final bool isDark;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = math.min(size.width, size.height) / 2 - 10;
-    final rect = Rect.fromCircle(center: center, radius: radius);
-
-    const startAngle = -math.pi * 0.5;
-    const fullSweep = math.pi * 2;
-
-    // Subtle track
-    final trackPaint = Paint()
-      ..color = isDark
-          ? Colors.white.withValues(alpha: 0.08)
-          : MiqdarColors.primary.withValues(alpha: 0.10)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 13
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(rect, 0, fullSweep, false, trackPaint);
-
-    // Subtle tick marks
-    final tickPaint = Paint()
-      ..color = isDark
-          ? Colors.white.withValues(alpha: 0.12)
-          : MiqdarColors.primary.withValues(alpha: 0.16)
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    for (var i = 0; i < 24; i++) {
-      final angle = (math.pi * 2 * i) / 24;
-      final inner = center + Offset(math.cos(angle), math.sin(angle)) * (radius - 11);
-      final outer = center + Offset(math.cos(angle), math.sin(angle)) * (radius - 8);
-      canvas.drawLine(inner, outer, tickPaint);
-    }
-
-    if (progress <= 0.001) return;
-
-    final sweep = fullSweep * progress.clamp(0.0, 1.0);
-    final colors = isOver
-        ? [const Color(0xFF10B981), const Color(0xFFF59E0B), const Color(0xFFD97706)]
-        : [const Color(0xFF047857), const Color(0xFF10B981), const Color(0xFF34D399)];
-
-    final arcPaint = Paint()
-      ..shader = SweepGradient(
-        startAngle: 0,
-        endAngle: fullSweep,
-        colors: colors,
-        transform: const GradientRotation(startAngle),
-      ).createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 13
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(rect, startAngle, sweep, false, arcPaint);
-
-    // Glowing tip dot
-    final endAngle = startAngle + sweep;
-    final tipOffset = center + Offset(math.cos(endAngle), math.sin(endAngle)) * radius;
-    canvas.drawCircle(
-      tipOffset,
-      6.5,
-      Paint()..color = isOver ? MiqdarColors.warning : MiqdarColors.mintGlow,
-    );
-    canvas.drawCircle(
-      tipOffset,
-      3.0,
-      Paint()..color = Colors.white,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _RadialCaloriePainter oldDelegate) =>
-      oldDelegate.progress != progress ||
-      oldDelegate.isOver != isOver ||
-      oldDelegate.isDark != isDark;
 }
 
 /// Interactive Macronutrient Donut Chart breaking down Protein, Carbs, and Fat energy percentages.
@@ -353,19 +127,17 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
                           active != null
                               ? '${(active.$2 * 100).round()}%'
                               : widget.values.calories.toStringAsFixed(0),
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            color: active != null
-                                ? active.$5
-                                : (isDark ? Colors.white : MiqdarColors.dark),
+                          style: MiqType.display(
+                            30,
+                            height: 1.1,
+                            color: active != null ? active.$5 : Miq.of(context).text,
                           ),
                         ),
                         Text(
                           active != null ? active.$1 : s.unitKcal,
                           style: TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
                           ),
                         ),
@@ -414,9 +186,9 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
                                   Text(
                                     seg.$1,
                                     style: TextStyle(
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w600,
                                       fontSize: 13,
-                                      color: isDark ? Colors.white : MiqdarColors.dark,
+                                      color: isDark ? MiqdarColors.darkText : MiqdarColors.ink,
                                     ),
                                   ),
                                   Text(
@@ -429,7 +201,7 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
                             Text(
                               '${(seg.$2 * 100).round()}%',
                               style: TextStyle(
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 14,
                                 color: seg.$5,
                               ),
@@ -560,15 +332,15 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: MiqdarColors.primary.withValues(alpha: 0.12),
+                          color: MiqdarColors.saffron.withValues(alpha: 0.16),
                           borderRadius: BorderRadius.circular(99),
                         ),
                         child: Text(
                           s.date(selected.$1, 'EEE, d MMM'),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: MiqdarColors.primary,
+                            fontWeight: FontWeight.w600,
+                            color: Miq.of(context).accent,
                           ),
                         ),
                       ),
@@ -580,12 +352,8 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
                     ],
                   ),
                   Text(
-                    '${selected.$2.toStringAsFixed(0)} / ${widget.target.toStringAsFixed(0)} ${s.unitKcal}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      color: isDark ? Colors.white : MiqdarColors.dark,
-                    ),
+                    '${selected.$2.toStringAsFixed(0)} ${s.unitKcal}',
+                    style: MiqType.display(24, color: Miq.of(context).text),
                   ),
                 ],
               ),
@@ -599,9 +367,7 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
                   final chartLeft = 40.0;
                   final chartWidth = constraints.maxWidth - 52.0;
                   final relX = (details.localPosition.dx - chartLeft).clamp(0.0, chartWidth);
-                  final idx = points.length <= 1
-                      ? 0
-                      : ((relX / chartWidth) * (points.length - 1)).round();
+                  final idx = (relX / chartWidth * points.length).floor();
                   setState(() => selectedIndex = idx.clamp(0, points.length - 1));
                 },
                 child: CustomPaint(
@@ -622,9 +388,9 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
               Container(
                 width: 10,
                 height: 10,
-                decoration: const BoxDecoration(
-                  color: MiqdarColors.primary,
-                  shape: BoxShape.circle,
+                decoration: BoxDecoration(
+                  color: MiqdarColors.saffron,
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
               const SizedBox(width: 6),
@@ -632,8 +398,8 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
               const SizedBox(width: 16),
               Container(
                 width: 14,
-                height: 2.5,
-                color: MiqdarColors.warning,
+                height: 2,
+                color: Miq.of(context).text,
               ),
               const SizedBox(width: 6),
               Text(
@@ -663,27 +429,25 @@ class _WeeklyTrendPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final ink = isDark ? MiqdarColors.darkText : MiqdarColors.ink;
+    final mutedColor = isDark ? MiqdarColors.darkMuted : MiqdarColors.muted;
     final chart = Rect.fromLTWH(40, 10, size.width - 52, size.height - 38);
-    final gridPaint = Paint()
-      ..color = isDark ? Colors.white.withValues(alpha: 0.08) : MiqdarColors.border
-      ..strokeWidth = 1;
 
     var maxY = math.max(target * 1.25, 500.0);
     for (final p in points) {
       maxY = math.max(maxY, p.$2 * 1.15);
     }
 
-    for (var i = 0; i <= 3; i++) {
-      final y = chart.top + chart.height * i / 3;
+    final gridPaint = Paint()
+      ..color = isDark ? MiqdarColors.darkBorder : MiqdarColors.border
+      ..strokeWidth = 1;
+    for (var i = 0; i <= 2; i++) {
+      final y = chart.top + chart.height * i / 2;
       canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
-      final labelVal = ((maxY * (3 - i)) / 3).round();
       final tp = TextPainter(
         text: TextSpan(
-          text: '$labelVal',
-          style: TextStyle(
-            fontSize: 9.5,
-            color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
-          ),
+          text: '${((maxY * (2 - i)) / 2).round()}',
+          style: TextStyle(fontFamily: 'Plex', fontSize: 9.5, color: mutedColor),
         ),
         textDirection: ui.TextDirection.ltr,
       )..layout();
@@ -692,42 +456,30 @@ class _WeeklyTrendPainter extends CustomPainter {
 
     if (points.isEmpty) return;
 
-    // Target dashed line
-    if (target > 0) {
-      final targetY = chart.bottom - (target / maxY).clamp(0.0, 1.0) * chart.height;
-      final targetPaint = Paint()
-        ..color = MiqdarColors.warning
-        ..strokeWidth = 1.6;
-      for (var x = chart.left; x < chart.right; x += 10) {
-        canvas.drawLine(
-          Offset(x, targetY),
-          Offset(math.min(x + 5, chart.right), targetY),
-          targetPaint,
-        );
-      }
-    }
-
-    final coords = <Offset>[];
+    final slot = chart.width / points.length;
+    final barWidth = math.min(26.0, math.max(2.0, slot * 0.62));
+    final step = points.length > 14 ? (points.length ~/ 7) : 1;
     for (var i = 0; i < points.length; i++) {
-      final x = points.length == 1
-          ? chart.center.dx
-          : chart.left + chart.width * i / (points.length - 1);
-      final y = chart.bottom - (points[i].$2 / maxY).clamp(0.0, 1.0) * chart.height;
-      coords.add(Offset(x, y));
-
-      // Draw day label along X axis (sparse if >10 points)
-      final step = points.length > 14 ? (points.length ~/ 7) : 1;
+      final x = chart.left + slot * (i + 0.5);
+      final height = math.max(2.0, (points[i].$2 / maxY).clamp(0.0, 1.0) * chart.height);
+      final selected = selectedIndex == i;
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          Rect.fromLTWH(x - barWidth / 2, chart.bottom - height, barWidth, height),
+          topLeft: Radius.circular(math.min(6, barWidth / 2)),
+          topRight: Radius.circular(math.min(6, barWidth / 2)),
+        ),
+        Paint()..color = selected ? MiqdarColors.saffron : MiqdarColors.saffron.withValues(alpha: 0.36),
+      );
       if (i % step == 0 || i == points.length - 1) {
-        final label = DateFormat('d/M').format(points[i].$1);
         final tp = TextPainter(
           text: TextSpan(
-            text: label,
+            text: DateFormat('d/M').format(points[i].$1),
             style: TextStyle(
+              fontFamily: 'Plex',
               fontSize: 9.5,
-              fontWeight: selectedIndex == i ? FontWeight.w800 : FontWeight.w500,
-              color: selectedIndex == i
-                  ? MiqdarColors.primary
-                  : (isDark ? MiqdarColors.darkMuted : MiqdarColors.muted),
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              color: selected ? ink : mutedColor,
             ),
           ),
           textDirection: ui.TextDirection.ltr,
@@ -736,53 +488,15 @@ class _WeeklyTrendPainter extends CustomPainter {
       }
     }
 
-    // Smooth path & area fill
-    final linePath = Path()..moveTo(coords.first.dx, coords.first.dy);
-    for (var i = 0; i < coords.length - 1; i++) {
-      final p0 = coords[i];
-      final p1 = coords[i + 1];
-      final controlX = (p0.dx + p1.dx) / 2;
-      linePath.cubicTo(controlX, p0.dy, controlX, p1.dy, p1.dx, p1.dy);
-    }
-
-    final fillPath = Path.from(linePath)
-      ..lineTo(coords.last.dx, chart.bottom)
-      ..lineTo(coords.first.dx, chart.bottom)
-      ..close();
-
-    canvas.drawPath(
-      fillPath,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            MiqdarColors.emeraldBright.withValues(alpha: 0.28),
-            MiqdarColors.emeraldBright.withValues(alpha: 0.01),
-          ],
-        ).createShader(chart),
-    );
-
-    canvas.drawPath(
-      linePath,
-      Paint()
-        ..color = MiqdarColors.primary
-        ..strokeWidth = 3.0
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round,
-    );
-
-    for (var i = 0; i < coords.length; i++) {
-      final isSel = selectedIndex == i;
-      canvas.drawCircle(
-        coords[i],
-        isSel ? 6.5 : 4.0,
-        Paint()..color = isSel ? MiqdarColors.mintGlow : MiqdarColors.primary,
-      );
-      canvas.drawCircle(
-        coords[i],
-        isSel ? 3.0 : 1.8,
-        Paint()..color = Colors.white,
+    // The goal, on top of the bars
+    if (target > 0) {
+      final y = chart.bottom - (target / maxY).clamp(0.0, 1.0) * chart.height;
+      canvas.drawLine(
+        Offset(chart.left, y),
+        Offset(chart.right, y),
+        Paint()
+          ..color = ink
+          ..strokeWidth = 1.3,
       );
     }
   }
@@ -809,14 +523,13 @@ class NutrientGrid2x4 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final items = [
       (
         'calories_kcal',
         s.calories,
         values.calories,
         s.unitKcal,
-        Icons.local_fire_department_rounded,
+        MiqIcons.fire,
         MiqdarColors.caloriesAccent,
         goals?.calories,
       ),
@@ -825,7 +538,7 @@ class NutrientGrid2x4 extends StatelessWidget {
         s.protein,
         values.protein,
         s.unitG,
-        Icons.fitness_center_rounded,
+        MiqIcons.barbell,
         MiqdarColors.proteinAccent,
         goals?.protein,
       ),
@@ -834,7 +547,7 @@ class NutrientGrid2x4 extends StatelessWidget {
         s.carbs,
         values.carbohydrates,
         s.unitG,
-        Icons.grain_rounded,
+        MiqIcons.grains,
         MiqdarColors.carbsAccent,
         goals?.carbohydrates,
       ),
@@ -843,7 +556,7 @@ class NutrientGrid2x4 extends StatelessWidget {
         s.fat,
         values.fat,
         s.unitG,
-        Icons.water_drop_rounded,
+        MiqIcons.drop,
         MiqdarColors.fatAccent,
         goals?.fat,
       ),
@@ -852,7 +565,7 @@ class NutrientGrid2x4 extends StatelessWidget {
         s.sugar,
         values.sugar,
         s.unitG,
-        Icons.icecream_outlined,
+        MiqIcons.iceCream,
         MiqdarColors.sugarAccent,
         goals?.sugar,
       ),
@@ -861,7 +574,7 @@ class NutrientGrid2x4 extends StatelessWidget {
         s.sodium,
         values.sodium,
         s.unitMg,
-        Icons.science_outlined,
+        MiqIcons.flask,
         MiqdarColors.sodiumAccent,
         goals?.sodium,
       ),
@@ -870,7 +583,7 @@ class NutrientGrid2x4 extends StatelessWidget {
         s.potassium,
         values.potassium,
         s.unitMg,
-        Icons.bolt_rounded,
+        MiqIcons.lightning,
         MiqdarColors.potassiumAccent,
         goals?.potassium,
       ),
@@ -879,24 +592,26 @@ class NutrientGrid2x4 extends StatelessWidget {
         s.fiber,
         values.fiber,
         s.unitG,
-        Icons.eco_rounded,
+        MiqIcons.leaf,
         MiqdarColors.fiberAccent,
         goals?.fiber,
       ),
     ];
 
+    final miq = Miq.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final cols = constraints.maxWidth >= 560 ? 4 : 2;
         return GridView.builder(
           itemCount: items.length,
           shrinkWrap: true,
+          padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: cols,
-            childAspectRatio: cols == 4 ? 1.55 : 1.75,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
+            mainAxisExtent: 78,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
           ),
           itemBuilder: (context, index) {
             final item = items[index];
@@ -905,55 +620,46 @@ class NutrientGrid2x4 extends StatelessWidget {
                 ? s.tr('Unknown', 'غير متوفر')
                 : '${item.$3.toStringAsFixed(item.$3 >= 100 || item.$1 == 'calories_kcal' ? 0 : 1)} ${item.$4}';
             return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isDark ? MiqdarColors.darkCard : Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: isDark ? MiqdarColors.darkBorder : MiqdarColors.border,
-                ),
+                color: miq.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: miq.hairline),
               ),
-              child: Row(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: item.$6.withValues(alpha: 0.13),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(item.$5, color: item.$6, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+                  Row(
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(color: item.$6, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
                           item.$2,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
-                          ),
+                          style: TextStyle(fontSize: 12.5, color: miq.muted),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          valText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: isMissing
-                                ? MiqdarColors.warning
-                                : (isDark ? Colors.white : MiqdarColors.dark),
-                          ),
-                        ),
-                      ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      valText,
+                      maxLines: 1,
+                      style: MiqType.display(
+                        25,
+                        height: 1.2,
+                        color: isMissing ? MiqdarColors.warning : miq.text,
+                      ),
                     ),
                   ),
                 ],
@@ -995,29 +701,29 @@ class AiVerificationBadge extends StatelessWidget {
     final String title;
 
     if (isMock) {
-      bg = const Color(0xFFFFFBEB);
+      bg = MiqdarColors.warningBg;
       fg = MiqdarColors.warning;
-      icon = Icons.science_outlined;
+      icon = MiqIcons.flask;
       title = s.offlineDemoRecord;
     } else if (isVerified) {
-      bg = MiqdarColors.softGreen;
+      bg = MiqdarColors.accentWash;
       fg = MiqdarColors.primary;
-      icon = Icons.verified_rounded;
+      icon = MiqIcons.sealCheck;
       title = s.verifiedOfficialRecord;
     } else if (verificationStatus == aiEstimateStatus) {
-      bg = const Color(0xFFFFFBEB);
+      bg = MiqdarColors.warningBg;
       fg = MiqdarColors.warning;
-      icon = Icons.auto_awesome_rounded;
+      icon = MiqIcons.sparkle;
       title = s.aiEstimateRecord;
     } else if (isCustom) {
       bg = MiqdarColors.infoBg;
       fg = MiqdarColors.info;
-      icon = Icons.edit_note_rounded;
+      icon = MiqIcons.notePencil;
       title = s.userEnteredRecord;
     } else {
-      bg = const Color(0xFFFFFBEB);
+      bg = MiqdarColors.warningBg;
       fg = MiqdarColors.warning;
-      icon = Icons.fact_check_outlined;
+      icon = MiqIcons.clipboardText;
       title = s.referenceSeedRecord;
     }
 
@@ -1039,7 +745,7 @@ class AiVerificationBadge extends StatelessWidget {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     fontSize: 13,
                     color: fg,
                   ),
@@ -1056,7 +762,7 @@ class AiVerificationBadge extends StatelessWidget {
                     portionSource!.label(s.isAr),
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       color: fg,
                     ),
                   ),
@@ -1111,7 +817,7 @@ class _AimingReticleOverlayState extends State<AimingReticleOverlay>
             child: CustomPaint(
               size: const Size(220, 164),
               painter: _ReticleCornerPainter(
-                color: widget.isStable ? MiqdarColors.mintGlow : MiqdarColors.warning,
+                color: widget.isStable ? MiqdarColors.accentGlow : MiqdarColors.warning,
                 glowOpacity: 0.25 + _controller.value * 0.35,
               ),
             ),
@@ -1209,7 +915,7 @@ class NutrientNoticeCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.notifications_none_rounded, color: accent, size: 20),
+              Icon(MiqIcons.bell, color: accent, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -1217,7 +923,7 @@ class NutrientNoticeCard extends StatelessWidget {
                       ? s.tr('If you save this meal', 'إذا حفظت هذه الوجبة')
                       : '${s.nutrientLabel(alert.nutrientKey)} • ${s.tr("Above your goal", "أعلى من هدفك")}',
                   style: TextStyle(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     fontSize: 13,
                     color: accent,
                   ),
@@ -1230,7 +936,7 @@ class NutrientNoticeCard extends StatelessWidget {
             alert.localizedMessage(s.isAr),
             style: TextStyle(
               fontSize: 13,
-              color: isDark ? Colors.white : MiqdarColors.dark,
+              color: isDark ? MiqdarColors.darkText : MiqdarColors.ink,
               height: 1.4,
             ),
           ),
@@ -1240,7 +946,7 @@ class NutrientNoticeCard extends StatelessWidget {
               alignment: AlignmentDirectional.centerEnd,
               child: TextButton.icon(
                 onPressed: onAcknowledge,
-                icon: const Icon(Icons.check_rounded, size: 16),
+                icon: const Icon(MiqIcons.check, size: 16),
                 label: Text(s.tr('Got it', 'حسناً')),
               ),
             ),
