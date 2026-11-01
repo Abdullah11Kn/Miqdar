@@ -112,7 +112,10 @@ class _MainShellState extends State<MainShell> {
       const ProfileScreen(),
     ];
 
-    return LayoutBuilder(
+    // The dark splash and welcome screens leave a light status bar behind.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: LayoutBuilder(
       builder: (context, constraints) {
         final isDesktopSidebar = constraints.maxWidth >= 780;
 
@@ -264,6 +267,7 @@ class _MainShellState extends State<MainShell> {
           ),
         );
       },
+      ),
     );
   }
 }

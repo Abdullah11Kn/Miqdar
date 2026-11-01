@@ -141,6 +141,9 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - Saying "works" means you ran it. A passing test on the simulated scale does not prove the real scale works.
 - Gemini can misname food (it read one Jareesh photo as both Jareesh and Saleeg). Tests must not require an exact dish name.
 
+**Showing work to Abdullah**
+- Opening the app's icon on the simulator runs the last build, not the latest code. After app changes, run `./run_simulator.sh` on his simulator yourself (it keeps his data) and confirm with a screenshot, instead of telling him it is done.
+
 **Pi hardware**
 - `pkill -f "app.py"` over SSH kills your own shell. Use `pkill -f "[a]pp.py"`.
 - A Mac IDE blocked by macOS Local Network privacy shows `No route to host`. That is not a hotspot problem.
@@ -173,6 +176,11 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-02: Redesign installed on his simulator; status bar fixed
+- Found: he saw "nothing changed" because the installed app was the old build from the night before. Rebuilt it on his iPhone 16 Pro simulator; his data was backed up first and held no meals.
+- Fixed: the clock was white on cream when the app opened to Home, because the dark splash left a light status bar. The tour missed this.
+- Tested: `flutter analyze`, unit tests, screenshot on his simulator, connected to the real scale.
 
 ### 2026-11-02: New brand and full front-end redesign (commit 199e6dd)
 - Decided: Abdullah rejected the old look as only a starter demo, and said icons, images, fonts and colors may all change.
