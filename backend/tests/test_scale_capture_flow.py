@@ -53,6 +53,7 @@ class ScaleCaptureFlowTests(unittest.TestCase):
         self._no_cli_camera = patch.object(scale_app.shutil, "which", return_value=None)
         self._no_cli_camera.start()
         self.hw = ScaleHardwareAdapter(force_mock=True)
+        self.hw.analyze_on_scale = True
         self.hw.start()
 
     def tearDown(self) -> None:
@@ -65,6 +66,7 @@ class ScaleCaptureFlowTests(unittest.TestCase):
         hw = ScaleHardwareAdapter(force_mock=True)
         hw.is_mock = False
         hw._hw_module = module
+        hw.analyze_on_scale = True
         return hw
 
     def request(self, server, path, payload=None, headers=None):
@@ -197,6 +199,35 @@ class ScaleCaptureFlowTests(unittest.TestCase):
             self.assertEqual(self.request(server, "/scale/live")[0], 200)
             ok = {"Authorization": "Bearer secret"}
             self.assertEqual(self.request(server, "/scale/tare", {}, ok)[0], 200)
+
+    def test_default_scale_sends_the_photo_and_needs_no_ai_key(self) -> None:
+        hw = self.real_scale(FakeHardwareModule(grams=240.0))
+        hw.analyze_on_scale = False
+        server = self.serve(hw)
+        with patch.object(scale_app, "analyze_and_save") as analysis, \
+                patch.dict("os.environ", {"GEMINI_API_KEY": "", "MIQDAR_RECOGNITION_PROVIDER": ""}):
+            status, body = self.request(server, "/scale/capture", {})
+            _, health = self.request(server, "/health")
+        analysis.assert_not_called()
+        self.assertEqual(status, 200)
+        self.assertEqual(body["status"], "photo")
+        self.assertEqual(body["weight_g"], 240.0)
+        self.assertTrue(body["image_base64"])
+        self.assertEqual(health["recognition"]["provider"], "gemini-in-app")
+        self.assertEqual(self.request(server, "/scale/capture/latest")[1]["status"], "photo")
+
+    def test_phone_result_reaches_the_scale_only_for_the_current_capture(self) -> None:
+        hw = self.real_scale(FakeHardwareModule(grams=240.0))
+        hw.analyze_on_scale = False
+        server = self.serve(hw)
+        event_id = self.request(server, "/scale/capture", {})[1]["event_id"]
+        stale = {"event_id": "cap-old", "food": {"name_en": "Old"}, "nutrients": {}}
+        self.assertFalse(self.request(server, "/scale/capture/result", stale)[1]["accepted"])
+        self.assertIsNone(hw.latest_analysis)
+        current = {"event_id": event_id, "food": {"name_en": "Jareesh"}, "nutrients": {"calories_kcal": 300}}
+        self.assertTrue(self.request(server, "/scale/capture/result", current)[1]["accepted"])
+        self.assertEqual(hw.latest_analysis["food"]["name_en"], "Jareesh")
+        self.assertEqual(hw.latest_analysis["weight_g"], 240.0)
 
     def test_simulate_route_does_not_exist_on_a_real_scale(self) -> None:
         hw = self.real_scale(FakeHardwareModule())

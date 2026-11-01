@@ -290,12 +290,18 @@ class MiqdarController extends ChangeNotifier {
   RecognitionResult? latestExternalScaleCapture;
   ScaleCaptureFailure? latestScaleCaptureFailure;
   String? scaleConnectionIssue;
+  String? _analyzingEventId;
   bool _scalePollInFlight = false;
   int _scaleFailures = 0;
 
   void clearExternalScaleCapture() {
     latestExternalScaleCapture = null;
   }
+
+  bool get analyzingScalePhoto => _analyzingEventId != null;
+
+  /// True from the moment a capture starts until its result is ready.
+  bool get scaleWorking => busy || scaleDevice.isCapturing || analyzingScalePhoto;
 
   void clearScaleCaptureFailure() {
     latestScaleCaptureFailure = null;
@@ -367,22 +373,67 @@ class MiqdarController extends ChangeNotifier {
       return false;
     }
     // Marked seen only after the photo arrives, so a failed download retries on the next poll.
-    await _ingestCaptureEvent(await apiService.getLatestScaleCapture());
+    final event = await apiService.getLatestScaleCapture();
+    if (event['status'] == 'photo') {
+      unawaited(_ingestCaptureEvent(event)); // Gemini takes seconds; keep the weight live meanwhile
+    } else {
+      await _ingestCaptureEvent(event);
+    }
     return true;
   }
 
-  Future<void> _ingestCaptureEvent(Map<String, dynamic> event) async {
+  Future<RecognitionResult?> _ingestCaptureEvent(Map<String, dynamic> event) async {
     _lastSeenCaptureEventId = event['event_id'] as String?;
-    if (event['status'] == 'error') {
-      final image = event['image_base64'] as String?;
-      latestScaleCaptureFailure = ScaleCaptureFailure(
-        error: ApiService.recognitionExceptionFromJson(event),
-        imageBytes: image == null || image.isEmpty ? null : base64Decode(image),
-        weightG: (event['weight_g'] as num?)?.toDouble() ?? 0,
-      );
-      return;
+    final status = event['status'] as String?;
+    if (status == 'error') {
+      _publishCaptureFailure(ApiService.recognitionExceptionFromJson(event), event);
+      return null;
     }
-    await _acceptScaleCapture(RecognitionResult.fromJson(event));
+    if (status == 'photo') {
+      return _analyzeScalePhoto(event);
+    }
+    final result = RecognitionResult.fromJson(event);
+    await _acceptScaleCapture(result);
+    return result;
+  }
+
+  void _publishCaptureFailure(RecognitionException error, Map<String, dynamic> event) {
+    final image = event['image_base64'] as String?;
+    latestScaleCaptureFailure = ScaleCaptureFailure(
+      error: error,
+      imageBytes: image == null || image.isEmpty ? null : base64Decode(image),
+      weightG: (event['weight_g'] as num?)?.toDouble() ?? 0,
+    );
+  }
+
+  /// Sends the scale's weighed photo to Gemini. Runs apart from the live poll, so the
+  /// weight keeps updating. A newer capture makes this one's answer irrelevant.
+  Future<RecognitionResult?> _analyzeScalePhoto(Map<String, dynamic> event) async {
+    final eventId = event['event_id'] as String?;
+    _analyzingEventId = eventId;
+    notifyListeners();
+    try {
+      final image = event['image_base64'] as String?;
+      final result = await apiService.gemini.analyze(
+        imageBytes: image == null ? Uint8List(0) : base64Decode(image),
+        weightG: (event['weight_g'] as num?)?.toDouble() ?? 0,
+        eventId: eventId,
+      );
+      if (_analyzingEventId != eventId) return null;
+      await _acceptScaleCapture(result);
+      unawaited(apiService.postScaleResult(result));
+      return result;
+    } on RecognitionException catch (error) {
+      if (_analyzingEventId != eventId) return null;
+      // An empty plate settling on the scale is normal, not worth interrupting the user for.
+      if (!(event['source'] == 'auto' && error.code == 'NOT_FOOD')) {
+        _publishCaptureFailure(error, event);
+      }
+      return null;
+    } finally {
+      if (_analyzingEventId == eventId) _analyzingEventId = null;
+      notifyListeners();
+    }
   }
 
   Future<void> _acceptScaleCapture(RecognitionResult result) async {
@@ -394,16 +445,13 @@ class MiqdarController extends ChangeNotifier {
 
   /// Asks the scale to capture. The review screen opens from [latestExternalScaleCapture]
   /// (see MainShell), the same way as for captures started on the scale itself.
-  Future<RecognitionResult> captureFromScale({String? hint}) async {
+  Future<RecognitionResult?> captureFromScale({String? hint}) async {
     busy = true;
     notifyListeners();
     try {
-      final result = await apiService.captureFromScale(hint: hint);
-      if (result.eventId != _lastSeenCaptureEventId) {
-        _lastSeenCaptureEventId = result.eventId;
-        await _acceptScaleCapture(result);
-      }
-      return result;
+      final event = await apiService.captureFromScale(hint: hint);
+      if (event['event_id'] == _lastSeenCaptureEventId) return null; // the live poll got there first
+      return await _ingestCaptureEvent(event);
     } on RecognitionException catch (error) {
       if (error.eventId != null && error.eventId != _lastSeenCaptureEventId) {
         try {
@@ -689,7 +737,9 @@ class MiqdarController extends ChangeNotifier {
     final result = lastRecognition;
     if (result == null) return null;
 
-    var syncState = isApiOnline ? 'synced' : 'pending_sync';
+    // A Gemini estimate has no record on the server to link a meal to, so it stays on this phone.
+    final localOnly = result.foodId.startsWith(aiFoodIdPrefix);
+    var syncState = localOnly ? 'saved_locally' : (isApiOnline ? 'synced' : 'pending_sync');
     final meal = await localDatabase.saveRecognition(
       result,
       mealType: mealType,
@@ -705,7 +755,9 @@ class MiqdarController extends ChangeNotifier {
     }
 
     final opId = 'op-meal-${DateTime.now().microsecondsSinceEpoch}';
-    if (isApiOnline) {
+    if (localOnly) {
+      // Nothing to send.
+    } else if (isApiOnline) {
       try {
         await apiService.logMeal(
           foodId: result.foodId,

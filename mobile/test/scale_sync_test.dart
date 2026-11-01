@@ -135,7 +135,7 @@ void main() {
       return _json(_liveBody(capture: _event('cap-4')));
     };
 
-    final result = await h.controller.captureFromScale();
+    final result = (await h.controller.captureFromScale())!;
     final applied = h.controller.latestExternalScaleCapture;
     await h.controller.syncScaleLive();
 

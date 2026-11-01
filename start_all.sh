@@ -31,12 +31,6 @@ pkill -f "cloudflared tunnel --url http://127.0.0.1:${port}" 2>/dev/null || true
 pkill -f "app.py --fullscreen" 2>/dev/null || true
 sleep 1
 
-if [[ ! -f .env ]]; then
-  echo "[!] .env with your GEMINI_API_KEY is missing. Run: ./install_pi_desktop.sh"
-  pause_on_error
-  exit 1
-fi
-
 python_cmd="python3"
 [[ -x .venv/bin/python ]] && python_cmd=".venv/bin/python"
 

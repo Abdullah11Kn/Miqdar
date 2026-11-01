@@ -2,7 +2,8 @@
 // simulation mode:
 //
 //   ../start_scale_app.sh --headless --mock                  (freshly started, in another terminal)
-//   flutter test integration_test/scale_flow_test.dart -d <simulator id>
+//   flutter test integration_test/scale_flow_test.dart -d <simulator id> \
+//     --dart-define=GEMINI_API_KEY=<key>
 //
 // Add --dart-define=MIQDAR_API_URL=<url> to run it through a tunnel instead of localhost.
 import 'dart:convert';
@@ -14,6 +15,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:miqdar_mobile/app.dart';
 import 'package:miqdar_mobile/app_controller.dart';
 import 'package:miqdar_mobile/data/local_database.dart';
+import 'package:miqdar_mobile/models/nutrition.dart';
 import 'package:miqdar_mobile/services/alert_service.dart';
 import 'package:miqdar_mobile/services/api_service.dart';
 import 'package:miqdar_mobile/ui/screens.dart';
@@ -73,7 +75,8 @@ void main() {
     await hold(1);
     expect(find.byType(RecognitionResultScreen), findsOneWidget);
     final result = controller.lastRecognition!;
-    expect(result.nameEn, 'Jareesh');
+    expect(result.nameEn.toLowerCase(), contains('jareesh'));
+    expect(result.verificationStatus, aiEstimateStatus);
     expect(result.imageBytes, isNotNull);
     expect(result.nutrients.calories, closeTo(result.resolvedBasisPer100g.calories * result.weightG / 100, 0.5));
     expect(result.weightG, closeTo(240, 1));
@@ -87,11 +90,12 @@ void main() {
       find.byType(ListView).last,
       const Offset(0, -300),
     );
+    expect(find.text('Gemini AI Estimate — Not a Verified Record'), findsOneWidget);
     await tester.tap(find.text('Confirm & Save Meal to Diary'));
     await pumpUntil(() => controller.meals.length == meals + 1, seconds: 10);
     await hold(4);
     expect(find.byType(RecognitionResultScreen), findsNothing);
-    expect(controller.meals.first.nameEn, 'Jareesh');
+    expect(controller.meals.first.nameEn.toLowerCase(), contains('jareesh'));
 
     await placeFood(0, 'jareesh');
     await hold(2);

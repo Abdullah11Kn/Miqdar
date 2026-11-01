@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/food_catalog.dart';
 import '../models/nutrition.dart';
+import 'gemini_service.dart';
 
 String _defaultBaseUrl() {
   const envUrl = String.fromEnvironment('MIQDAR_API_URL');
@@ -64,6 +65,7 @@ class RecognitionException implements Exception {
         'AI_PROVIDER_UNAVAILABLE' => isAr
             ? 'خدمة الذكاء الاصطناعي غير متاحة حالياً'
             : 'AI recognition service unavailable',
+        'AI_KEY_MISSING' => isAr ? 'مفتاح Gemini غير مضبوط' : 'Gemini API key not set',
         'SERVER_UNREACHABLE' => isAr
             ? 'تعذّر الاتصال بخادم مقدار'
             : 'Cannot reach the Miqdar server',
@@ -84,6 +86,9 @@ class RecognitionException implements Exception {
         'SERVER_UNREACHABLE' => isAr
             ? 'تحقق من تشغيل الخادم المحلي، أو استخدم وضع المعاينة التجريبية أو البحث في الدليل المحلي.'
             : 'Ensure the backend server is running, or continue with the Offline Demo or local Food Catalog.',
+        'AI_KEY_MISSING' => isAr
+            ? 'شغّل التطبيق باستخدام ./run_simulator.sh لقراءة المفتاح من ملف .env.'
+            : 'Start the app with ./run_simulator.sh so it reads the key from your .env file.',
         'CAMERA_UNAVAILABLE' => isAr
             ? 'تحقق من توصيل كابل الكاميرا بالراسبيري باي ثم حاول مرة أخرى.'
             : 'Check the camera ribbon cable on the Raspberry Pi, then try again.',
@@ -104,12 +109,17 @@ class ApiService {
     String? baseUrl,
     this.apiToken = const String.fromEnvironment('MIQDAR_API_TOKEN'),
     http.Client? client,
+    GeminiNutritionService? gemini,
   })  : baseUrl = baseUrl ?? _defaultBaseUrl(),
-        _client = client ?? http.Client();
+        _client = client ?? http.Client(),
+        gemini = gemini ?? GeminiNutritionService(client: client);
 
   String baseUrl;
   final String apiToken;
   final http.Client _client;
+
+  /// Identifies food and estimates nutrition. Used whenever the app has a Gemini key.
+  final GeminiNutritionService gemini;
   static const requestTimeout = Duration(seconds: 25);
 
   /// Settling + autofocus + the Gemini fallback chain (35 s deadline on the scale).
@@ -145,6 +155,14 @@ class ApiService {
       imageBytes = await image.readAsBytes();
     } else {
       imageBytes = (await rootBundle.load(assetPath ?? demoImageAsset)).buffer.asUint8List();
+    }
+    if (gemini.configured) {
+      return gemini.analyze(
+        imageBytes: imageBytes,
+        weightG: weightG,
+        hint: hint,
+        portionSource: portionSource,
+      );
     }
     final trimmedHint = hint?.trim();
     final http.Response response;
@@ -353,9 +371,35 @@ class ApiService {
     return false;
   }
 
-  /// Triggers physical scale photo capture and load-cell measurement. The result is
-  /// a draft: the meal is logged only when the user saves it on the review screen.
-  Future<RecognitionResult> captureFromScale({String? hint}) async {
+  /// Tells the scale what the phone found, so its touchscreen can show the calories too.
+  Future<void> postScaleResult(RecognitionResult result) async {
+    try {
+      await _client
+          .post(
+            Uri.parse('$baseUrl/scale/capture/result'),
+            headers: _jsonHeaders,
+            body: jsonEncode({
+              'event_id': result.eventId,
+              'food': {'name_en': result.nameEn},
+              'nutrients': {
+                'calories_kcal': result.nutrients.calories,
+                'carbohydrate_g': result.nutrients.carbohydrates,
+                'protein_g': result.nutrients.protein,
+                'fat_g': result.nutrients.fat,
+                'sugar_g': result.nutrients.sugar,
+              },
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // The scale's own screen is a convenience; the phone already has the result.
+    }
+  }
+
+  /// Triggers physical scale photo capture and load-cell measurement. Returns the capture
+  /// event: a weighed photo to analyse, or a finished draft from --analyze-on-scale.
+  /// Either way the meal is logged only when the user saves it on the review screen.
+  Future<Map<String, dynamic>> captureFromScale({String? hint}) async {
     final http.Response response;
     try {
       response = await _client
@@ -378,7 +422,7 @@ class ApiService {
       body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     } catch (_) {}
     if (response.statusCode == 200 && body != null) {
-      return RecognitionResult.fromJson(body);
+      return body;
     }
     if (body == null) {
       throw RecognitionException('SERVER_UNREACHABLE', _describeScaleHttpFailure(response));
