@@ -163,7 +163,7 @@ Waiting for Abdullah. Do not settle these alone.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
-### 2026-11-02: Organized the repository and created this file (commit 89ca6c3)
+### 2026-11-02: Organized the repository and created this file (commit 04df902)
 - Changed: Abdullah asked for a shared file so agents stop losing context. Added `AGENTS.md`, `CLAUDE.md` (loads it
   automatically in Claude Code) and `docs/README.md`. Moved the loose root documents into `docs/`; `AGENT_HANDOVER.md`
   is now `docs/TECHNICAL_REFERENCE.md` and the requirements file is `docs/FRONTEND_REQUIREMENTS_V3.md`.
