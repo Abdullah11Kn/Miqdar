@@ -49,7 +49,7 @@ class AlertService {
         currentValue: value,
         thresholdValue: threshold,
         message:
-            'Recorded ${labelEn.toLowerCase()} would reach ${value.toStringAsFixed(0)} $unitEn, above your configured ${threshold.toStringAsFixed(0)} $unitEn daily limit. Review the meal or adjust your target.$incompleteSuffixEn',
+            'Recorded ${labelEn.toLowerCase()} would reach ${value.toStringAsFixed(0)} $unitEn, above your ${threshold.toStringAsFixed(0)} $unitEn daily limit. Review the meal or adjust your target.$incompleteSuffixEn',
         messageAr:
             'إجمالي $labelAr المسجل سيصل إلى ${value.toStringAsFixed(0)} $unitAr، وهو أعلى من الحد اليومي المحدد (${threshold.toStringAsFixed(0)} $unitAr). يمكنك مراجعة الوجبة أو تعديل الهدف.$incompleteSuffixAr',
         createdAt: DateTime.now().toUtc(),
