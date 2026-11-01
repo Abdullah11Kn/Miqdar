@@ -221,8 +221,8 @@ class _ScanScreenState extends State<ScanScreen> {
         SnackBar(
           content: Text(
             s.tr(
-              'Scale is offline. Make sure ./start_cloudflare_tunnel.sh and python3 app.py are running on the Raspberry Pi.',
-              'الميزان غير متصل. يرجى التأكد من تشغيل النفق start_cloudflare_tunnel.sh والتطبيق على الراسبيري باي.',
+              'Scale is offline. Tap the Miqdar Scale icon on the Raspberry Pi, then enter the address shown on its screen.',
+              'الميزان غير متصل. اضغط أيقونة Miqdar Scale على الراسبيري باي ثم أدخل العنوان الظاهر على شاشته.',
             ),
           ),
           backgroundColor: const Color(0xFFD97706),
@@ -248,20 +248,11 @@ class _ScanScreenState extends State<ScanScreen> {
         imageBytes = res.imageBytes;
         imageFileName = '${res.nameEn}.jpg';
       });
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => RecognitionResultScreen(
-            result: res,
-            previewBytes: res.imageBytes,
-          ),
-        ),
-      );
-    } catch (e) {
+    } on RecognitionException catch (e) {
       if (!mounted) return;
-      final rawMsg = e.toString().replaceFirst('Exception: ', '').replaceFirst('ApiException: ', '');
-      setState(() {
-        lastError = RecognitionException('SCALE_CAPTURE_ERROR', rawMsg);
-      });
+      // The scale published this failure with its photo; MainShell is already showing it.
+      if (e.eventId != null) return;
+      final rawMsg = e.message;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(rawMsg),
@@ -294,7 +285,7 @@ class _ScanScreenState extends State<ScanScreen> {
         hint = null;
         lastError = null;
       });
-      _setWeight(sample.defaultWeightG, source: PortionSource.scale);
+      _setWeight(sample.defaultWeightG, source: PortionSource.manual);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -566,13 +557,24 @@ class _ScanScreenState extends State<ScanScreen> {
       portionSource = source;
       weightTextCtrl.text = clamped.toStringAsFixed(clamped % 1 == 0 ? 0 : 1);
     });
-    final controller = MiqdarScope.of(context);
-    if (source == PortionSource.scale) {
-      controller.setSimulatedScaleWeight(clamped, fromHardware: true);
-    }
   }
 
   Future<void> _runAiRecognition(MiqdarController controller) async {
+    if (weight <= 0) {
+      final s = S.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.tr(
+              'The scale reads 0 g. Put the food on the plate or enter a weight.',
+              'الميزان يقرأ 0 غ. ضع الطعام على الطبق أو أدخل الوزن.',
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (imageBytes == null && selectedSampleAsset == null) {
       final s = S.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -650,8 +652,10 @@ class _ScanScreenState extends State<ScanScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Dynamically sync live weight from physical scale when in scale mode
-    if (portionSource == PortionSource.scale && !controller.taringScale) {
-      final currentGrams = controller.scaleDevice.effectiveWeightG;
+    if (portionSource == PortionSource.scale &&
+        controller.scaleDevice.online &&
+        !controller.taringScale) {
+      final currentGrams = controller.scaleDevice.effectiveWeightG.clamp(0.0, 5000.0).toDouble();
       if ((weight - currentGrams).abs() >= 0.5) {
         weight = currentGrams;
         weightTextCtrl.text = currentGrams.toStringAsFixed(0);
@@ -763,9 +767,9 @@ class _ScanScreenState extends State<ScanScreen> {
                 ],
               )
             else ...[
-              cameraSection,
-              const SizedBox(height: 14),
               scaleSection,
+              const SizedBox(height: 14),
+              cameraSection,
             ],
 
             if (lastError != null) ...[
@@ -1206,7 +1210,9 @@ class _ScanScreenState extends State<ScanScreen> {
                           children: [
                             Text(
                               scale.online
-                                  ? (isLiveMode ? s.tr('LIVE', 'مباشر') : s.tr('ONLINE', 'متصل'))
+                                  ? (scale.simulated
+                                      ? s.tr('SIMULATED', 'محاكاة')
+                                      : (isLiveMode ? s.tr('LIVE', 'مباشر') : s.tr('ONLINE', 'متصل')))
                                   : s.tr('OFFLINE', 'غير متصل'),
                               style: TextStyle(
                                 fontSize: 10.5,
@@ -1270,16 +1276,18 @@ class _ScanScreenState extends State<ScanScreen> {
                 onPressed: controller.taringScale
                     ? null
                     : () async {
-                        await controller.tareScale();
-                        _setWeight(0, source: PortionSource.scale);
+                        final tared = await controller.tareScale();
+                        if (tared) _setWeight(0, source: PortionSource.scale);
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              s.tr(
-                                'Scale tared to 0 g.',
-                                'تم تصفير الميزان إلى 0 غرام.',
-                              ),
+                              tared
+                                  ? s.tr('Scale tared to 0 g.', 'تم تصفير الميزان إلى 0 غرام.')
+                                  : s.tr(
+                                      'Could not zero: keep the plate still and try again.',
+                                      'تعذر التصفير: أبقِ الطبق ثابتاً وحاول مرة أخرى.',
+                                    ),
                             ),
                             duration: const Duration(seconds: 2),
                           ),
@@ -1294,6 +1302,26 @@ class _ScanScreenState extends State<ScanScreen> {
             ],
           ),
           const SizedBox(height: 10),
+
+          if (scale.online && (scale.simulated || scale.sensorError != null)) ...[
+            Text(
+              scale.sensorError != null
+                  ? s.tr(
+                      'Load cell not responding: check the HX711 wiring.',
+                      'حساس الوزن لا يستجيب: تحقق من توصيلات HX711.',
+                    )
+                  : s.tr(
+                      'Simulation: weight and photo are not from a real scale.',
+                      'محاكاة: الوزن والصورة ليسا من ميزان حقيقي.',
+                    ),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFD97706),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
 
           // 2. Offline banner OR Live Sync status banner / Revert to Live Scale button
           if (!scale.online)
@@ -1315,10 +1343,11 @@ class _ScanScreenState extends State<ScanScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        s.tr(
-                          'Scale offline • Tap to enter Cloudflare URL',
-                          'الميزان غير متصل • اضغط لضبط رابط النفق',
-                        ),
+                        controller.scaleConnectionIssue ??
+                            s.tr(
+                              'Scale offline • Tap to enter Cloudflare URL',
+                              'الميزان غير متصل • اضغط لضبط رابط النفق',
+                            ),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -1497,7 +1526,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(10),
-                    onTap: () => _setWeight(preset, source: PortionSource.scale),
+                    onTap: () => _setWeight(preset, source: PortionSource.manual),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       alignment: Alignment.center,
@@ -1544,15 +1573,15 @@ class _ScanScreenState extends State<ScanScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               elevation: 0,
             ),
-            onPressed: controller.busy ? null : _captureFromScaleCamera,
-            icon: controller.busy
+            onPressed: controller.busy || scale.isCapturing ? null : _captureFromScaleCamera,
+            icon: controller.busy || scale.isCapturing
                 ? const SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                 : const Icon(Icons.camera_alt_rounded, size: 20),
             label: Text(
-              controller.busy
+              controller.busy || scale.isCapturing
                   ? s.tr('Capturing & Analyzing via Gemini...', 'جاري الالتقاط والتحليل عبر جيميني...')
                   : s.tr('Capture from Scale Camera', 'التقاط وزِن بكاميرا الميزان'),
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),

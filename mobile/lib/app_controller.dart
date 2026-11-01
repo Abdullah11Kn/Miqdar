@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,15 @@ import 'data/local_database.dart';
 import 'models/nutrition.dart';
 import 'services/alert_service.dart';
 import 'services/api_service.dart';
+
+/// A capture the scale could not finish, with the photo when one was taken.
+class ScaleCaptureFailure {
+  const ScaleCaptureFailure({required this.error, this.imageBytes, this.weightG = 0});
+
+  final RecognitionException error;
+  final Uint8List? imageBytes;
+  final double weightG;
+}
 
 class MiqdarController extends ChangeNotifier {
   MiqdarController({
@@ -152,7 +162,7 @@ class MiqdarController extends ChangeNotifier {
 
   void _startLiveScaleSyncTimer() {
     _liveScaleTimer?.cancel();
-    _liveScaleTimer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
+    _liveScaleTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (scaleDevice.paired) {
         unawaited(syncScaleLive());
       }
@@ -162,7 +172,9 @@ class MiqdarController extends ChangeNotifier {
   Future<void> initialize() async {
     await localDatabase.initialize();
     final savedUrl = await localDatabase.getSetting('api_base_url');
-    if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+    // A URL passed with --dart-define=MIQDAR_API_URL wins over the one saved last time.
+    const launchUrl = String.fromEnvironment('MIQDAR_API_URL');
+    if (launchUrl.isEmpty && savedUrl != null && savedUrl.trim().isNotEmpty) {
       apiService.updateBaseUrl(savedUrl.trim());
     }
     goals = await localDatabase.loadGoals();
@@ -214,6 +226,8 @@ class MiqdarController extends ChangeNotifier {
   void setApiBaseUrl(String newUrl) {
     final cleaned = newUrl.trim();
     apiService.updateBaseUrl(cleaned);
+    _scaleFailures = 0;
+    scaleConnectionIssue = null;
     unawaited(localDatabase.saveSetting('api_base_url', cleaned));
     unawaited(checkServer().then((_) => syncScaleLive()));
     notifyListeners();
@@ -247,99 +261,160 @@ class MiqdarController extends ChangeNotifier {
   NutritionValues get selectedDateTotals => totalsForDate(selectedDate);
 
   // Scale & Measurement Operations (Section 8)
-  Future<void> tareScale() async {
-    if (!scaleDevice.paired) return;
+  Future<bool> tareScale() async {
+    if (!scaleDevice.paired || !scaleDevice.online) return false;
     taringScale = true;
     scaleDevice = scaleDevice.copyWith(isStable: false, clearLockedWeight: true);
     notifyListeners();
-    if (isApiOnline) {
-      try {
-        await apiService.remoteScaleTare();
-      } catch (_) {}
+    final ok = await apiService.remoteScaleTare();
+    if (ok) {
+      scaleDevice = scaleDevice.copyWith(
+        liveWeightG: 0.0,
+        clearLockedWeight: true,
+        isStable: true,
+        lastSeen: DateTime.now(),
+      );
     }
-    await Future<void>.delayed(const Duration(milliseconds: 450));
-    scaleDevice = scaleDevice.copyWith(
-      tareOffsetG: scaleDevice.liveWeightG,
-      liveWeightG: 0.0,
-      clearLockedWeight: true,
-      isStable: true,
-      lastSeen: DateTime.now(),
-    );
     taringScale = false;
     notifyListeners();
+    return ok;
   }
+
+  /// A capture older than this when first seen is history, not something to pop up.
+  static const _staleCaptureAgeS = 300;
+
+  /// One missed poll is normal over a tunnel; only a run of them means offline.
+  static const _offlineAfterFailures = 3;
 
   String? _lastSeenCaptureEventId;
   RecognitionResult? latestExternalScaleCapture;
+  ScaleCaptureFailure? latestScaleCaptureFailure;
+  String? scaleConnectionIssue;
+  bool _scalePollInFlight = false;
+  int _scaleFailures = 0;
 
   void clearExternalScaleCapture() {
     latestExternalScaleCapture = null;
   }
 
+  void clearScaleCaptureFailure() {
+    latestScaleCaptureFailure = null;
+  }
+
   Future<void> syncScaleLive() async {
-    if (!scaleDevice.paired) return;
+    if (!scaleDevice.paired || _scalePollInFlight) return;
+    _scalePollInFlight = true;
     try {
       final data = await apiService.getScaleLive();
       if (data.containsKey('live_weight_g')) {
-        final w = (data['live_weight_g'] as num).toDouble();
-        final stable = data['is_stable'] as bool? ?? true;
-        final battery = (data['battery_pct'] as num?)?.toInt() ?? scaleDevice.batteryPercent;
-        scaleDevice = scaleDevice.copyWith(
-          liveWeightG: w,
-          isStable: stable,
-          batteryPercent: battery,
+        final previous = scaleDevice;
+        final wasOffline = !previous.online;
+        scaleDevice = previous.copyWith(
+          liveWeightG: (data['live_weight_g'] as num).toDouble(),
+          isStable: data['is_stable'] as bool? ?? true,
+          batteryPercent: (data['battery_pct'] as num?)?.toInt() ?? previous.batteryPercent,
           online: true,
           lastSeen: DateTime.now(),
+          simulated: data['mode'] == 'simulated',
+          autoCapture: data['auto_capture'] as bool? ?? false,
+          captureState: data['capture_state'] as String? ?? 'idle',
+          sensorError: data['sensor_error'] as String?,
+          clearSensorError: data['sensor_error'] == null,
         );
+        _scaleFailures = 0;
+        final hadIssue = scaleConnectionIssue != null;
+        scaleConnectionIssue = null;
         if (!isApiOnline) {
           connectionStatus = 'API online • Live Scale';
         }
+        if (wasOffline) unawaited(checkServer());
 
-        // Two-way sync: detect if a meal capture was triggered on the scale hardware
-        if (data['latest_capture'] is Map<String, dynamic>) {
-          final capJson = data['latest_capture'] as Map<String, dynamic>;
-          final eventId = capJson['event_id'] as String?;
-          if (eventId != null && eventId != _lastSeenCaptureEventId) {
-            _lastSeenCaptureEventId = eventId;
-            final res = RecognitionResult.fromJson(capJson);
-            latestExternalScaleCapture = res;
-            lastRecognition = res;
-            try {
-              meals = await localDatabase.loadMeals(days: 90);
-            } catch (_) {}
-          }
+        final newCapture = await _followLatestCapture(data['latest_capture']);
+        if (newCapture ||
+            wasOffline ||
+            hadIssue ||
+            previous.liveWeightG != scaleDevice.liveWeightG ||
+            previous.isStable != scaleDevice.isStable ||
+            previous.simulated != scaleDevice.simulated ||
+            previous.captureState != scaleDevice.captureState ||
+            previous.sensorError != scaleDevice.sensorError) {
+          notifyListeners();
         }
-        notifyListeners();
       }
-    } catch (_) {
-      if (scaleDevice.online) {
-        scaleDevice = scaleDevice.copyWith(online: false);
-        notifyListeners();
+    } catch (error) {
+      _scaleFailures++;
+      scaleConnectionIssue = error is ApiException
+          ? error.message
+          : 'Cannot reach ${apiService.baseUrl}. Check the address on the scale screen.';
+      if (scaleDevice.online && _scaleFailures >= _offlineAfterFailures) {
+        scaleDevice = scaleDevice.copyWith(online: false, captureState: 'idle');
+        connectionStatus = 'Server unreachable';
       }
+      notifyListeners();
+    } finally {
+      _scalePollInFlight = false;
     }
   }
 
-  Future<RecognitionResult> captureFromScale({String? hint}) async {
-    final result = await apiService.captureFromScale(hint: hint);
-    _lastSeenCaptureEventId = result.eventId;
-    latestExternalScaleCapture = result;
-    lastRecognition = result;
-    try {
-      meals = await localDatabase.loadMeals(days: 90);
-    } catch (_) {}
-    notifyListeners();
-    return result;
+  /// Picks up captures started anywhere: the scale's button, auto-capture or this phone.
+  Future<bool> _followLatestCapture(Object? summary) async {
+    if (summary is! Map<String, dynamic>) return false;
+    final eventId = summary['event_id'] as String?;
+    if (eventId == null || eventId == _lastSeenCaptureEventId) return false;
+    final ageS = (summary['age_s'] as num?)?.toDouble() ?? 0;
+    if (_lastSeenCaptureEventId == null && ageS > _staleCaptureAgeS) {
+      _lastSeenCaptureEventId = eventId;
+      return false;
+    }
+    // Marked seen only after the photo arrives, so a failed download retries on the next poll.
+    await _ingestCaptureEvent(await apiService.getLatestScaleCapture());
+    return true;
   }
 
-  void setSimulatedScaleWeight(double grams, {bool fromHardware = true}) {
-    final clamped = grams.clamp(0.0, scaleDevice.capacityG).toDouble();
-    scaleDevice = scaleDevice.copyWith(
-      liveWeightG: clamped,
-      clearLockedWeight: !fromHardware,
-      isStable: true,
-      lastSeen: DateTime.now(),
-    );
+  Future<void> _ingestCaptureEvent(Map<String, dynamic> event) async {
+    _lastSeenCaptureEventId = event['event_id'] as String?;
+    if (event['status'] == 'error') {
+      final image = event['image_base64'] as String?;
+      latestScaleCaptureFailure = ScaleCaptureFailure(
+        error: ApiService.recognitionExceptionFromJson(event),
+        imageBytes: image == null || image.isEmpty ? null : base64Decode(image),
+        weightG: (event['weight_g'] as num?)?.toDouble() ?? 0,
+      );
+      return;
+    }
+    await _acceptScaleCapture(RecognitionResult.fromJson(event));
+  }
+
+  Future<void> _acceptScaleCapture(RecognitionResult result) async {
+    await _applyResult(result);
+    activeProviderName = result.provider;
+    activeModelName = result.model;
+    latestExternalScaleCapture = result;
+  }
+
+  /// Asks the scale to capture. The review screen opens from [latestExternalScaleCapture]
+  /// (see MainShell), the same way as for captures started on the scale itself.
+  Future<RecognitionResult> captureFromScale({String? hint}) async {
+    busy = true;
     notifyListeners();
+    try {
+      final result = await apiService.captureFromScale(hint: hint);
+      if (result.eventId != _lastSeenCaptureEventId) {
+        _lastSeenCaptureEventId = result.eventId;
+        await _acceptScaleCapture(result);
+      }
+      return result;
+    } on RecognitionException catch (error) {
+      if (error.eventId != null && error.eventId != _lastSeenCaptureEventId) {
+        try {
+          await _ingestCaptureEvent(await apiService.getLatestScaleCapture());
+        } catch (_) {}
+      }
+      rethrow;
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 
   void lockScaleWeight(double grams) {

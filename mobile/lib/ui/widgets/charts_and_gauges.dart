@@ -40,7 +40,7 @@ class SurfaceCard extends StatelessWidget {
         border: Border.all(color: border),
         boxShadow: MiqdarColors.ambientShadow(isDark),
       ),
-      child: child,
+      child: Material(type: MaterialType.transparency, child: child),
     );
 
     if (onTap == null) return card;

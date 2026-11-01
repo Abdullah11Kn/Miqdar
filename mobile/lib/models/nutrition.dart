@@ -452,7 +452,7 @@ class RecognitionResult {
       basisPer100g: weightG > 0 ? nutrients.scaledBy(100.0 / weightG) : nutrients,
       alertEvaluationMs: (timing['alert_evaluation_ms'] as num?)?.toInt() ?? 0,
       alertSloMet: timing['alert_slo_met'] as bool? ?? false,
-      isMock: false,
+      isMock: json['simulated'] as bool? ?? false,
       provider: json['recognition_provider'] as String? ?? 'api',
       model: json['recognition_model'] as String?,
       candidates: [
@@ -786,12 +786,12 @@ class ScaleDeviceState {
     this.deviceId = 'Miqdar-015',
     this.displayName = 'Miqdar Smart Scale #015',
     this.paired = true,
-    this.online = true,
+    this.online = false,
     this.wifiSsid = 'KFU-Lab-WiFi',
     this.firmwareVersion = '0.9.2-stable',
     this.capacityG = 5000,
     this.resolutionG = 1.0,
-    this.liveWeightG = 180.0,
+    this.liveWeightG = 0.0,
     this.lockedWeightG,
     this.tareOffsetG = 0.0,
     this.isStable = true,
@@ -800,6 +800,10 @@ class ScaleDeviceState {
     this.brightness = 0.80,
     this.batteryPercent = 94,
     this.lastSeen,
+    this.simulated = false,
+    this.autoCapture = false,
+    this.captureState = 'idle',
+    this.sensorError,
   });
 
   final String deviceId;
@@ -819,7 +823,12 @@ class ScaleDeviceState {
   final double brightness;
   final int batteryPercent;
   final DateTime? lastSeen;
+  final bool simulated;
+  final bool autoCapture;
+  final String captureState;
+  final String? sensorError;
 
+  bool get isCapturing => captureState != 'idle';
   bool get isLocked => lockedWeightG != null;
   double get effectiveWeightG => lockedWeightG ?? liveWeightG;
 
@@ -842,6 +851,11 @@ class ScaleDeviceState {
     double? brightness,
     int? batteryPercent,
     DateTime? lastSeen,
+    bool? simulated,
+    bool? autoCapture,
+    String? captureState,
+    String? sensorError,
+    bool clearSensorError = false,
   }) =>
       ScaleDeviceState(
         deviceId: deviceId ?? this.deviceId,
@@ -861,6 +875,10 @@ class ScaleDeviceState {
         brightness: brightness ?? this.brightness,
         batteryPercent: batteryPercent ?? this.batteryPercent,
         lastSeen: lastSeen ?? this.lastSeen,
+        simulated: simulated ?? this.simulated,
+        autoCapture: autoCapture ?? this.autoCapture,
+        captureState: captureState ?? this.captureState,
+        sensorError: clearSensorError ? null : (sensorError ?? this.sensorError),
       );
 }
 

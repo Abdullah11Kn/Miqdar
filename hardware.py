@@ -118,6 +118,12 @@ def is_overloaded():
     return _gross() > OVERLOAD_G
 
 
+def is_stable(tolerance_g=1.0, window_s=1.0):
+    """True when the last window_s seconds stayed within +/- tolerance_g. Never blocks."""
+    vals = _recent(window_s)
+    return len(vals) >= max(5, int(window_s * 8)) and max(vals) - min(vals) <= 2 * tolerance_g
+
+
 # ---------------------------------------------------------------- camera
 def _camera():
     global _cam
@@ -142,6 +148,17 @@ def capture_photo(path=None):
     return str(path)
 
 
+def release_camera():
+    """Frees the camera so the rpicam-still / libcamera-still fallback can open it."""
+    global _cam
+    if _cam:
+        try:
+            _cam.stop()
+            _cam.close()
+        finally:
+            _cam = None
+
+
 # ---------------------------------------------------------------- start / stop
 def start(zero=True, camera=True):
     """Start the load-cell thread, warm up the camera (so the first photo is fast)
@@ -158,7 +175,11 @@ def start(zero=True, camera=True):
     _thread = threading.Thread(target=_acquire, daemon=True)
     _thread.start()
     if camera:
-        _camera()                                 # camera start-up (~5 s) happens here, not on Capture
+        try:
+            _camera()                             # camera start-up (~5 s) happens here, not on Capture
+        except Exception as exc:                  # the load cell must keep working without picamera2
+            print(f"[Hardware] picamera2 unavailable ({exc}). Photos will use rpicam-still.")
+            release_camera()
     else:
         time.sleep(1)                             # first load-cell samples
     if zero:
