@@ -1,9 +1,8 @@
-# Miqdar (مقدار) - Complete Agent & Developer Handover Guide
+# Miqdar (مقدار) - Technical Reference
 
-> **Target Audience**: AI Agents, Systems Engineers, and Mobile/Backend Developers continuing development on the Miqdar project.
-> **Last Updated**: November 2026
+> Long reference on how the system works. For current state, rules and the change log, read
+> [AGENTS.md](../AGENTS.md) first. **If the two disagree, AGENTS.md and the code win.**
 > **Git Repository**: [Abdullah11Kn/Miqdar](https://github.com/Abdullah11Kn/Miqdar.git)
-> **Branch**: `main`
 
 ---
 
@@ -35,7 +34,7 @@ flowchart TD
   end
 
   subgraph AI & Nutrition Core ["AI & Nutrition Core (miqdar_backend)"]
-    Service -->|"Image Bytes"| Gemini["Gemini Vision AI (gemini-3.1-flash-lite-preview)"]
+    Service -->|"Image Bytes"| Gemini["Gemini Vision AI (gemini-3.1-flash-lite)"]
     Gemini -->|"Candidates + Confidence"| Service
     Service -->|"Exact Portions"| DB[("miqdar_nutrition.db (SFDA + Saudi Dishes)")]
     Service -->|"Portion Nutrients"| AlertEng["Clinical Alert Engine (≤4s SLO)"]
@@ -49,100 +48,9 @@ flowchart TD
 
 ---
 
-## 2. Repository Layout & Sitemap
+## 2. Repository Layout
 
-```
-├── AGENT_HANDOVER.md              # THIS MASTER HANDOVER FILE
-├── README.md                      # Public project overview and quick start
-├── app.py                         # Scale hardware daemon + embedded REST server
-├── hardware.py                    # Standalone hardware driver (HX711 + picamera2)
-├── scale.py                       # CLI test tool for raw load-cell calibration
-├── scale_calibration.json         # Persisted scale tare offset & reference units
-├── start_scale_app.sh             # Production launcher for hardware scale + API
-├── start_server.sh                # Headless API server launcher (mock hardware)
-├── run_simulator.sh               # Mac: run the app on the simulator with the key from .env
-├── start_all.sh                   # One-click start: tunnel + fullscreen scale (desktop icon)
-├── install_pi_desktop.sh          # Pi setup: packages, virtualenv, API key, desktop icon
-├── enable_usb_ssh_pi.sh           # Run once on the Pi: USB-C becomes a private network to the Mac
-├── connect_pi.sh                  # Run on the Mac: terminal on the Pi over the USB-C cable
-├── start_cloudflare_tunnel.sh     # Remote access tunnel launcher (cloudflared)
-├── test_recognition.py            # CLI tool to test Gemini recognition on any image
-├── run_checks.sh                  # All-in-one verification script (DB + Py + Flutter)
-├── requirements.txt               # Top-level Python dependencies
-├── .env.example                   # Environment variable template
-│
-├── backend/                       # Core Python Backend Package
-│   ├── miqdar_backend/
-│   │   ├── __init__.py
-│   │   ├── alert_engine.py        # Clinical alert rules (hypertension, diabetes, CKD)
-│   │   ├── database.py            # SQLite schema, queries, meal history, user profiles
-│   │   ├── recognition.py         # Gemini multimodal provider, cache, retry cascade
-│   │   ├── recommendations.py     # 90-day intake analysis & meal suggestions
-│   │   ├── server.py              # Threaded HTTP REST API server
-│   │   └── service.py             # Pipeline orchestrator: image + weight -> meal
-│   ├── tests/
-│   │   ├── test_miqdar.py         # Unit tests for AI, database, alerts, SLOs
-│   │   ├── test_scale_integration.py # Integration tests for /scale/ endpoints
-│   │   └── test_sfda_import.py    # SFDA data validation tests
-│   └── requirements.txt           # Backend-specific requirements
-│
-├── mobile/                        # Cross-Platform Flutter Mobile Application
-│   ├── pubspec.yaml               # Flutter dependencies (http, sqflite, provider, etc.)
-│   ├── analysis_options.yaml      # Strict Flutter linting rules (100% clean)
-│   ├── lib/
-│   │   ├── main.dart              # Flutter application entry point
-│   │   ├── app.dart               # Root MaterialApp & theme configuration
-│   │   ├── app_controller.dart    # Central state manager (telemetry, meals, goals)
-│   │   ├── theme.dart             # Luxury dark/light styling, color tokens
-│   │   ├── data/
-│   │   │   ├── food_catalog.dart  # Offline fallback food database
-│   │   │   └── local_database.dart# On-device SQLite database (meal logs & sync)
-│   │   ├── models/
-│   │   │   └── nutrition.dart     # Meal, Nutrient, Alert, HealthProfile models
-│   │   ├── services/
-│   │   │   ├── alert_service.dart # Local clinical alert evaluator
-│   │   │   └── api_service.dart   # REST client + ScaleHardwareService
-│   │   ├── ui/
-│   │   │   ├── home_screen.dart   # Dashboard: calorie gauge, macros, quick log
-│   │   │   ├── scan_and_add_screen.dart # Live scale card, tare, capture, photo viewer
-│   │   │   ├── diary_and_detail_screen.dart # Meal history log, macro breakdown
-│   │   │   ├── insights_and_goals_screen.dart # Weekly charts, micronutrient trends
-│   │   │   ├── profile_and_device_screen.dart # Scale pairing, health profile, URL config
-│   │   │   ├── auth_screens.dart  # User onboarding and login
-│   │   │   └── screens.dart       # UI barrel export
-│   │   └── widgets/
-│   │       └── charts_and_gauges.dart # Custom circular gauges & progress bars
-│   └── test/
-│       ├── alert_service_test.dart
-│       ├── meal_recommendation_test.dart
-│       └── nutrition_values_test.dart
-│
-├── database/                      # SQLite Database & Build Tools
-│   ├── miqdar_nutrition.db        # Seeded production SQLite database
-│   ├── schema.sql                 # Complete relational DDL with indexes
-│   ├── scripts/
-│   │   ├── build_database.py      # Rebuilds and seeds DB deterministically
-│   │   ├── sync_sfda.py           # SFDA open data sync tool
-│   │   └── sync_usda_fdc.py       # USDA FoodData Central sync tool
-│   └── seed/                      # Authoritative CSV seeds (foods, aliases, sources)
-│
-├── docs/                          # Architectural & Verification Docs
-│   ├── API_CONTRACT.md            # Complete REST API payload specifications
-│   ├── GEMINI_SERVER_SETUP.md     # AI vision deployment guide
-│   ├── VERIFICATION.md            # Acceptance tests & performance SLO metrics
-│   ├── FIGMA_TO_FLUTTER.md        # UI design system tokens & Figma mapping
-│   └── handover/                  # Hardware & Project Slide Decks
-│       ├── Smart_Food_Scale_Handover_Slides.pdf
-│       └── Smart_Food_Scale_Hardware_Handover.pdf
-│
-└── evaluation/                    # Academic Research Benchmark Suite
-    ├── evaluation_400_dataset.csv # 400-sample balanced Saudi food benchmark
-    ├── evaluate_dataset.py        # Batch vision accuracy evaluation script
-    ├── compare_models.py          # Benchmark comparing vision model variants
-    ├── compute_metrics.py         # Top-1, Top-3, and dish F1-score calculator
-    ├── generate_report.py         # Report generator
-    └── sample_images/             # Test photos (kabsa, shawarma, jareesh, burger, pizza)
-```
+The map of the repository is kept in one place: [AGENTS.md](../AGENTS.md#where-things-live).
 
 ---
 
@@ -167,7 +75,7 @@ flowchart TD
   - Formula: $\text{Weight (g)} = \frac{\text{Raw Reading} - \text{Offset}}{\text{Factor}}$, minus the current tare.
 - **Camera Module 3 (IMX708 autofocus)**:
   - Mounted on an overhead bracket at approximately 30–40 cm height angled down at the weighing plate.
-  - **4-Tier Capture Cascade** in `ScaleHardwareAdapter.capture_photo()` ([app.py](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/app.py)):
+  - **4-Tier Capture Cascade** in `ScaleHardwareAdapter.capture_photo()` (`app.py`):
     1. Python `picamera2` module: Direct in-memory buffer capture.
     2. `rpicam-still` CLI: The official Raspberry Pi OS (Bookworm) command (`rpicam-still -t 800 -o <path> --width 1280 --height 960 -n`).
     3. `libcamera-still` CLI: The official Raspberry Pi OS (Bullseye) command (`libcamera-still -t 800 -o <path> --width 1280 --height 960 -n`).
@@ -182,7 +90,7 @@ flowchart TD
 >
 > **The key must not ship.** `--dart-define` values can be extracted from an installed app, so this suits local simulator testing only. A release must call Gemini through a server that holds the key. Estimates also vary for one dish between photos, so review them before relying on the clinical alerts.
 
-- **Primary AI Vision Model**: **`gemini-3.1-flash-lite-preview`**
+- **Primary AI Vision Model**: **`gemini-3.1-flash-lite`**
   - Configured in [recognition.py](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/backend/miqdar_backend/recognition.py).
   - Multimodal prompt instructs Gemini to output structured JSON:
     ```json
@@ -206,7 +114,7 @@ flowchart TD
     - **Potassium & Protein**: Checks renal (CKD) safety thresholds.
 
 ### 3.2.1 AI in the App (the default path)
-Normally the scale only weighs and photographs. The app's `GeminiNutritionService` ([gemini_service.dart](mobile/lib/services/gemini_service.dart)) sends each photo to Gemini, with no cache and no nutrition values from the database. The server recognition above runs only with `--analyze-on-scale` or `--server`.
+Normally the scale only weighs and photographs. The app's `GeminiNutritionService` ([gemini_service.dart](../mobile/lib/services/gemini_service.dart)) sends each photo to Gemini, with no cache and no nutrition values from the database. The server recognition above runs only with `--analyze-on-scale` or `--server`.
 - **Model order**: `gemini-3.1-flash-lite`, then `gemini-3.5-flash-lite`, then `gemini-flash-latest`. A model gets 8 s before the next is tried, and the whole chain 35 s.
 - **Calories** = `per_100g_edible` x `edible_fraction` x weighed grams. Gemini estimates the first two and the app does the arithmetic, so the scale always sets the portion. Answers are rejected if impossible, or if calories disagree with the macros by more than 50%.
 - **Dish names**: the catalog's names are sent as spelling hints only. Without them Gemini misread jareesh as a foreign dish.
@@ -373,7 +281,7 @@ Create a `.env` file in the project root:
 GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"
 
 # Primary & Fallback Models
-GEMINI_MODEL="gemini-3.1-flash-lite-preview"
+GEMINI_MODEL="gemini-3.1-flash-lite"
 GEMINI_FALLBACK_MODELS="gemini-3-flash-preview,gemini-2.5-flash-image,gemini-flash-latest"
 
 # Server Host & Port
@@ -441,12 +349,12 @@ cd mobile && flutter test integration_test/scale_flow_test.dart -d <simulator-id
    - GitHub Secret Scanning and Push Protection are active on this repository.
    - Any commit containing string literals resembling Google API keys (`AIza...` or service account keys) will be rejected by GitHub remote hooks.
    - Always load credentials dynamically from `.env` or the runtime environment (`os.environ.get("GEMINI_API_KEY")`).
-2. **Gemini Vision Model Naming**:
-   - Google AI Studio requires the `-preview` suffix for modern Flash models. Use `gemini-3.1-flash-lite-preview` or `gemini-3-flash-preview`. Using deprecated names without `-preview` results in an immediate **HTTP 404**.
+2. **Gemini Vision Model Names**:
+   - The app's model order is the list in `mobile/lib/services/gemini_service.dart`. Change it there, and check the name against the live API first: a wrong name returns HTTP 404.
 3. **Raspberry Pi Camera Module 3 Drivers**:
    - Raspberry Pi OS **Bookworm** uses `rpicam-still` (the old `raspistill` is obsolete).
    - Raspberry Pi OS **Bullseye** uses `libcamera-still`.
-   - [app.py](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/app.py) handles both automatically via CLI subprocess if Python `picamera2` is not installed inside the virtualenv.
+   - `app.py` handles both automatically via CLI subprocess if Python `picamera2` is not installed inside the virtualenv.
 4. **Scale Calibration**:
    - If the measured weight differs from actual grams, run `python3 scale.py` on the Raspberry Pi to perform zero-tare and calibrate with a known weight (e.g. 100g or 500g). The calibrated values are stored in `scale_calibration.json`.
 5. **Database Rebuilding**:
@@ -465,11 +373,3 @@ cd mobile && flutter test integration_test/scale_flow_test.dart -d <simulator-id
    - Add slow-drift zero tracking algorithm in `ScaleHardwareAdapter` to eliminate thermal drift on the load cell during extended kitchen sessions.
 4. **Voice Feedback / Audio Prompts**:
    - Integrate edge text-to-speech on the Raspberry Pi (`espeak-ng` or Piper) to speak the recognized food and calories to the user.
-
-## App honesty rules (November 2026)
-
-- There are no accounts or passwords: the diary lives on the phone. Do not add a screen that looks like sign-in, pairing or sync unless it really does that.
-- Local database is version 3. Goals (fat, fiber, track-only), meal notes and portion source, and notice read state and Arabic text are stored; meal photos are files in `<databases>/meal_photos/<mealId>.jpg`.
-- The demo workspace (`account.isDemo`) must never write to the database.
-- Privacy & Data states that food photos go to Google Gemini, and that the free plan may use them. Keep that text true if the plan changes.
-- Run integration tests on a throwaway simulator: `flutter test` reinstalls the app and wipes that simulator's data.

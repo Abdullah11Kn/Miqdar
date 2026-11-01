@@ -3,10 +3,10 @@
 Quick interactive test tool for Miqdar Food Recognition & Nutrition Scaling.
 
 Usage:
-  python3 test_recognition.py
-  python3 test_recognition.py evaluation/sample_images/kabsa.jpg 300
-  python3 test_recognition.py evaluation/sample_images/shawarma.jpeg 180
-  python3 test_recognition.py evaluation/sample_images/jareesh.jpeg 250
+  python3 evaluation/test_recognition.py
+  python3 evaluation/test_recognition.py evaluation/sample_images/kabsa.jpg 300
+  python3 evaluation/test_recognition.py evaluation/sample_images/shawarma.jpeg 180
+  python3 evaluation/test_recognition.py evaluation/sample_images/jareesh.jpeg 250
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 # Add backend directory to path
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
 # Load environment

@@ -1,6 +1,6 @@
 # Miqdar (مقدار) Full-Stack Smart Nutrition Scale & Mobile System
 
-> 📖 **Developer & AI Agent Handover Guide**: For incoming agents and developers continuing work on hardware drivers, mobile UI, backend logic, or AI vision, please see the complete master guide: [AGENT_HANDOVER.md](AGENT_HANDOVER.md).
+> **Working on this project (people and AI agents)?** Start with [AGENTS.md](AGENTS.md). All documentation is listed in [docs/README.md](docs/README.md).
 
 Miqdar is an end-to-end smart nutrition platform developed for the Senior Capstone Project. It connects a hardware smart kitchen scale and camera to a real-time REST backend with Gemini AI vision recognition, a clinically-referenced SQLite food and nutrient database, clinical threshold alerts, explainable meal recommendations, and a Flutter mobile application.
 
@@ -66,7 +66,7 @@ senior-project-api-test/
 │   └── VERIFICATION.md       # Acceptance testing & SLO verification log
 │
 ├── evaluation/               # Academic evaluation suite for Senior Project research
-│   ├── EVALUATION_400_REPORT.md # Comprehensive 400-sample F1-score evaluation report
+│   ├── EVALUATION_400_REPORT.md # Placeholder report made from sample data, not real results
 │   ├── evaluation_400_dataset.csv # 400-sample benchmark dataset across Saudi dishes
 │   ├── evaluation_sheet.csv  # 400-sample benchmark dataset across Saudi dishes
 │   ├── evaluate_dataset.py   # Automated batch accuracy evaluation script
