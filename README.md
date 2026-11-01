@@ -1,5 +1,7 @@
 # Miqdar (مقدار) Full-Stack Smart Nutrition Scale & Mobile System
 
+> 📖 **Developer & AI Agent Handover Guide**: For incoming agents and developers continuing work on hardware drivers, mobile UI, backend logic, or AI vision, please see the complete master guide: [AGENT_HANDOVER.md](AGENT_HANDOVER.md).
+
 Miqdar is an end-to-end smart nutrition platform developed for the Senior Capstone Project. It connects a hardware smart kitchen scale and camera to a real-time REST backend with Gemini AI vision recognition, a clinically-referenced SQLite food and nutrient database, clinical threshold alerts, explainable meal recommendations, and a Flutter mobile application.
 
 ---
