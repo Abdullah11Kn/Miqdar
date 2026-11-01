@@ -43,7 +43,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 
 - **Branch:** `feature/scale-live-flow` holds all current work, and the Pi is on it. `main` is well behind and
   `origin/usb` is an older copy. Do not merge to `main` until Abdullah says so.
-- **App:** new brand and redesigned on every screen, in English and Arabic, light and dark. There are no accounts, by decision.
+- **App:** the green design, in English and Arabic, light and dark. The orange redesign was reverted at his request. There are no accounts, by decision.
 - **Real scale, new app, verified 2026-11-02:** connects at `foodscale.local`, shows the true reading (0 g, sensor ok),
   Zero works, and an empty-plate capture is refused.
 - **Still not verified on the real scale:**
@@ -78,8 +78,7 @@ mobile/lib/
   data/                   local_database (SQLite v3, meal photos), food_catalog
   models/nutrition.dart   Data models
   l10n/strings.dart       English and Arabic text, s.tr(en, ar), s.date(...)
-  theme.dart              Brand colors and type
-  ui/                     Screens; ui/widgets/ has brand.dart (dial, logo, ledger), miq_icons.dart, charts_and_gauges.dart
+  ui/                     Screens; ui/widgets/charts_and_gauges.dart for shared widgets
 mobile/test/              Unit tests
 mobile/integration_test/  scale_flow_test: end-to-end flow on a simulator
 backend/                  Python service and tests (old path, /recommendations, goals)
@@ -130,9 +129,6 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - Privacy & Data states that food photos go to Google and that the free plan may use them. Keep this true.
 - Do not present the 400-sample evaluation as real results.
 
-**Design**
-- Follow `docs/DESIGN.md`: the dial, the kitchen palette, serif numbers, hairlines. New screens use `brand.dart` and `MiqIcons`, not raw hex colors or Material icons.
-
 **Code**
 - All user-facing text goes through `s.tr(en, ar)`, and dates through `s.date(...)`. Check Arabic and dark mode.
 - A database column change needs a version bump and a migration in `local_database.dart`.
@@ -157,7 +153,7 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - Add Meal shows the live weight and a Capture button. The photo appears immediately with loading, then the food name and calories.
 - Agents have full freedom on UX and AI choices, as long as nothing gets blocked. He wants the best result, not literal obedience.
 - The 400-sample benchmark is fake placeholder data: ignore it.
-- 2026-11-02: the first design was only a demo starting point and he did not like it. Icons, images, fonts and colors may all change. Current brand: `docs/DESIGN.md`.
+- 2026-11-02: he tried the orange brand redesign (commit 199e6dd) on his simulator, did not like it, and asked for the previous green design back. Do not bring back the orange look unless he asks. The earlier request to improve the design is still open: ask him what he wants before another redesign.
 - 2026-11-02: earlier requirements no longer bind the project, including `docs/archive/FRONTEND_REQUIREMENTS_V3.md`. No accounts or sign-in; the diary stays on the phone. "You are one of us, do the best for the project": act on your own judgment and report plainly.
 
 ## Open decisions
@@ -176,6 +172,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-02: Orange redesign reverted
+- Decided: Abdullah saw the redesign on his simulator and asked to go back to the old design.
+- Changed: reverted commits 199e6dd, cc952a6 and 3748a71 (colors, fonts, logo, app icons, screens, `docs/DESIGN.md`). Kept the Arabic food categories and the alert wording. The redesign stays in git history.
+- Tested: `flutter analyze`, 35 unit tests, and a screenshot of his simulator after rebuilding it.
+- Next: ask him what he disliked: the orange only, or the whole look. Layout and color can change separately.
 
 ### 2026-11-02: Redesign installed on his simulator; status bar fixed
 - Found: he saw "nothing changed" because the installed app was the old build from the night before. Rebuilt it on his iPhone 16 Pro simulator; his data was backed up first and held no meals.
