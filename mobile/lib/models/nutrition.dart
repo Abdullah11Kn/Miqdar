@@ -224,7 +224,7 @@ class RecognitionCandidate {
   final String? verificationStatus;
   final NutritionValues? nutrients;
 
-  /// True when this AI label resolved to a record in the nutrition database.
+  /// True when this candidate has nutrition values and can be selected.
   bool get inDatabase => foodId != null && nutrients != null;
 
   factory RecognitionCandidate.fromJson(Map<String, dynamic> json, int fallbackRank) {
@@ -288,6 +288,12 @@ class MealItemEntry {
     );
   }
 }
+
+/// Marks nutrition estimated by Gemini rather than read from a reviewed record.
+const aiEstimateStatus = 'ai_estimate';
+
+/// Prefix of food ids that exist only as a Gemini estimate, not in any database.
+const aiFoodIdPrefix = 'ai-';
 
 class RecognitionResult {
   const RecognitionResult({

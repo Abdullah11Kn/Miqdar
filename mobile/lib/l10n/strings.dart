@@ -154,6 +154,9 @@ class S {
   String get referenceSeedRecord => isAr
       ? 'سجل مرجعي معياري — قيم تقديرية لكل 100 غ'
       : 'Reference Seed Record — Estimated per 100 g';
+  String get aiEstimateRecord => isAr
+      ? 'تقدير من Gemini AI — ليس سجلاً غذائياً موثقاً'
+      : 'Gemini AI Estimate — Not a Verified Record';
   String get userEnteredRecord => isAr
       ? 'قيمة مدخلة يدوياً من المستخدم'
       : 'User-Entered Custom Nutrition Record';

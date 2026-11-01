@@ -18,8 +18,8 @@ Traditional calorie-tracking apps require tedious manual search, volume estimati
 1. The user places food on the **physical smart scale**.
 2. The scale's high-precision **HX711 load cell** streams live weight (±1g) to the mobile app in real time.
 3. The integrated **Raspberry Pi Camera Module 3** captures a photo of the food from above.
-4. The backend streams the image to **Google Gemini Multimodal Vision AI (`gemini-3.1-flash-lite-preview`)**, which identifies the dish in under 2 seconds.
-5. The backend maps the recognized food against the **authoritative SQLite database** (referencing Saudi Food & Drug Authority / SFDA and regional recipes), calculates precise nutrients scaled to the exact measured grams, and evaluates health alerts against the user's clinical profile.
+4. The scale publishes the weighed photo. The **Flutter app** sends it to **Google Gemini** using a key held on the app side, and Gemini returns the food plus its estimated nutrition per 100 g.
+5. The app multiplies those per-100 g values by the measured grams and evaluates health alerts on the phone. Values are labelled as an AI estimate. The old database pipeline stays available on the scale with `--analyze-on-scale`.
 6. The **Flutter mobile app** displays the real-time weight, the captured photo in an interactive zoom viewer, the recognized food with alternative candidate options, and color-coded clinical safety warnings.
 
 ```mermaid
@@ -60,6 +60,7 @@ flowchart TD
 ├── scale_calibration.json         # Persisted scale tare offset & reference units
 ├── start_scale_app.sh             # Production launcher for hardware scale + API
 ├── start_server.sh                # Headless API server launcher (mock hardware)
+├── run_simulator.sh               # Mac: run the app on the simulator with the key from .env
 ├── start_all.sh                   # One-click start: tunnel + fullscreen scale (desktop icon)
 ├── install_pi_desktop.sh          # Pi setup: packages, virtualenv, API key, desktop icon
 ├── start_cloudflare_tunnel.sh     # Remote access tunnel launcher (cloudflared)
@@ -175,6 +176,10 @@ flowchart TD
 - **One pipeline**: the phone, the touchscreen and auto-capture all run `perform_capture()`, one at a time (a concurrent request gets `409 CAPTURE_IN_PROGRESS`). Results and failures are both published as capture events.
 
 ### 3.2 Backend Service & Recognition Engine (`backend/miqdar_backend/`)
+> **Default path since this change:** `mobile/lib/services/gemini_service.dart` does recognition and nutrition in the app, and the scale needs no key. The catalog supplies dish names only: without them Gemini misread jareesh as an Iranian dish at 95% confidence. Foods get `ai-` ids and `ai_estimate` status, and are stored only on the phone because the server has no matching record. The backend below runs only with `--analyze-on-scale` or `--server`, or when the app has no key.
+>
+> **The key must not ship.** `--dart-define` values can be extracted from an installed app, so this suits local simulator testing only. A release must call Gemini through a server that holds the key. Estimates also vary for one dish between photos, so review them before relying on the clinical alerts.
+
 - **Primary AI Vision Model**: **`gemini-3.1-flash-lite-preview`**
   - Configured in [recognition.py](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/backend/miqdar_backend/recognition.py).
   - Multimodal prompt instructs Gemini to output structured JSON:
@@ -248,6 +253,11 @@ Lightweight telemetry polled twice a second (about 2 KB over a tunnel). It never
 
 #### `GET /scale/capture/latest`
 The full latest capture event including `image_base64`. Clients fetch it once per new `event_id`.
+
+A photo awaiting analysis in the app has `"status": "photo"`, which is the default.
+
+#### `POST /scale/capture/result`
+The app reports `{"event_id", "food": {"name_en"}, "nutrients"}` so the touchscreen can show the calories. Results for an older capture are ignored.
 
 #### `POST /scale/simulate` (simulation mode only, 404 on a real scale)
 `{"weight_g": 240, "sample": "jareesh"}` puts food on the simulated plate. Samples: `kabsa`, `shawarma`, `jareesh`, `pizza`, `burger`.
@@ -365,7 +375,7 @@ git clone https://github.com/Abdullah11Kn/Miqdar.git
 cd Miqdar
 ./install_pi_desktop.sh
 ```
-The installer adds the apt packages, cloudflared and a virtualenv created with `--system-site-packages` (a plain virtualenv cannot import the apt-installed `lgpio` and `picamera2`). It asks for the Gemini key once, stores it only in `.env`, and puts a **Miqdar Scale** icon on the desktop.
+The installer adds the apt packages, cloudflared and a virtualenv created with `--system-site-packages` (a plain virtualenv cannot import the apt-installed `lgpio` and `picamera2`). It also puts a **Miqdar Scale** icon on the desktop. The Pi needs no Gemini key.
 
 After that, **tap the icon**. `start_all.sh` stops any earlier run, starts the tunnel in the background and opens the scale fullscreen. `scale_calibration.json` is tracked in git, so a fresh clone starts with those values rather than asking: check a known weight, and if it reads wrong run `.venv/bin/python scale.py calibrate` once on the Pi. Put the empty plate on before tapping the icon (start-up zeroes the scale) or press ZERO afterwards, otherwise the plate's weight is counted as food.
 
@@ -374,7 +384,7 @@ The bottom of the scale's weigh screen shows the address to use: the tunnel URL 
 - **Same network as the Pi**: the LAN address `http://<pi-ip>:8080` is enough and has lower latency. No tunnel is needed unless the network isolates clients.
 - **Different networks**: use the `https://<random>.trycloudflare.com` URL.
 - Quick-tunnel URLs change on every start. An old one answers HTTP 530 (error 1033), which the app reports as an inactive tunnel URL. A permanent URL needs a named tunnel on a domain you own in Cloudflare.
-- Enter it in the app (tap the LIVE/OFFLINE badge on Add Meal), or pass it at launch, which overrides the saved one: `flutter run --dart-define=MIQDAR_API_URL=https://<random>.trycloudflare.com`.
+- On the Mac run `./run_simulator.sh <address>`. It reads `GEMINI_API_KEY` from the git-ignored `.env` and passes both to the app. The address can also be changed in the app by tapping the LIVE/OFFLINE badge on Add Meal.
 - **Security**: a tunnel makes the API, including the camera, reachable from the internet. Set `MIQDAR_API_TOKEN` in the Pi's `.env` and run the app with the matching `--dart-define=MIQDAR_API_TOKEN=...`. Only `/health` and `/scale/live` stay public.
 
 ### 5.4 Running the Flutter Mobile App
@@ -398,7 +408,7 @@ This runs:
 The full flow in the real app, on a simulator, against a freshly started scale in simulation mode:
 ```bash
 ./start_scale_app.sh --headless --mock    # terminal 1 (this writes to database/miqdar_nutrition.db)
-cd mobile && flutter test integration_test/scale_flow_test.dart -d <simulator-id>    # terminal 2
+cd mobile && flutter test integration_test/scale_flow_test.dart -d <simulator-id> --dart-define=GEMINI_API_KEY=<key>    # terminal 2
 ```
 
 ---

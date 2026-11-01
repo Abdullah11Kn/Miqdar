@@ -240,7 +240,7 @@ class _ScanScreenState extends State<ScanScreen> {
     setState(() => lastError = null);
     try {
       final res = await controller.captureFromScale();
-      if (!mounted) return;
+      if (!mounted || res == null) return;
       setState(() {
         weight = res.weightG;
         weightTextCtrl.text = res.weightG.toStringAsFixed(0);
@@ -1573,15 +1573,15 @@ class _ScanScreenState extends State<ScanScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               elevation: 0,
             ),
-            onPressed: controller.busy || scale.isCapturing ? null : _captureFromScaleCamera,
-            icon: controller.busy || scale.isCapturing
+            onPressed: controller.scaleWorking ? null : _captureFromScaleCamera,
+            icon: controller.scaleWorking
                 ? const SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                 : const Icon(Icons.camera_alt_rounded, size: 20),
             label: Text(
-              controller.busy || scale.isCapturing
+              controller.scaleWorking
                   ? s.tr('Capturing & Analyzing via Gemini...', 'جاري الالتقاط والتحليل عبر جيميني...')
                   : s.tr('Capture from Scale Camera', 'التقاط وزِن بكاميرا الميزان'),
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),

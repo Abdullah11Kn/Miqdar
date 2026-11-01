@@ -1004,6 +1004,11 @@ class AiVerificationBadge extends StatelessWidget {
       fg = MiqdarColors.primary;
       icon = Icons.verified_rounded;
       title = s.verifiedOfficialRecord;
+    } else if (verificationStatus == aiEstimateStatus) {
+      bg = const Color(0xFFFFFBEB);
+      fg = MiqdarColors.warning;
+      icon = Icons.auto_awesome_rounded;
+      title = s.aiEstimateRecord;
     } else if (isCustom) {
       bg = MiqdarColors.infoBg;
       fg = MiqdarColors.info;

@@ -23,6 +23,7 @@ class ScaleHardwareAndApiTests(unittest.TestCase):
         self._env = patch.dict("os.environ", {"MIQDAR_RECOGNITION_PROVIDER": "mock"})
         self._env.start()
         self.hw = ScaleHardwareAdapter(force_mock=True)
+        self.hw.analyze_on_scale = True
         self.hw.start()
 
     def tearDown(self) -> None:

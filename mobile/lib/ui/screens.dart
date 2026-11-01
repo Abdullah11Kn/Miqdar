@@ -249,7 +249,7 @@ class _MainShellState extends State<MainShell> {
                         constraints: const BoxConstraints(maxWidth: 1120),
                         child: Column(
                           children: [
-                            if (controller.scaleDevice.isCapturing) const _CaptureProgressStrip(),
+                            if (controller.scaleWorking) const _CaptureProgressStrip(),
                             Expanded(child: IndexedStack(index: index, children: pages)),
                           ],
                         ),
@@ -267,7 +267,7 @@ class _MainShellState extends State<MainShell> {
           body: SafeArea(
             child: Column(
               children: [
-                if (controller.scaleDevice.isCapturing) const _CaptureProgressStrip(),
+                if (controller.scaleWorking) const _CaptureProgressStrip(),
                 Expanded(child: IndexedStack(index: index, children: pages)),
               ],
             ),
@@ -330,7 +330,8 @@ class _CaptureProgressStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final grams = MiqdarScope.of(context).scaleDevice.effectiveWeightG;
+    final controller = MiqdarScope.of(context);
+    final grams = controller.scaleDevice.effectiveWeightG;
     return Column(
       children: [
         const LinearProgressIndicator(minHeight: 2),
@@ -342,10 +343,15 @@ class _CaptureProgressStrip extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  s.tr(
-                    'Scale is photographing your food (${grams.toStringAsFixed(0)} g)…',
-                    'الميزان يصوّر طعامك (${grams.toStringAsFixed(0)} غ)…',
-                  ),
+                  controller.analyzingScalePhoto
+                      ? s.tr(
+                          'Gemini is analyzing your food (${grams.toStringAsFixed(0)} g)…',
+                          'Gemini يحلل طعامك (${grams.toStringAsFixed(0)} غ)…',
+                        )
+                      : s.tr(
+                          'Scale is photographing your food (${grams.toStringAsFixed(0)} g)…',
+                          'الميزان يصوّر طعامك (${grams.toStringAsFixed(0)} غ)…',
+                        ),
                   style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
                 ),
               ),

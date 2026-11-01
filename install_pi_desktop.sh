@@ -2,6 +2,7 @@
 # ==============================================================================
 # Miqdar - Raspberry Pi setup. Safe to run again after every git pull.
 # Installs what the scale needs and puts a "Miqdar Scale" icon on the desktop.
+# No Gemini key is needed here: the scale sends its photo to the phone app, which calls Gemini.
 # ==============================================================================
 set -euo pipefail
 
@@ -9,7 +10,7 @@ project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$project_dir"
 chmod +x start_all.sh start_scale_app.sh start_cloudflare_tunnel.sh install_pi_desktop.sh
 
-echo "[1/5] System packages"
+echo "[1/4] System packages"
 if command -v apt-get >/dev/null 2>&1; then
   missing=()
   for pkg in python3-lgpio python3-picamera2 python3-pil python3-tk python3-venv curl; do
@@ -34,7 +35,7 @@ else
   echo "      apt-get not found, skipping (not a Raspberry Pi?)"
 fi
 
-echo "[2/5] Python environment"
+echo "[2/4] Python environment"
 # Plain virtualenvs cannot see the apt-installed lgpio and picamera2, which is what
 # used to push a real scale into simulation mode.
 if [[ ! -f .venv/pyvenv.cfg ]] || ! grep -q "include-system-site-packages = true" .venv/pyvenv.cfg; then
@@ -43,29 +44,10 @@ if [[ ! -f .venv/pyvenv.cfg ]] || ! grep -q "include-system-site-packages = true
 fi
 .venv/bin/python -c "import PIL" 2>/dev/null || .venv/bin/python -m pip install --quiet -r backend/requirements.txt
 
-echo "[3/5] Gemini API key"
-if [[ ! -f .env ]] && [[ -f "$HOME/.miqdar_env" ]]; then
-  cp "$HOME/.miqdar_env" .env
-fi
-if [[ ! -f .env ]] || ! grep -q '^GEMINI_API_KEY=..' .env || grep -q 'YOUR_API_KEY_HERE' .env; then
-  if [[ -t 0 ]]; then
-    read -r -s -p "      Paste your Gemini API key (hidden, stays only on this Pi): " gemini_key
-    echo ""
-    cp .env.example .env
-    sed -i.bak '/^GEMINI_API_KEY=/d' .env && rm -f .env.bak
-    printf 'GEMINI_API_KEY="%s"\nMIQDAR_RECOGNITION_PROVIDER="gemini"\n' "$gemini_key" >> .env
-    chmod 600 .env
-  else
-    echo "      [!] No key configured. Run this script in a terminal to enter it."
-  fi
-else
-  echo "      .env already configured"
-fi
-
-echo "[4/5] Nutrition database"
+echo "[3/4] Nutrition database"
 [[ -f database/miqdar_nutrition.db ]] || .venv/bin/python database/scripts/build_database.py
 
-echo "[5/5] Desktop icon"
+echo "[4/4] Desktop icon"
 desktop_dir="$(xdg-user-dir DESKTOP 2>/dev/null || true)"
 [[ -n "$desktop_dir" ]] || desktop_dir="$HOME/Desktop"
 mkdir -p "$desktop_dir" "$HOME/.local/share/applications"

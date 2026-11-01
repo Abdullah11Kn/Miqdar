@@ -28,6 +28,7 @@ Usage:
   python3 app.py --self-test     # Runs EE hardware verification routine
   python3 app.py --install-service # Configures systemd auto-start on Raspberry Pi
   python3 app.py --no-auto-capture # Capture only on button press (default: capture when food settles)
+  python3 app.py --analyze-on-scale # Recognise here against the database (default: the phone app calls Gemini)
 
 Split setup (Pi = scale, laptop = recognition + database):
   laptop:  python3 app.py --headless --mock                      # backend server on port 8080
@@ -202,6 +203,9 @@ class ScaleHardwareAdapter:
         self.last_capture_weight_g: Optional[float] = None
         self.auto_capture = False
         self.sensor_error: Optional[str] = None
+        # False: the scale only weighs and photographs; the phone app calls Gemini.
+        self.analyze_on_scale = False
+        self.latest_analysis: Optional[Dict[str, Any]] = None
 
         PHOTOS_DIR.mkdir(exist_ok=True)
         self._detect_hardware()
@@ -480,6 +484,23 @@ class ScaleHardwareAdapter:
             "saved_to_history": bool(result.get("saved_to_history")),
         }, img_bytes, grams, source)
 
+    def record_photo_event(self, img_bytes: bytes, grams: float, source: str = "scale") -> Dict[str, Any]:
+        """Publishes a weighed photo for the phone app to analyse."""
+        return self._publish_event({"status": "photo"}, img_bytes, grams, source)
+
+    def record_analysis(self, payload: Dict[str, Any]) -> bool:
+        """Stores the phone's result so the touchscreen can show it too. False if out of date."""
+        latest = self.latest_capture_event
+        if not latest or latest["event_id"] != payload.get("event_id"):
+            return False
+        self.latest_analysis = {
+            "event_id": latest["event_id"],
+            "food": payload.get("food", {}),
+            "nutrients": payload.get("nutrients", {}),
+            "weight_g": latest["weight_g"],
+        }
+        return True
+
     def record_capture_error(self, exc: RecognitionError, img_bytes: bytes, grams: float, source: str = "scale") -> Dict[str, Any]:
         """Publishes a failed capture so the app can show the photo and what went wrong."""
         return self._publish_event({"status": "error", **exc.to_dict()}, img_bytes, grams, source)
@@ -626,6 +647,16 @@ def perform_capture(
         hw.last_capture_weight_g = float(grams)
         hw.capture_state = "capturing"
         img_bytes = Path(hw.capture_photo()).read_bytes()
+        if not hw.analyze_on_scale:
+            event = hw.record_photo_event(img_bytes, float(grams), source=source)
+            return {
+                "status": "photo",
+                "event_id": event["event_id"],
+                "source": source,
+                "simulated": event["simulated"],
+                "weight_g": float(grams),
+                "image_base64": event["image_base64"],
+            }
         hw.capture_state = "analyzing"
         result = analyze_and_save(
             img_bytes, float(grams), db_path, server=server, user_id=user_id,
@@ -758,8 +789,8 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
 
         if parsed.path == "/health":
-            provider_status = {"provider": "gemini", "configured": True}
-            if HAS_BACKEND:
+            provider_status = {"provider": "gemini-in-app", "configured": True}
+            if HAS_BACKEND and self.scale_hw.analyze_on_scale:
                 try:
                     p = configured_provider()
                     provider_status = {"provider": p.name, "model": getattr(p, "model", None), "configured": True}
@@ -836,6 +867,10 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
                     save=bool(payload.get("save", True)),
                 )
                 self.send_json(200, result)
+                return
+
+            if parsed.path == "/scale/capture/result":
+                self.send_json(200, {"accepted": self.scale_hw.record_analysis(payload)})
                 return
 
             # Simulation only: "put food on the plate" without hardware
@@ -1074,6 +1109,13 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
         button(12, 384, 232, 468, "DONE", C_TILE, "done")
         button(244, 384, W - 12, 468, "CAPTURE", C_GREEN, "capture")
 
+    elif screen == "sent":
+        p.text(W // 2, 150, "Photo sent to app", 40, True, C_GREEN_HI, "center")
+        p.text(W // 2, 212, f"{s.get('weight', 0):.0f} g · the phone is analyzing", 22, False, C_MUTED, "center")
+        p.text(W // 2, 262, "Calories appear here when it finishes", 18, False, C_MUTED, "center")
+        button(12, 384, 232, 468, "DONE", C_TILE, "done")
+        button(244, 384, W - 12, 468, "CAPTURE", C_GREEN, "capture")
+
     elif screen == "error":
         p.text(W // 2, 100, "Could not analyze", 32, True, C_RED, "center")
         for i, line in enumerate(_wrap(s.get("message", ""), 40)[:6]):
@@ -1141,6 +1183,7 @@ class ScaleTouchscreenApp:
         self._set_status()
         self._last_drawn: Optional[Tuple] = None
         self._seen_event_id: Optional[str] = None
+        self._seen_analysis_id: Optional[str] = None
         self._worker_active = False
         self._ticks = 0
         self._tick()
@@ -1180,12 +1223,19 @@ class ScaleTouchscreenApp:
             self._seen_event_id = event["event_id"]
             if event.get("status") == "ok":
                 self._show_results(event, event["weight_g"])
+            elif event.get("status") == "photo":
+                self.state.update(screen="sent", weight=event["weight_g"])
+                self._set_status("✓ SENT TO APP", C_GREEN_HI)
             else:
                 self._show_error(event.get("message", "Capture failed"))
+        elif screen == "sent" and self.hw.latest_analysis and \
+                self.hw.latest_analysis["event_id"] != self._seen_analysis_id:
+            self._seen_analysis_id = self.hw.latest_analysis["event_id"]
+            self._show_results(self.hw.latest_analysis, self.hw.latest_analysis["weight_g"])
         elif screen == "analyzing":
             self.state.update(screen="weigh")       # auto-capture of a plate with no food on it
             self._set_status()
-        elif screen in ("result", "error") and self.hw.get_weight() < MIN_CAPTURE_WEIGHT_G:
+        elif screen in ("result", "error", "sent") and self.hw.get_weight() < MIN_CAPTURE_WEIGHT_G:
             self.state.update(screen="weigh")       # plate cleared: ready for the next meal
             self._set_status()
 
@@ -1370,6 +1420,8 @@ def main() -> None:
     parser.add_argument("--db", type=Path, default=DEFAULT_DB, help="Path to miqdar_nutrition.db")
     parser.add_argument("--server", default=os.environ.get("MIQDAR_SERVER"),
                         help="Recognition server, e.g. http://192.168.137.1:8080 (Pi sends photo + weight there)")
+    parser.add_argument("--analyze-on-scale", action="store_true",
+                        help="Recognise on this device against the local database, instead of in the phone app")
     parser.add_argument("--no-auto-capture", action="store_true",
                         help="Do not capture automatically when food settles on the plate")
     args = parser.parse_args()
@@ -1385,6 +1437,7 @@ def main() -> None:
         run_self_test(hw)
         sys.exit(0)
 
+    hw.analyze_on_scale = bool(args.analyze_on_scale or args.server or os.environ.get("MIQDAR_ANALYZE_ON_SCALE") == "1")
     hw.start()
 
     # Start Embedded Background REST API Server
