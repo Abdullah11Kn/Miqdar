@@ -14,7 +14,6 @@ Map<String, dynamic> _liveBody({Map<String, dynamic>? capture, double grams = 20
       'mode': 'real',
       'live_weight_g': grams,
       'is_stable': true,
-      'battery_pct': 94,
       'capture_state': 'idle',
       'auto_capture': true,
       'latest_capture': capture,

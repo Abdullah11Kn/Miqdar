@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Miqdar - start the app on the iOS simulator, on your Mac.
-#   ./run_simulator.sh                  connect to a scale API on this Mac
+#   ./run_simulator.sh                         connect to the scale on this Wi-Fi
+#   ./run_simulator.sh http://127.0.0.1:8080   connect to a simulated scale on this Mac
 #   ./run_simulator.sh https://xxx.trycloudflare.com    or the address on the scale screen
 #
 # Reads GEMINI_API_KEY from .env, which git ignores, and builds it into this local
@@ -10,7 +11,7 @@
 set -euo pipefail
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-scale_url="${1:-http://127.0.0.1:8080}"
+scale_url="${1:-http://foodscale.local:8080}"
 device="${MIQDAR_SIMULATOR:-iPhone 16 Pro}"
 
 gemini_key="$(sed -n -E 's/^GEMINI_API_KEY=["'\'']?([^"'\'']*)["'\'']?.*$/\1/p' "$project_dir/.env" 2>/dev/null | head -n 1)"

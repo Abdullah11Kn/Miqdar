@@ -63,7 +63,7 @@ class ScaleHardwareAndApiTests(unittest.TestCase):
                 self.assertEqual(resp.status, 200)
                 data = json.loads(resp.read().decode())
                 self.assertIn("live_weight_g", data)
-                self.assertIn("battery_pct", data)
+                self.assertNotIn("battery_pct", data)  # there is no battery reading, so none is reported
 
             # 2. POST /scale/tare
             req = urllib.request.Request("http://127.0.0.1:8098/scale/tare", data=b"{}", headers={"Content-Type": "application/json"})

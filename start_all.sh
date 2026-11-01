@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Miqdar - one-click start (this is what the desktop icon runs on the Pi).
-# Starts the Cloudflare tunnel in the background, then the scale fullscreen.
-# The address to enter in the phone app is shown at the bottom of the scale screen.
+# Starts the scale fullscreen. The address for the phone app is at the bottom of its screen.
+#   ./start_all.sh           same Wi-Fi only
+#   ./start_all.sh --tunnel  also opens a public internet address, which exposes the camera and API
 # ==============================================================================
 set -uo pipefail
 
@@ -12,6 +13,8 @@ cd "$project_dir"
 port="${MIQDAR_PORT:-8080}"
 tunnel_log="/tmp/miqdar_tunnel_launcher.log"
 tunnel_pid=""
+use_tunnel=0
+[[ "${1:-}" == "--tunnel" ]] && use_tunnel=1
 
 pause_on_error() {
   echo ""
@@ -40,7 +43,9 @@ if [[ ! -f scale_calibration.json ]]; then
 fi
 
 rm -f tunnel_url.txt
-if command -v cloudflared >/dev/null 2>&1; then
+if [[ "$use_tunnel" -eq 0 ]]; then
+  echo "[*] Internet tunnel off. The app connects over the same Wi-Fi."
+elif command -v cloudflared >/dev/null 2>&1; then
   "$project_dir/start_cloudflare_tunnel.sh" "$port" >"$tunnel_log" 2>&1 &
   tunnel_pid=$!
   echo "[*] Tunnel starting in the background (log: $tunnel_log)"

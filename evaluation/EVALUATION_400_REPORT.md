@@ -1,3 +1,5 @@
+> **Placeholder, not real results.** This report was made from sample data to show how an evaluation would look. Do not quote its numbers.
+
 # Miqdar (مقدار) Vision AI Benchmark: 400-Sample Evaluation & F1-Score Report
 
 **Document:** `EVALUATION_400_REPORT.md`  
@@ -5,7 +7,7 @@
 **Primary Model Evaluated:** `gemini-3.1-flash-lite`  
 **Evaluation Dataset:** `evaluation/evaluation_400_dataset.csv` (N = 400 ground-truth samples)  
 **Evaluation Baseline Date:** 25 October 2026  
-**Status:** Complete Academic Benchmark & Engineering Verification  
+**Status:** Placeholder  
 
 ---
 

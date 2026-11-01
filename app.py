@@ -528,16 +528,10 @@ class ScaleHardwareAdapter:
             "sensor_error": self.sensor_error,
             "tare_g": round(self._sim_tare, 1) if self.is_mock else 0.0,
             "capacity_g": 5000,
-            "battery_pct": self._read_battery_percent(),
             "capture_state": self.capture_state,
             "auto_capture": self.auto_capture,
             "latest_capture": summary,
         }
-
-    def _read_battery_percent(self) -> int:
-        # On Raspberry Pi, throttling status 0x0 indicates good power (100%)
-        # In battery operation with LM2596, default to a realistic 94%
-        return 94
 
 
 # ==============================================================================
