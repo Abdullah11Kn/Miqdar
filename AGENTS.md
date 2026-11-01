@@ -174,7 +174,7 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
-### 2026-11-02: New brand and full front-end redesign
+### 2026-11-02: New brand and full front-end redesign (commit 199e6dd)
 - Decided: Abdullah rejected the old look as only a starter demo, and said icons, images, fonts and colors may all change.
 - Changed: new identity in `docs/DESIGN.md`: the letter م on a dial as logo and app icon, date-brown, laban and saffron
   palette, Instrument Serif and Amiri for numbers and titles, IBM Plex Sans Arabic for text, Phosphor icons. Every screen
