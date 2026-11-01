@@ -651,6 +651,11 @@ class _ScanScreenState extends State<ScanScreen> {
     final s = S.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // The note is used up by the capture it was typed for.
+    if (controller.aiNote.isEmpty && hintTextCtrl.text.isNotEmpty) {
+      hintTextCtrl.clear();
+    }
+
     // Dynamically sync live weight from physical scale when in scale mode
     if (portionSource == PortionSource.scale &&
         controller.scaleDevice.online &&
@@ -1592,6 +1597,7 @@ class _ScanScreenState extends State<ScanScreen> {
           // 6. Optional AI Context Input
           TextField(
             controller: hintTextCtrl,
+            onChanged: (value) => controller.aiNote = value,
             style: const TextStyle(fontSize: 13.5),
             decoration: InputDecoration(
               isDense: true,
@@ -2502,6 +2508,7 @@ class RecognitionResultScreen extends StatefulWidget {
 
 class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
   late RecognitionResult currentResult = widget.result;
+  bool correcting = false;
   String selectedMealType = 'Lunch';
   DateTime consumedAt = DateTime.now();
   final notesCtrl = TextEditingController();
@@ -2529,6 +2536,56 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
     notesCtrl.dispose();
     weightEditCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _askGeminiToCorrect(BuildContext context, MiqdarController controller) async {
+    final s = S.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final input = TextEditingController();
+    final correction = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.tr('What is it really?', 'ما هو الطعام فعلاً؟')),
+        content: TextField(
+          controller: input,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (value) => Navigator.of(ctx).pop(value),
+          decoration: InputDecoration(
+            hintText: s.tr(
+              'e.g. lamb kabsa, only the seeds, no oil',
+              'مثال: كبسة لحم، الحبوب فقط، بدون زيت',
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(s.tr('Cancel', 'إلغاء')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(input.text),
+            child: Text(s.tr('Ask Gemini', 'اسأل Gemini')),
+          ),
+        ],
+      ),
+    );
+    input.dispose();
+    if (correction == null || correction.trim().isEmpty || !mounted) return;
+    setState(() => correcting = true);
+    try {
+      final updated = await controller.correctDraftWithGemini(correction);
+      if (updated != null && mounted) setState(() => currentResult = updated);
+    } on RecognitionException catch (error) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.localizedTitle(s.isAr)),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => correcting = false);
+    }
   }
 
   Future<void> _rescalePrimaryWeight(
@@ -2567,6 +2624,8 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
     final totalNutrients = result.totalNutrients;
     final textPrimary = isDark ? Colors.white : const Color(0xFF111815);
     final textSecondary = isDark ? const Color(0xFF9CA8A1) : const Color(0xFF5A655E);
+    final statusColor = result.isUnsure ? MiqdarColors.warning : MiqdarColors.primary;
+    final confidencePct = (result.confidence * 100).round();
 
     final ImageProvider previewImage = widget.previewBytes != null
         ? MemoryImage(widget.previewBytes!)
@@ -2603,28 +2662,35 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                                 vertical: 5,
                               ),
                               decoration: BoxDecoration(
-                                color: MiqdarColors.primary.withValues(alpha: 0.10),
+                                color: statusColor.withValues(alpha: 0.10),
                                 borderRadius: BorderRadius.circular(99),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(
-                                    Icons.check_circle_rounded,
+                                  Icon(
+                                    result.isUnsure
+                                        ? Icons.help_outline_rounded
+                                        : Icons.check_circle_rounded,
                                     size: 14,
-                                    color: MiqdarColors.primary,
+                                    color: statusColor,
                                   ),
                                   const SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
-                                      s.tr(
-                                        'AI match ready — confirm or adjust below',
-                                        'تم التعرف على الوجبة — أكد أو عدّل بالأسفل',
-                                      ),
+                                      result.isUnsure
+                                          ? s.tr(
+                                              'Gemini is unsure ($confidencePct%) — please check',
+                                              'Gemini غير متأكد ($confidencePct%) — يرجى التحقق',
+                                            )
+                                          : s.tr(
+                                              'AI match ready ($confidencePct%) — confirm or adjust',
+                                              'تم التعرف ($confidencePct%) — أكد أو عدّل',
+                                            ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: MiqdarColors.primary,
+                                      style: TextStyle(
+                                        color: statusColor,
                                         fontSize: 11.5,
                                         fontWeight: FontWeight.w800,
                                       ),
@@ -2827,6 +2893,24 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                           ),
                         ],
                       ),
+                      if (result.aiNote.isNotEmpty || result.edibleFraction < 1) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          [
+                            if (result.edibleFraction < 1)
+                              s.tr(
+                                '${(result.edibleFraction * 100).round()}% of the weight counted as edible',
+                                'احتُسب ${(result.edibleFraction * 100).round()}% من الوزن كجزء صالح للأكل',
+                              ),
+                            if (result.aiNote.isNotEmpty) result.aiNote,
+                          ].join(' • '),
+                          style: TextStyle(
+                            color: textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 14),
 
                       // Quick Actions: Change Food / Add Side Item
@@ -2834,6 +2918,27 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
+                          if (result.verificationStatus == aiEstimateStatus && result.imageBytes != null)
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 38),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: correcting ? null : () => _askGeminiToCorrect(context, controller),
+                              icon: correcting
+                                  ? const SizedBox.square(
+                                      dimension: 15,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.auto_awesome_rounded, size: 17),
+                              label: Text(
+                                s.tr('Not right? Tell Gemini', 'غير صحيح؟ أخبر Gemini'),
+                                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                              ),
+                            ),
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size(0, 38),

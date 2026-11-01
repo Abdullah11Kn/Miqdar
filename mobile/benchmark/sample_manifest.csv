@@ -1,0 +1,6 @@
+photo,grams,accepted_names,kcal_per_100g_as_weighed
+../evaluation/sample_images/jareesh.jpeg,240,jareesh,
+../evaluation/sample_images/kabsa.jpg,280,kabsa,
+../evaluation/sample_images/shawarma.jpeg,180,shawarma,
+../evaluation/sample_images/burger.jpg,220,burger,
+../evaluation/sample_images/pizza.jpeg,165,pizza,

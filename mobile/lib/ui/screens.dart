@@ -76,6 +76,7 @@ class _MainShellState extends State<MainShell> {
           isScrollControlled: true,
           builder: (_) => _CaptureFailureSheet(
             failure: failure,
+            onRetry: () => controller.retryScaleAnalysis(failure),
             onChooseFood: () => setState(() => index = 1),
           ),
         );
@@ -429,9 +430,14 @@ class _CaptureProgressStrip extends StatelessWidget {
 
 /// Shows why a scale capture produced no calories, with the photo it was based on.
 class _CaptureFailureSheet extends StatelessWidget {
-  const _CaptureFailureSheet({required this.failure, required this.onChooseFood});
+  const _CaptureFailureSheet({
+    required this.failure,
+    required this.onRetry,
+    required this.onChooseFood,
+  });
 
   final ScaleCaptureFailure failure;
+  final VoidCallback onRetry;
   final VoidCallback onChooseFood;
 
   @override
@@ -465,7 +471,17 @@ class _CaptureFailureSheet extends StatelessWidget {
             ],
             Text(error.recoveryAdvice(controller.isAr)),
             const SizedBox(height: 16),
-            FilledButton(
+            if (failure.canRetry) ...[
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onRetry();
+                },
+                child: Text(s.tr('Ask Gemini Again', 'اسأل Gemini مرة أخرى')),
+              ),
+              const SizedBox(height: 8),
+            ],
+            OutlinedButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 onChooseFood();

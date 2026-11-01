@@ -14,11 +14,21 @@ import 'package:miqdar_mobile/services/gemini_service.dart';
 
 final _photo = Uint8List.fromList([0xFF, 0xD8, 0xFF, 1, 2, 3]);
 
-Map<String, dynamic> _candidate(String name, {double kcal = 140, double carbs = 25}) => {
+Map<String, dynamic> _candidate(
+  String name, {
+  double kcal = 140,
+  double carbs = 25,
+  double edible = 1,
+  double confidence = 0.9,
+  String note = '',
+}) =>
+    {
       'name_en': name,
       'name_ar': 'جريش',
-      'confidence': 0.9,
-      'per_100g': {
+      'confidence': confidence,
+      'edible_fraction': edible,
+      'note': note,
+      'per_100g_edible': {
         'calories_kcal': kcal, 'protein_g': 4.0, 'carbohydrate_g': carbs, 'fat_g': 3.0,
         'sugar_g': 1.0, 'fiber_g': 2.0, 'sodium_mg': 300.0, 'potassium_mg': 100.0,
       },
@@ -66,6 +76,58 @@ void main() {
     expect(alternative.withWeight(100).nutrients.calories, closeTo(200, 0.01));
   });
 
+  test('peel, bones and packaging do not count as food', () async {
+    final service = _service((_) async => _gemini([
+          _candidate('Pomegranate', kcal: 83, carbs: 18.7, edible: 0.5, note: 'rind excluded'),
+        ]));
+
+    final result = await service.analyze(imageBytes: _photo, weightG: 243);
+
+    expect(result.nutrients.calories, closeTo(100.8, 0.1));
+    expect(result.nutrients.carbohydrates, closeTo(22.7, 0.1));
+    expect(result.edibleFraction, 0.5);
+    expect(result.aiNote, 'rind excluded');
+    expect(result.withWeight(100).nutrients.calories, closeTo(41.5, 0.1));
+  });
+
+  test('picking another candidate after editing the weight uses the new weight', () async {
+    final service = _service((_) async => _gemini([
+          _candidate('Jareesh'),
+          _candidate('Saleeg', kcal: 200, edible: 0.5),
+        ]));
+
+    final result = await service.analyze(imageBytes: _photo, weightG: 240);
+    final picked = result.withWeight(100).withCandidate(result.candidates[1]);
+
+    expect(picked.weightG, 100);
+    expect(picked.nutrients.calories, closeTo(100, 0.01));
+    expect(picked.edibleFraction, 0.5);
+  });
+
+  test('confidence below the threshold is flagged, and calories must match the macros', () async {
+    final unsure = await _service((_) async => _gemini([_candidate('Stew', confidence: 0.4)]))
+        .analyze(imageBytes: _photo, weightG: 100);
+    expect(unsure.isUnsure, isTrue);
+
+    await expectLater(
+      _service((_) async => _gemini([_candidate('Rice', kcal: 900)])).analyze(imageBytes: _photo, weightG: 100),
+      _failsWith('AI_PROVIDER_UNAVAILABLE'),
+    );
+  });
+
+  test('notes and corrections reach Gemini', () async {
+    late String body;
+    final service = _service((request) async {
+      body = request.body;
+      return _gemini([_candidate('Lamb Kabsa')]);
+    });
+
+    await service.analyze(imageBytes: _photo, weightG: 100, hint: 'no sauce', correction: 'lamb not chicken');
+
+    expect(body, contains('no sauce'));
+    expect(body, contains('lamb not chicken'));
+  });
+
   test('the key travels in a header, never in the URL', () async {
     late http.Request sent;
     await _service((request) async {
@@ -98,6 +160,18 @@ void main() {
       _failsWith('AI_PROVIDER_UNAVAILABLE'),
     );
     expect(calls, 1);
+  });
+
+  test('running out of quota is reported as such, after trying the other models', () async {
+    var calls = 0;
+    await expectLater(
+      _service((_) async {
+        calls++;
+        return http.Response('quota', 429);
+      }).analyze(imageBytes: _photo, weightG: 100),
+      _failsWith('AI_QUOTA_EXCEEDED'),
+    );
+    expect(calls, 2);
   });
 
   test('no food in the photo is reported', () async {
@@ -242,6 +316,51 @@ void main() {
       }
 
       expect(geminiCalls, 3);
+    });
+
+    test('moving the weight does not add to the alert history', () async {
+      final controller = controllerFor([_candidate('Kabsa', kcal: 400, carbs: 50)]);
+      await controller.syncScaleLive();
+      await pumpEventQueue();
+      for (final grams in [800.0, 900.0, 1000.0]) {
+        await controller.updateDraftWeight(grams);
+      }
+      expect(controller.projectedAlerts, isNotEmpty);
+      expect(controller.alerts, isEmpty);
+    });
+
+    test('a typed note goes with the next capture only', () async {
+      final controller = controllerFor([_candidate('Jareesh')]);
+      controller.aiNote = 'no ghee';
+      await controller.syncScaleLive();
+      await pumpEventQueue();
+      expect(controller.latestExternalScaleCapture?.hintUsed, 'no ghee');
+      expect(controller.aiNote, isEmpty);
+    });
+
+    test('a failed analysis can be retried without capturing again', () async {
+      final controller = controllerFor([_candidate('not food', kcal: 0, carbs: 0)], source: 'phone');
+      await controller.syncScaleLive();
+      await pumpEventQueue();
+      final failure = controller.latestScaleCaptureFailure!;
+      expect(failure.canRetry, isTrue);
+
+      final before = paths.length;
+      await controller.retryScaleAnalysis(failure);
+      expect(paths.skip(before).where((path) => path.contains('generateContent')).length, 1);
+      expect(paths.skip(before).where((path) => path == '/scale/capture'), isEmpty);
+    });
+
+    test('a user correction re-analyzes the same photo at the current weight', () async {
+      final controller = controllerFor([_candidate('Saleeg', kcal: 200)]);
+      await controller.syncScaleLive();
+      await pumpEventQueue();
+      await controller.updateDraftWeight(100);
+
+      final corrected = (await controller.correctDraftWithGemini('it is saleeg'))!;
+
+      expect(corrected.imageBytes, _photo);
+      expect(corrected.nutrients.calories, closeTo(200, 0.01));
     });
 
     test('an empty plate from auto-capture does not interrupt the user', () async {
