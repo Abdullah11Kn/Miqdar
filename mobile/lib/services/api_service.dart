@@ -33,7 +33,12 @@ class ApiException implements Exception {
 
 /// A recognition failure that should be shown to the user, never hidden.
 class RecognitionException implements Exception {
-  const RecognitionException(this.code, this.message, {this.candidates = const []});
+  const RecognitionException(
+    this.code,
+    this.message, {
+    this.candidates = const [],
+    this.eventId,
+  });
 
   /// Stable code from the backend (e.g. NOT_FOOD, FOOD_NOT_IN_DATABASE,
   /// AI_PROVIDER_UNAVAILABLE) or SERVER_UNREACHABLE when the API is down.
@@ -42,6 +47,9 @@ class RecognitionException implements Exception {
 
   /// Raw AI labels, when the server returned them (e.g. food not in database).
   final List<String> candidates;
+
+  /// Set when the scale published this failure as a capture event (with its photo).
+  final String? eventId;
 
   bool get serverUnreachable => code == 'SERVER_UNREACHABLE';
 
@@ -59,6 +67,10 @@ class RecognitionException implements Exception {
         'SERVER_UNREACHABLE' => isAr
             ? 'تعذّر الاتصال بخادم مقدار'
             : 'Cannot reach the Miqdar server',
+        'CAMERA_UNAVAILABLE' => isAr ? 'كاميرا الميزان لا تستجيب' : 'Scale camera not responding',
+        'EMPTY_SCALE' => isAr ? 'لا يوجد طعام على الميزان' : 'Nothing on the scale',
+        'CAPTURE_IN_PROGRESS' => isAr ? 'الميزان يلتقط صورة الآن' : 'Scale is already capturing',
+        'CAPTURE_STILL_RUNNING' => isAr ? 'التحليل مستمر' : 'Still analyzing',
         _ => isAr ? 'تعذّر إتمام التعرّف' : 'Recognition could not complete',
       };
 
@@ -72,6 +84,12 @@ class RecognitionException implements Exception {
         'SERVER_UNREACHABLE' => isAr
             ? 'تحقق من تشغيل الخادم المحلي، أو استخدم وضع المعاينة التجريبية أو البحث في الدليل المحلي.'
             : 'Ensure the backend server is running, or continue with the Offline Demo or local Food Catalog.',
+        'CAMERA_UNAVAILABLE' => isAr
+            ? 'تحقق من توصيل كابل الكاميرا بالراسبيري باي ثم حاول مرة أخرى.'
+            : 'Check the camera ribbon cable on the Raspberry Pi, then try again.',
+        'EMPTY_SCALE' => isAr
+            ? 'ضع الطعام على الطبق ثم أعد الالتقاط.'
+            : 'Put the food on the plate, then capture again.',
         _ => isAr
             ? 'تم حفظ الوزن والصورة في المسودة. يمكنك المحاولة مرة أخرى أو اختيار الطعام يدوياً.'
             : 'Your portion weight and photo are preserved. Retry or select the food manually.',
@@ -93,6 +111,9 @@ class ApiService {
   final String apiToken;
   final http.Client _client;
   static const requestTimeout = Duration(seconds: 25);
+
+  /// Settling + autofocus + the Gemini fallback chain (35 s deadline on the scale).
+  static const captureTimeout = Duration(seconds: 60);
   static const demoImageAsset = 'assets/demo/kabsa.jpg';
 
   void updateBaseUrl(String newUrl) {
@@ -284,9 +305,38 @@ class ApiService {
         .get(Uri.parse('$baseUrl/scale/live'), headers: _jsonHeaders)
         .timeout(const Duration(seconds: 4));
     if (response.statusCode != 200) {
-      throw ApiException('Failed to read live scale: ${response.body}');
+      throw ApiException(_describeScaleHttpFailure(response));
     }
     return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// The full last capture, photo included. /scale/live only carries its summary.
+  Future<Map<String, dynamic>> getLatestScaleCapture() async {
+    final response = await _client
+        .get(Uri.parse('$baseUrl/scale/capture/latest'), headers: _jsonHeaders)
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw ApiException(_describeScaleHttpFailure(response));
+    }
+    return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  String _describeScaleHttpFailure(http.Response response) {
+    final status = response.statusCode;
+    final body = response.body;
+    if (status == 530 || body.contains('1033')) {
+      return 'This tunnel URL is no longer active. Read the current one from the scale screen.';
+    }
+    if (status == 502 || status == 504) {
+      return 'The tunnel is up but the scale app is not running on the Raspberry Pi.';
+    }
+    if (status == 401) {
+      return 'The scale requires an API token (MIQDAR_API_TOKEN).';
+    }
+    if (body.contains('<!DOCTYPE') || body.contains('<html')) {
+      return 'Server returned HTTP $status. Check your Scale API URL.';
+    }
+    return 'The scale returned HTTP $status.';
   }
 
   /// Sends a remote Tare command to the physical scale (/scale/tare).
@@ -294,7 +344,7 @@ class ApiService {
     try {
       final response = await _client
           .post(Uri.parse('$baseUrl/scale/tare'), headers: _jsonHeaders, body: jsonEncode({}))
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         return body['success'] as bool? ?? true;
@@ -303,30 +353,54 @@ class ApiService {
     return false;
   }
 
-  /// Triggers physical scale photo capture and load-cell measurement.
+  /// Triggers physical scale photo capture and load-cell measurement. The result is
+  /// a draft: the meal is logged only when the user saves it on the review screen.
   Future<RecognitionResult> captureFromScale({String? hint}) async {
-    final response = await _client
-        .post(
-          Uri.parse('$baseUrl/scale/capture'),
-          headers: _jsonHeaders,
-          body: jsonEncode({if (hint != null) 'hint': hint}),
-        )
-        .timeout(requestTimeout);
-    if (response.statusCode != 200) {
-      final bodyStr = response.body;
-      if (bodyStr.contains('1033') || response.statusCode == 530) {
-        throw const ApiException(
-          'Cloudflare Tunnel is unreachable (Error 1033). Please check that ./start_cloudflare_tunnel.sh and python3 app.py are running on your Raspberry Pi and the current URL matches.',
-        );
-      }
-      if (bodyStr.contains('<!DOCTYPE') || bodyStr.contains('<html')) {
-        throw ApiException('Server returned HTTP ${response.statusCode}. Check your Scale API URL.');
-      }
-      throw ApiException(bodyStr);
+    final http.Response response;
+    try {
+      response = await _client
+          .post(
+            Uri.parse('$baseUrl/scale/capture'),
+            headers: _jsonHeaders,
+            body: jsonEncode({'save': false, if (hint != null) 'hint': hint}),
+          )
+          .timeout(captureTimeout);
+    } on TimeoutException {
+      throw const RecognitionException(
+        'CAPTURE_STILL_RUNNING',
+        'The scale is taking longer than usual. The result will open here as soon as it is ready.',
+      );
+    } catch (error) {
+      throw RecognitionException('SERVER_UNREACHABLE', 'Cannot connect to $baseUrl ($error).');
     }
-    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-    return RecognitionResult.fromJson(body);
+    Map<String, dynamic>? body;
+    try {
+      body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    } catch (_) {}
+    if (response.statusCode == 200 && body != null) {
+      return RecognitionResult.fromJson(body);
+    }
+    if (body == null) {
+      throw RecognitionException('SERVER_UNREACHABLE', _describeScaleHttpFailure(response));
+    }
+    throw recognitionExceptionFromJson(body, fallbackStatus: response.statusCode);
   }
+
+  /// Builds the exception for a failed capture, from an API error or a capture event.
+  static RecognitionException recognitionExceptionFromJson(
+    Map<String, dynamic> json, {
+    int? fallbackStatus,
+  }) =>
+      RecognitionException(
+        json['error'] as String? ?? 'HTTP_$fallbackStatus',
+        json['message'] as String? ?? 'The scale could not finish the capture.',
+        candidates: (json['candidates'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map((item) => item['label'] as String? ?? '')
+            .where((label) => label.isNotEmpty)
+            .toList(),
+        eventId: json['event_id'] as String?,
+      );
 
   Future<void> saveHealthProfile(HealthProfile profile) async {
     final response = await _client

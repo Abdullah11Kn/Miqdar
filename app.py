@@ -27,6 +27,7 @@ Usage:
   python3 app.py --mock          # Force simulated scale & camera mode
   python3 app.py --self-test     # Runs EE hardware verification routine
   python3 app.py --install-service # Configures systemd auto-start on Raspberry Pi
+  python3 app.py --no-auto-capture # Capture only on button press (default: capture when food settles)
 
 Split setup (Pi = scale, laptop = recognition + database):
   laptop:  python3 app.py --headless --mock                      # backend server on port 8080
@@ -38,6 +39,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hmac
+import io
 import json
 import os
 import random
@@ -52,7 +55,7 @@ import subprocess
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 # Ensure project root & backend are in python path
@@ -78,7 +81,7 @@ for env_candidate in [
 
 # Set working defaults for Gemini model configuration
 os.environ.setdefault("GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
-os.environ.setdefault("GEMINI_FALLBACK_MODELS", "gemini-3-flash-preview,gemini-2.5-flash-image,gemini-flash-latest")
+os.environ.setdefault("GEMINI_FALLBACK_MODELS", "gemini-3-flash-preview,gemini-flash-latest")
 if os.environ.get("GEMINI_API_KEY"):
     os.environ.setdefault("MIQDAR_RECOGNITION_PROVIDER", "gemini")
 
@@ -107,15 +110,62 @@ except ImportError:
     HAS_BACKEND = False
 
     class RecognitionError(Exception):          # placeholder so error handling works without backend/
+        code = "RECOGNITION_FAILED"
         http_status = 502
 
+        def __init__(self, message: str, *, candidates: Optional[list] = None) -> None:
+            super().__init__(message)
+            self.candidates = candidates or []
+
         def to_dict(self) -> dict:
-            return {"error": "RECOGNITION_ERROR", "message": str(self)}
+            return {"error": self.code, "message": str(self), "candidates": []}
+
+
+class CameraUnavailableError(RecognitionError):
+    code = "CAMERA_UNAVAILABLE"
+    http_status = 503
+
+
+class EmptyScaleError(RecognitionError):
+    code = "EMPTY_SCALE"
+    http_status = 422
+
+
+class CaptureBusyError(RecognitionError):
+    code = "CAPTURE_IN_PROGRESS"
+    http_status = 409
+
+
+class CaptureFailedError(RecognitionError):
+    code = "CAPTURE_FAILED"
+    http_status = 500
+
+
+class RemoteRecognitionError(RecognitionError):
+    """A classified failure reported by the --server recognition host."""
+
+    def __init__(self, code: str, message: str, http_status: int) -> None:
+        super().__init__(message)
+        self.code = code
+        self.http_status = http_status
+
 
 # Default database and configuration
 DEFAULT_DB = ROOT / "database" / "miqdar_nutrition.db"
 PHOTOS_DIR = ROOT / "photos"
 DEMO_USER = "demo-user"
+MIN_CAPTURE_WEIGHT_G = 5.0     # below this a reading is sensor noise, not food
+SIM_SAMPLES = {
+    "kabsa": "kabsa.jpg", "shawarma": "shawarma.jpeg", "jareesh": "jareesh.jpeg",
+    "pizza": "pizza.jpeg", "burger": "burger.jpg",
+}
+
+
+def _on_raspberry_pi() -> bool:
+    try:
+        return "Raspberry Pi" in Path("/proc/device-tree/model").read_text(errors="ignore")
+    except OSError:
+        return False
 
 
 # ==============================================================================
@@ -141,10 +191,17 @@ class ScaleHardwareAdapter:
         self._sim_tare = 0.0
         self._sim_stable = True
         self._sim_thread: Optional[threading.Thread] = None
+        self._sim_sample = "kabsa"
+        self._sim_changed_at = 0.0
 
         # Two-way sync state for mobile app & physical scale
         self.latest_capture_event: Optional[Dict[str, Any]] = None
         self._event_counter = 0
+        self.capture_lock = threading.Lock()
+        self.capture_state = "idle"            # idle -> settling -> capturing -> analyzing
+        self.last_capture_weight_g: Optional[float] = None
+        self.auto_capture = False
+        self.sensor_error: Optional[str] = None
 
         PHOTOS_DIR.mkdir(exist_ok=True)
         self._detect_hardware()
@@ -162,8 +219,19 @@ class ScaleHardwareAdapter:
             self.is_mock = False
             print("[Hardware] Real Raspberry Pi hardware driver detected (hardware.py).")
         except (ImportError, RuntimeError, OSError) as exc:
-            self.is_mock = True
-            print(f"[Hardware] Real hardware not available ({exc}). Falling back to Simulation Mode.")
+            self._hardware_unavailable(exc)
+
+    def _hardware_unavailable(self, exc: Exception) -> None:
+        """Fake weights and photos would give fake calories, so a Pi never simulates unless asked."""
+        if _on_raspberry_pi():
+            raise SystemExit(
+                f"[Hardware] The scale hardware could not start: {exc}\n"
+                "  Fix: run ./install_pi_desktop.sh (installs lgpio + picamera2 and a virtualenv that\n"
+                "  can see them), and python3 scale.py calibrate if calibration is missing.\n"
+                "  To demo without hardware on purpose: python3 app.py --mock"
+            )
+        self.is_mock = True
+        print(f"[Hardware] Real hardware not available ({exc}). Falling back to Simulation Mode.")
 
     def start(self, zero: bool = True, camera: bool = True) -> None:
         with self._lock:
@@ -177,8 +245,8 @@ class ScaleHardwareAdapter:
                     print("[Hardware] Real scale & camera initialized.")
                     return
                 except Exception as exc:
-                    print(f"[Hardware] hw.start() failed ({exc}). Switching to mock.")
-                    self.is_mock = True
+                    self.running = False
+                    self._hardware_unavailable(exc)
 
             # Start simulated hardware ticker
             self._sim_weight = 0.0
@@ -210,9 +278,12 @@ class ScaleHardwareAdapter:
         """Returns live net weight in grams."""
         if not self.is_mock and self._hw_module:
             try:
-                return float(self._hw_module.get_weight())
-            except Exception:
-                pass
+                weight = float(self._hw_module.get_weight())
+                self.sensor_error = None
+                return weight
+            except Exception as exc:
+                self.sensor_error = str(exc)
+                return 0.0
         with self._lock:
             net = self._sim_weight - self._sim_tare
             return round(max(0.0, net), 1)
@@ -228,15 +299,26 @@ class ScaleHardwareAdapter:
         time.sleep(0.5)
         return self.get_weight()
 
+    def is_stable(self, window_s: float = 1.0) -> bool:
+        """Non-blocking: has the load stayed steady for the last window_s seconds?"""
+        if not self.is_mock and self._hw_module:
+            try:
+                return bool(self._hw_module.is_stable(window_s=window_s))
+            except Exception:
+                return False
+        with self._lock:
+            return time.monotonic() - self._sim_changed_at >= window_s
+
     def tare(self, timeout_s: float = 5.0) -> bool:
         """Zero button: the current load becomes 0 g."""
         if not self.is_mock and self._hw_module:
             try:
                 return bool(self._hw_module.tare(timeout_s))
             except Exception:
-                pass
+                return False
         with self._lock:
             self._sim_tare = self._sim_weight
+            self._sim_changed_at = time.monotonic()
             return True
 
     def is_overloaded(self) -> bool:
@@ -245,7 +327,7 @@ class ScaleHardwareAdapter:
             try:
                 return bool(self._hw_module.is_overloaded())
             except Exception:
-                pass
+                return False
         with self._lock:
             return self._sim_weight > 4500.0
 
@@ -253,6 +335,9 @@ class ScaleHardwareAdapter:
         """Captures dish photo with multi-level hardware fallback. Returns filesystem path (str)."""
         target_path = path or (PHOTOS_DIR / time.strftime("meal_%Y%m%d_%H%M%S.jpg"))
         target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if self.is_mock:
+            return self._simulated_photo(target_path)
 
         # 1. Try real hardware python module if available
         if not self.is_mock and self._hw_module:
@@ -263,6 +348,10 @@ class ScaleHardwareAdapter:
                     return str(p)
             except Exception as exc:
                 print(f"[Hardware Camera] hardware.py capture failed ({exc}). Trying CLI camera drivers...")
+                try:
+                    self._hw_module.release_camera()    # the CLI tools cannot open a held camera
+                except Exception:
+                    pass
 
         # 2. Try rpicam-still (Raspberry Pi OS Bookworm official Camera Module 3 driver)
         rpicam_bin = shutil.which("rpicam-still") or shutil.which("/usr/bin/rpicam-still")
@@ -312,88 +401,111 @@ class ScaleHardwareAdapter:
         except Exception:
             pass
 
-        # 5. Simulated/Mock Fallback (clearly reported)
-        print("[Hardware Camera] NOTICE: No physical camera responded. Using sample dish.")
-        samples = [
-            ROOT / "evaluation" / "sample_images" / "kabsa.jpg",
-            ROOT / "evaluation" / "sample_images" / "shawarma.jpeg",
-            ROOT / "evaluation" / "sample_images" / "jareesh.jpeg",
-        ]
-        chosen = None
-        for s in samples:
-            if s.exists():
-                chosen = s
-                break
+        # A stock photo here would produce calories for food that is not on the plate.
+        raise CameraUnavailableError(
+            "The scale camera did not respond. Check the camera ribbon cable, then run: rpicam-still -o test.jpg"
+        )
 
-        if chosen and chosen.exists():
-            target_path.write_bytes(chosen.read_bytes())
+    def _simulated_photo(self, target_path: Path) -> str:
+        """Simulation mode only: a labelled sample dish stands in for the camera."""
+        sample = ROOT / "evaluation" / "sample_images" / SIM_SAMPLES.get(self._sim_sample, "kabsa.jpg")
+        print(f"[Hardware Camera] SIMULATED: using sample dish {sample.name}")
+        if sample.exists():
+            target_path.write_bytes(sample.read_bytes())
+        elif HAS_PIL:
+            Image.new("RGB", (640, 480), color=(180, 100, 40)).save(target_path, "JPEG")
         else:
-            if HAS_PIL:
-                img = Image.new("RGB", (640, 480), color=(30, 45, 35))
-                draw = ImageDraw.Draw(img)
-                draw.ellipse((120, 40, 520, 440), fill=(220, 215, 200), outline=(5, 150, 105), width=6)
-                draw.ellipse((160, 80, 480, 400), fill=(180, 100, 40))
-                draw.text((220, 220), "Miqdar Smart Scale", fill=(255, 255, 255))
-                img.save(target_path, "JPEG")
-            else:
-                target_path.write_bytes(b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xFF\xDB\x00C\x00")
-
+            raise CameraUnavailableError("Simulation mode has no sample photo available")
         return str(target_path)
 
     def set_sim_weight(self, grams: float) -> None:
         """Development helper to set simulated plate weight."""
         with self._lock:
             self._sim_weight = max(0.0, float(grams))
+            self._sim_changed_at = time.monotonic()
 
-    def record_capture_event(self, result: Dict[str, Any], img_bytes: bytes, grams: float, source: str = "scale") -> Dict[str, Any]:
-        """Stores the latest capture event for real-time mobile app and scale synchronization."""
+    def place_sim_food(self, grams: float, sample: Optional[str] = None) -> None:
+        """Simulation mode: puts food on a freshly zeroed plate."""
+        with self._lock:
+            self._sim_tare = 0.0
+            if sample in SIM_SAMPLES:
+                self._sim_sample = sample
+        self.set_sim_weight(grams)
+
+    @staticmethod
+    def _encode_photo(img_bytes: bytes) -> Optional[str]:
+        if not img_bytes:
+            return None
+        try:
+            if HAS_PIL:
+                im = Image.open(io.BytesIO(img_bytes))
+                im.thumbnail((1280, 960))
+                buf = io.BytesIO()
+                im.convert("RGB").save(buf, format="JPEG", quality=80)
+                img_bytes = buf.getvalue()
+        except Exception as e:
+            print(f"[Capture] Thumbnail error ({e}), sending full photo bytes.")
+        return base64.b64encode(img_bytes).decode("ascii")
+
+    def _publish_event(self, fields: Dict[str, Any], img_bytes: bytes, grams: float, source: str) -> Dict[str, Any]:
+        image = self._encode_photo(img_bytes)
         with self._lock:
             self._event_counter += 1
-            img_b64 = None
-            if img_bytes:
-                try:
-                    if HAS_PIL:
-                        import io
-                        im = Image.open(io.BytesIO(img_bytes))
-                        im.thumbnail((640, 480))
-                        buf = io.BytesIO()
-                        im.convert("RGB").save(buf, format="JPEG", quality=80)
-                        img_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-                    else:
-                        img_b64 = base64.b64encode(img_bytes).decode("ascii")
-                except Exception as e:
-                    print(f"[Capture] Thumbnail error ({e}), sending full photo bytes.")
-                    img_b64 = base64.b64encode(img_bytes).decode("ascii")
-
             event = {
                 "event_id": f"cap-{self._event_counter}-{int(time.time())}",
                 "timestamp": time.time(),
                 "source": source,
+                "simulated": self.is_mock,
                 "weight_g": float(grams),
-                "food": result.get("food", {}),
-                "nutrients": result.get("nutrients", {}),
-                "candidates": result.get("candidates", []),
-                "timing": result.get("timing", {}),
-                "confidence": result.get("confidence", 1.0),
-                "recognition_provider": result.get("recognition_provider", "gemini"),
-                "recognition_model": result.get("recognition_model", "gemini-3.1-flash-lite-preview"),
-                "image_base64": img_b64,
+                "image_base64": image,
+                **fields,
             }
             self.latest_capture_event = event
-            return event
+        return event
+
+    def record_capture_event(self, result: Dict[str, Any], img_bytes: bytes, grams: float, source: str = "scale") -> Dict[str, Any]:
+        """Stores the latest capture event for real-time mobile app and scale synchronization."""
+        return self._publish_event({
+            "status": "ok",
+            "food": result.get("food", {}),
+            "nutrients": result.get("nutrients", {}),
+            "candidates": result.get("candidates", []),
+            "alerts": result.get("alerts", []),
+            "timing": result.get("timing", {}),
+            "confidence": result.get("confidence", 1.0),
+            "recognition_provider": result.get("recognition_provider"),
+            "recognition_model": result.get("recognition_model"),
+            "recognition_cached": result.get("recognition_cached", False),
+            "meal_id": result.get("meal_id"),
+            "saved_to_history": bool(result.get("saved_to_history")),
+        }, img_bytes, grams, source)
+
+    def record_capture_error(self, exc: RecognitionError, img_bytes: bytes, grams: float, source: str = "scale") -> Dict[str, Any]:
+        """Publishes a failed capture so the app can show the photo and what went wrong."""
+        return self._publish_event({"status": "error", **exc.to_dict()}, img_bytes, grams, source)
 
     def status(self) -> Dict[str, Any]:
-        """Telemetry diagnostics."""
+        """Telemetry diagnostics. Polled twice a second, so the photo stays out of it:
+        fetch it once per new event_id from GET /scale/capture/latest."""
         w = self.get_weight()
+        latest = self.latest_capture_event
+        summary = None
+        if latest:
+            summary = {k: v for k, v in latest.items() if k != "image_base64"}
+            summary["age_s"] = round(time.time() - latest["timestamp"], 1)
         return {
             "mode": "real" if not self.is_mock else "simulated",
-            "live_weight_g": w,
-            "is_stable": True,
+            "live_weight_g": 0.0 if abs(w) < 0.5 else w,
+            "is_stable": self.is_stable(),
             "is_overloaded": self.is_overloaded(),
+            "sensor_ok": self.sensor_error is None,
+            "sensor_error": self.sensor_error,
             "tare_g": round(self._sim_tare, 1) if self.is_mock else 0.0,
             "capacity_g": 5000,
             "battery_pct": self._read_battery_percent(),
-            "latest_capture": self.latest_capture_event,
+            "capture_state": self.capture_state,
+            "auto_capture": self.auto_capture,
+            "latest_capture": summary,
         }
 
     def _read_battery_percent(self) -> int:
@@ -415,9 +527,10 @@ def _post_json(url: str, payload: dict, timeout: float = 60.0) -> dict:
         try:
             body = json.loads(exc.read().decode("utf-8"))
             msg = body.get("message") or body.get("error") or str(body)
+            code = body.get("error") or "RECOGNITION_FAILED"
         except Exception:
-            msg = str(exc)
-        raise RuntimeError(f"Server error {exc.code}: {msg}") from None
+            msg, code = str(exc), "RECOGNITION_FAILED"
+        raise RemoteRecognitionError(code, f"Server error {exc.code}: {msg}", exc.code) from None
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Cannot reach the recognition server at {url} ({exc.reason}). "
                            "Is the laptop server running and on the same Wi-Fi?") from None
@@ -431,8 +544,9 @@ def analyze_and_save(
     user_id: str = DEMO_USER,
     meal_type: str = "Meal",
     hint: Optional[str] = None,
+    save: bool = True,
 ) -> Dict[str, Any]:
-    """Recognise the food and save the meal.
+    """Recognise the food and (unless save=False, a draft the phone confirms) save the meal.
 
     server given  -> send photo + weight to <server>/recognize, then save with <server>/meals.
     no server     -> use the local backend + database (the original single-machine mode).
@@ -446,6 +560,9 @@ def analyze_and_save(
             "weight_g": float(grams),
             "hint": hint,
         })
+        if not save:
+            result["saved_to_history"] = False
+            return result
         saved = _post_json(f"{base}/meals", {
             "user_id": user_id,
             "food_id": result["food"]["food_id"],
@@ -464,14 +581,116 @@ def analyze_and_save(
         raise RuntimeError("Database not found. Please run ./run_checks.sh first.")
     with db_connect(db_path) as conn:
         result = recognize_food(conn, user_id=user_id, image_bytes=img_bytes, weight_g=float(grams), hint=hint)
+        if not save:
+            result["saved_to_history"] = False
+            return result
         meal_id = save_meal(
             conn, user_id=user_id, food_id=result["food"]["food_id"], weight_g=float(grams),
             confidence=float(result.get("confidence", 1.0)), nutrients=result["nutrients"], meal_type=meal_type,
         )
     result["meal_id"] = meal_id
     result["saved_to_history"] = True
-    result["image_base64"] = base64.b64encode(img_bytes).decode("ascii")
     return result
+
+
+def perform_capture(
+    hw: ScaleHardwareAdapter,
+    db_path: Path,
+    *,
+    server: Optional[str] = None,
+    source: str = "phone",
+    user_id: str = DEMO_USER,
+    meal_type: str = "Meal",
+    hint: Optional[str] = None,
+    save: bool = False,
+    stable_timeout_s: float = 5.0,
+) -> Dict[str, Any]:
+    """The one capture pipeline behind the phone, the touchscreen and auto-capture:
+    settle -> photo -> recognise -> publish an event every client can pick up.
+
+    Failures are published too (with the photo when there is one) and re-raised as
+    RecognitionError. Only one capture runs at a time; camera and load cell are shared.
+    """
+    if not hw.capture_lock.acquire(blocking=False):
+        raise CaptureBusyError("The scale is already capturing. Please wait a moment.")
+    grams = 0.0
+    img_bytes = b""
+    try:
+        hw.capture_state = "settling"
+        stable = hw.get_stable_weight(timeout_s=stable_timeout_s)
+        grams = stable if stable is not None and stable > 0 else hw.get_weight()
+        if grams < MIN_CAPTURE_WEIGHT_G:
+            if not hw.is_mock:
+                raise EmptyScaleError(f"The scale reads {grams:.0f} g. Put the food on the plate, then capture.")
+            grams = 250.0                       # default demo portion in simulation mode
+        hw.last_capture_weight_g = float(grams)
+        hw.capture_state = "capturing"
+        img_bytes = Path(hw.capture_photo()).read_bytes()
+        hw.capture_state = "analyzing"
+        result = analyze_and_save(
+            img_bytes, float(grams), db_path, server=server, user_id=user_id,
+            meal_type=meal_type, hint=hint, save=save,
+        )
+        event = hw.record_capture_event(result, img_bytes, float(grams), source=source)
+        result["event_id"] = event["event_id"]
+        result["image_base64"] = event["image_base64"]
+        result["simulated"] = event["simulated"]
+        return result
+    except Exception as exc:
+        error = exc if isinstance(exc, RecognitionError) else CaptureFailedError(str(exc))
+        print(f"[Capture] {source} capture failed: {error}")
+        # An empty plate settling on the scale is normal, not worth interrupting the user for.
+        if not (source == "auto" and error.code in ("NOT_FOOD", "EMPTY_SCALE")):
+            error.capture_event = hw.record_capture_error(error, img_bytes, float(grams), source=source)  # type: ignore[attr-defined]
+        if error is exc:
+            raise
+        raise error from exc
+    finally:
+        hw.capture_state = "idle"
+        hw.capture_lock.release()
+
+
+class AutoCaptureMonitor:
+    """Captures by itself once food has been set down and the reading has settled.
+
+    Fires once per placement: it re-arms when the plate is cleared or the weight
+    changes by REARM_DELTA_G (food added), so a resting plate never re-triggers.
+    """
+
+    MIN_WEIGHT_G = 20.0
+    REARM_DELTA_G = 25.0
+    SETTLE_S = 2.0
+    POLL_S = 0.25
+
+    def __init__(self, hw: ScaleHardwareAdapter, capture: Callable[[], Any]) -> None:
+        self.hw = hw
+        self.capture = capture
+
+    def step(self) -> bool:
+        """Runs one check. Returns True when a capture was attempted."""
+        grams = self.hw.get_weight()
+        if grams < self.MIN_WEIGHT_G:
+            self.hw.last_capture_weight_g = None
+            return False
+        last = self.hw.last_capture_weight_g
+        if last is not None and abs(grams - last) < self.REARM_DELTA_G:
+            return False
+        if self.hw.is_overloaded() or not self.hw.is_stable(window_s=self.SETTLE_S):
+            return False
+        try:
+            self.capture()
+        except CaptureBusyError:
+            return False
+        except Exception as exc:
+            print(f"[Auto-capture] {exc}")
+        return True
+
+    def start(self) -> None:
+        def loop() -> None:
+            while self.hw.running:
+                self.step()
+                time.sleep(self.POLL_S)
+        threading.Thread(target=loop, daemon=True).start()
 
 
 # ==============================================================================
@@ -504,6 +723,14 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
+
+    def require_authorization(self) -> bool:
+        """A tunnel makes this API public: set MIQDAR_API_TOKEN to lock the camera behind a token."""
+        expected = os.environ.get("MIQDAR_API_TOKEN", "").strip()
+        if not expected or hmac.compare_digest(self.headers.get("Authorization", ""), f"Bearer {expected}"):
+            return True
+        self.send_json(401, {"error": "unauthorized"})
+        return False
 
     def read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
@@ -550,6 +777,17 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
             self.send_json(200, self.scale_hw.status())
             return
 
+        if not self.require_authorization():
+            return
+
+        if parsed.path == "/scale/capture/latest":
+            event = self.scale_hw.latest_capture_event
+            if event:
+                self.send_json(200, event)
+            else:
+                self.send_json(404, {"error": "NO_CAPTURE_YET"})
+            return
+
         if not self.db_path.exists():
             self.send_json(503, {"error": "DATABASE_NOT_FOUND", "message": "Database not initialized"})
             return
@@ -575,6 +813,8 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+        if not self.require_authorization():
+            return
         try:
             payload = self.read_json()
 
@@ -586,41 +826,25 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
 
             # Scale Remote Capture & Recognize Endpoint
             if parsed.path == "/scale/capture":
-                w = self.scale_hw.get_stable_weight()
-                if w is None or w <= 0:
-                    w = self.scale_hw.get_weight()
-                if w <= 0:
-                    if self.scale_hw.is_mock:
-                        w = 250.0  # Default demo portion in simulation mode
-                    else:
-                        self.send_json(422, {
-                            "error": "EMPTY_SCALE",
-                            "message": "Scale reading is 0.0 g. Place food on the plate before capturing.",
-                        })
-                        return
-
-                photo_file = self.scale_hw.capture_photo()
-                img_bytes = Path(photo_file).read_bytes()
-                result = analyze_and_save(
-                    img_bytes, float(w), self.db_path,
+                result = perform_capture(
+                    self.scale_hw, self.db_path,
                     server=getattr(self.server, "recognition_server", None),
+                    source="phone",
                     user_id=payload.get("user_id", DEMO_USER),
                     meal_type=payload.get("meal_type", "Meal"),
                     hint=payload.get("hint"),
+                    save=bool(payload.get("save", True)),
                 )
-                cap_event = self.scale_hw.record_capture_event(result, img_bytes, grams=float(w), source="phone")
-                result["event_id"] = cap_event["event_id"]
-                result["image_base64"] = cap_event.get("image_base64")
-
-                # Update physical scale GUI if running so Gemini results show on the scale too!
-                gui_app = getattr(self.server, "gui_app", None)
-                if gui_app is not None:
-                    try:
-                        gui_app.root.after(0, lambda r=result, g=float(w): gui_app.show_external_result(r, g))
-                    except Exception as e:
-                        print(f"[Scale GUI] Could not update scale display: {e}")
-
                 self.send_json(200, result)
+                return
+
+            # Simulation only: "put food on the plate" without hardware
+            if parsed.path == "/scale/simulate":
+                if not self.scale_hw.is_mock:
+                    self.send_json(404, {"error": "route_not_found"})
+                    return
+                self.scale_hw.place_sim_food(float(payload["weight_g"]), payload.get("sample"))
+                self.send_json(200, self.scale_hw.status())
                 return
 
             if not self.db_path.exists():
@@ -684,7 +908,11 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
                 else:
                     self.send_json(404, {"error": "route_not_found"})
         except RecognitionError as exc:
-            self.send_json(exc.http_status, exc.to_dict())
+            body = exc.to_dict()
+            event = getattr(exc, "capture_event", None)
+            if event:
+                body["event_id"] = event["event_id"]
+            self.send_json(exc.http_status, body)
         except KeyError as exc:
             self.send_json(400, {"error": "MISSING_FIELD", "message": f"Missing required field: {exc.args[0]}"})
         except Exception as exc:
@@ -692,6 +920,8 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
 
     def do_PUT(self) -> None:
         parsed = urlparse(self.path)
+        if not self.require_authorization():
+            return
         try:
             payload = self.read_json()
             with db_connect(self.db_path) as conn:
@@ -816,6 +1046,8 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
                 buttons.append((x0, 306, x0 + 104, 346, f"sim:{g}"))
         else:
             p.text(W // 2, 326, s.get("hint", "Zero the empty plate, then add food"), 18, False, C_MUTED, "center")
+        if s.get("address"):
+            p.text(W // 2, 359, str(s["address"]), 13, False, C_GREEN_HI, "center")
         button(12, 384, 232, 468, "ZERO", C_TILE, "zero")
         button(244, 384, W - 12, 468, "CAPTURE", C_GREEN, "capture")
 
@@ -908,6 +1140,9 @@ class ScaleTouchscreenApp:
         self.state: Dict[str, Any] = {"screen": "weigh", "weight": 0.0, "mock": self.hw.is_mock}
         self._set_status()
         self._last_drawn: Optional[Tuple] = None
+        self._seen_event_id: Optional[str] = None
+        self._worker_active = False
+        self._ticks = 0
         self._tick()
 
     # ------------------------------------------------------------- drawing
@@ -924,7 +1159,41 @@ class ScaleTouchscreenApp:
         self.canvas.delete("all")
         self.buttons = draw_screen(self.painter, self.state)
 
+    def _refresh_address(self) -> None:
+        """Shows the URL to type into the phone app, right on the scale."""
+        tunnel_file = ROOT / "tunnel_url.txt"
+        url = tunnel_file.read_text().strip() if tunnel_file.exists() else ""
+        self.state["address"] = url if url.startswith("http") else f"http://{get_ip_address()}:{self.port}"
+
+    def _follow_capture(self) -> None:
+        """Mirrors every capture on this screen, whoever started it (button, phone, auto)."""
+        screen = self.state["screen"]
+        if screen == "exit_confirm":
+            return
+        if self.hw.capture_state != "idle" or self._worker_active:
+            if screen != "analyzing":
+                self.state.update(screen="analyzing", weight=self.hw.get_weight())
+                self._set_status("● ANALYZING", C_AMBER)
+            return
+        event = self.hw.latest_capture_event
+        if event and event["event_id"] != self._seen_event_id:
+            self._seen_event_id = event["event_id"]
+            if event.get("status") == "ok":
+                self._show_results(event, event["weight_g"])
+            else:
+                self._show_error(event.get("message", "Capture failed"))
+        elif screen == "analyzing":
+            self.state.update(screen="weigh")       # auto-capture of a plate with no food on it
+            self._set_status()
+        elif screen in ("result", "error") and self.hw.get_weight() < MIN_CAPTURE_WEIGHT_G:
+            self.state.update(screen="weigh")       # plate cleared: ready for the next meal
+            self._set_status()
+
     def _tick(self) -> None:
+        self._follow_capture()
+        if self._ticks % 20 == 0:
+            self._refresh_address()
+        self._ticks += 1
         if self.state["screen"] == "weigh":
             try:
                 w = self.hw.get_weight()
@@ -985,48 +1254,30 @@ class ScaleTouchscreenApp:
         threading.Thread(target=work, daemon=True).start()
 
     def on_capture_button(self) -> None:
-        if self.state["screen"] == "analyzing":
+        if self._worker_active or self.hw.capture_state != "idle":
             return
         if self.hw.is_overloaded():
             self.state.update(screen="weigh", hint="Too heavy: max 5 kg")
             self._redraw()
             return
-        self.state.update(screen="analyzing")
-        self._set_status("● ANALYZING", C_AMBER)
-        self._redraw()
+        self._worker_active = True
 
         def worker() -> None:
             try:
-                grams = self.hw.get_stable_weight(timeout_s=3.0)
-                if grams is None or grams <= 0:
-                    grams = self.hw.get_weight()
-                if grams <= 0:
-                    if self.hw.is_mock:
-                        grams = 250.0
-                    else:
-                        raise RuntimeError("The scale reads 0 g. Put the food on the plate, then press CAPTURE.")
-                self.root.after(0, lambda g=grams: self.state.update(weight=g))
-                photo_path = self.hw.capture_photo()
-                photo_bytes = Path(photo_path).read_bytes() if Path(photo_path).exists() else b""
-                result = analyze_and_save(photo_bytes, float(grams), self.db_path, server=self.server)
-                self.hw.record_capture_event(result, photo_bytes, grams=float(grams), source="scale")
-                self.root.after(0, lambda r=result, g=grams: self._show_results(r, g))
+                perform_capture(self.hw, self.db_path, server=self.server, source="scale", stable_timeout_s=3.0)
             except Exception as exc:
-                msg = str(exc)
-                self.root.after(0, lambda m=msg: self._show_error(m))
+                print(f"[Scale GUI] {exc}")         # already published; _follow_capture shows it
+            finally:
+                self._worker_active = False
         threading.Thread(target=worker, daemon=True).start()
-
-    def show_external_result(self, result: Dict[str, Any], grams: float) -> None:
-        """Called when recognition is triggered remotely from mobile phone."""
-        self._show_results(result, grams)
 
     def _show_results(self, result: Dict[str, Any], grams: float) -> None:
         food = result.get("food", {})
         n = result.get("nutrients", {})
         self.state.update(screen="result", food=food.get("name_en", "Unknown food"), weight=grams,
-                          kcal=n.get("calories", 0), carbs=n.get("carbohydrates", 0), protein=n.get("protein", 0),
-                          fat=n.get("fat", 0), sugar=n.get("sugar", 0))
-        self._set_status("✓ SAVED TO APP" if result.get("saved_to_history") else "● DONE", C_GREEN_HI)
+                          kcal=n.get("calories_kcal", 0), carbs=n.get("carbohydrate_g", 0), protein=n.get("protein_g", 0),
+                          fat=n.get("fat_g", 0), sugar=n.get("sugar_g", 0))
+        self._set_status("✓ SAVED" if result.get("saved_to_history") else "✓ SENT TO APP", C_GREEN_HI)
         self._redraw()
 
     def _show_error(self, message: str) -> None:
@@ -1119,6 +1370,8 @@ def main() -> None:
     parser.add_argument("--db", type=Path, default=DEFAULT_DB, help="Path to miqdar_nutrition.db")
     parser.add_argument("--server", default=os.environ.get("MIQDAR_SERVER"),
                         help="Recognition server, e.g. http://192.168.137.1:8080 (Pi sends photo + weight there)")
+    parser.add_argument("--no-auto-capture", action="store_true",
+                        help="Do not capture automatically when food settles on the plate")
     args = parser.parse_args()
 
     if args.install_service:
@@ -1140,6 +1393,11 @@ def main() -> None:
         print(f"[Recognition] Sending photos + weights to {args.server}")
     print(f"[API Server] Ready! Mobile app can connect to: http://{get_ip_address()}:{args.port}")
 
+    if api_server is not None and not args.no_auto_capture and os.environ.get("MIQDAR_AUTO_CAPTURE", "1") != "0":
+        hw.auto_capture = True
+        AutoCaptureMonitor(hw, lambda: perform_capture(hw, args.db, server=args.server, source="auto")).start()
+        print("[Auto-capture] On: food is photographed and analysed as soon as the weight settles.")
+
     # Check for active Cloudflare tunnel
     tunnel_file = ROOT / "tunnel_url.txt"
     if tunnel_file.exists():
@@ -1151,36 +1409,28 @@ def main() -> None:
         except Exception:
             pass
 
-    if args.headless:
-        print("[Scale] Running in headless mode. Press Ctrl+C to exit.")
+    app = None
+    if not args.headless:
         try:
+            app = ScaleTouchscreenApp(
+                hardware=hw,
+                db_path=args.db,
+                port=args.port,
+                fullscreen=args.fullscreen and not args.windowed,
+                server=args.server,
+            )
+        except Exception as exc:                # e.g. started over SSH with no display
+            print(f"[Scale GUI] No display available ({exc}). Continuing without the touchscreen.")
+
+    try:
+        if app is not None:
+            app.run()
+        else:
+            print("[Scale] Running in headless mode. Press Ctrl+C to exit.")
             while True:
                 time.sleep(1)
-        except KeyboardInterrupt:
-            print("\n[Scale] Stopping...")
-        finally:
-            hw.stop()
-            if api_server is not None:
-                try:
-                    api_server.shutdown()
-                except Exception:
-                    pass
-        sys.exit(0)
-
-    # Start Touchscreen GUI
-    try:
-        app = ScaleTouchscreenApp(
-            hardware=hw,
-            db_path=args.db,
-            port=args.port,
-            fullscreen=args.fullscreen and not args.windowed,
-            server=args.server,
-        )
-        if api_server is not None:
-            api_server.gui_app = app
-        app.run()
     except KeyboardInterrupt:
-        pass
+        print("\n[Scale] Stopping...")
     finally:
         hw.stop()
         if api_server is not None:
@@ -1189,7 +1439,7 @@ def main() -> None:
             except Exception:
                 pass
         print("[Scale] Application closed gracefully. Returned to terminal.")
-        sys.exit(0)
+    sys.exit(0)
 
 
 if __name__ == "__main__":

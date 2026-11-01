@@ -22,7 +22,7 @@ elif [[ -f "$HOME/.miqdar_env" ]]; then
 fi
 
 export GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.1-flash-lite-preview}"
-export GEMINI_FALLBACK_MODELS="${GEMINI_FALLBACK_MODELS:-gemini-3-flash-preview,gemini-2.5-flash-image,gemini-flash-latest}"
+export GEMINI_FALLBACK_MODELS="${GEMINI_FALLBACK_MODELS:-gemini-3-flash-preview,gemini-flash-latest}"
 if [[ -n "${GEMINI_API_KEY:-}" ]]; then
   export MIQDAR_RECOGNITION_PROVIDER="${MIQDAR_RECOGNITION_PROVIDER:-gemini}"
 fi
@@ -32,4 +32,9 @@ if [[ ! -f database/miqdar_nutrition.db ]]; then
 fi
 
 export PYTHONPATH="$project_dir/backend${PYTHONPATH:+:$PYTHONPATH}"
-exec python3 app.py "$@"
+# The virtualenv made by install_pi_desktop.sh can see the apt-installed lgpio and picamera2.
+python_cmd="python3"
+if [[ -x .venv/bin/python ]]; then
+  python_cmd=".venv/bin/python"
+fi
+exec "$python_cmd" app.py "$@"

@@ -112,5 +112,10 @@ echo " URL saved to: $URL_FILE"
 echo " Press Ctrl+C at any time to stop the tunnel."
 echo "======================================================================"
 
+# A tunnel in front of nothing answers 502, so say so instead of looking broken in the app
+if ! curl -fsS -m 3 "http://127.0.0.1:${PORT}/scale/live" >/dev/null 2>&1; then
+  echo "[!] Nothing is answering on port ${PORT} yet. Start the scale too: ./start_scale_app.sh"
+fi
+
 # Keep running until interrupted
 wait "$TUNNEL_PID"

@@ -30,20 +30,40 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int index = widget.initialIndex;
-  String? _handledExternalCaptureId;
-
+  /// Every scale capture lands here and is consumed, so one capture opens one screen
+  /// even though saving a meal rebuilds this shell.
   void _checkExternalCapture(MiqdarController controller) {
+    final shellRoute = ModalRoute.of(context);
     final capture = controller.latestExternalScaleCapture;
-    if (capture != null && capture.eventId != _handledExternalCaptureId) {
-      _handledExternalCaptureId = capture.eventId;
+    if (capture != null) {
+      controller.clearExternalScaleCapture();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        Navigator.of(context).push(
+        // A newer capture replaces a review that was left open.
+        final navigator = Navigator.of(context);
+        navigator.popUntil((route) => route == shellRoute);
+        navigator.push(
           MaterialPageRoute(
             builder: (_) => RecognitionResultScreen(
               result: capture,
               previewBytes: capture.imageBytes,
             ),
+          ),
+        );
+      });
+    }
+    final failure = controller.latestScaleCaptureFailure;
+    if (failure != null) {
+      controller.clearScaleCaptureFailure();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).popUntil((route) => route == shellRoute);
+        showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => _CaptureFailureSheet(
+            failure: failure,
+            onChooseFood: () => setState(() => index = 1),
           ),
         );
       });
@@ -227,7 +247,12 @@ class _MainShellState extends State<MainShell> {
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1120),
-                        child: IndexedStack(index: index, children: pages),
+                        child: Column(
+                          children: [
+                            if (controller.scaleDevice.isCapturing) const _CaptureProgressStrip(),
+                            Expanded(child: IndexedStack(index: index, children: pages)),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -239,7 +264,14 @@ class _MainShellState extends State<MainShell> {
 
         // Compact Mobile Layout (< 780 px)
         return Scaffold(
-          body: SafeArea(child: IndexedStack(index: index, children: pages)),
+          body: SafeArea(
+            child: Column(
+              children: [
+                if (controller.scaleDevice.isCapturing) const _CaptureProgressStrip(),
+                Expanded(child: IndexedStack(index: index, children: pages)),
+              ],
+            ),
+          ),
           bottomNavigationBar: NavigationBar(
             selectedIndex: index,
             onDestinationSelected: (value) => setState(() => index = value),
@@ -287,6 +319,92 @@ class _MainShellState extends State<MainShell> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Tells the user the scale is working, on whichever tab they happen to be.
+class _CaptureProgressStrip extends StatelessWidget {
+  const _CaptureProgressStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final grams = MiqdarScope.of(context).scaleDevice.effectiveWeightG;
+    return Column(
+      children: [
+        const LinearProgressIndicator(minHeight: 2),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              const Icon(Icons.scale_rounded, size: 16, color: MiqdarColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  s.tr(
+                    'Scale is photographing your food (${grams.toStringAsFixed(0)} g)…',
+                    'الميزان يصوّر طعامك (${grams.toStringAsFixed(0)} غ)…',
+                  ),
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Shows why a scale capture produced no calories, with the photo it was based on.
+class _CaptureFailureSheet extends StatelessWidget {
+  const _CaptureFailureSheet({required this.failure, required this.onChooseFood});
+
+  final ScaleCaptureFailure failure;
+  final VoidCallback onChooseFood;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final controller = MiqdarScope.of(context);
+    final error = failure.error;
+    final image = failure.imageBytes;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              error.localizedTitle(controller.isAr),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            if (image != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.memory(image, height: 200, fit: BoxFit.cover),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (error.candidates.isNotEmpty) ...[
+              Text('${s.tr('The AI saw', 'رأى الذكاء الاصطناعي')}: ${error.candidates.join(', ')}'),
+              const SizedBox(height: 8),
+            ],
+            Text(error.recoveryAdvice(controller.isAr)),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                onChooseFood();
+              },
+              child: Text(s.tr('Back to Add Meal', 'العودة إلى إضافة وجبة')),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

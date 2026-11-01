@@ -9,6 +9,7 @@ import os
 import urllib.error
 import urllib.request
 import threading
+import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Protocol
@@ -154,7 +155,7 @@ class GeminiRecognitionProvider:
         return f"{self.api_base}/v1beta/models/{model_name}:generateContent"
 
     @staticmethod
-    def _prepare_image(image_bytes: bytes, max_side: int = 384) -> tuple[bytes, str]:
+    def _prepare_image(image_bytes: bytes, max_side: int = 768) -> tuple[bytes, str]:
         if not image_bytes:
             raise ValueError("Gemini recognition requires image_base64")
         try:
@@ -246,8 +247,15 @@ class GeminiRecognitionProvider:
 
         models_to_try = [self.model] + [m for m in self.fallback_models if m != self.model]
         last_error = None
+        # A capture must finish inside the phone's wait and Cloudflare's 100 s limit.
+        per_request_s = float(os.environ.get("GEMINI_TIMEOUT_S", "20"))
+        deadline = time.monotonic() + float(os.environ.get("GEMINI_TOTAL_DEADLINE_S", "35"))
 
         for model_name in models_to_try:
+            remaining_s = deadline - time.monotonic()
+            if remaining_s < 1:
+                last_error = last_error or RuntimeError("Gemini did not answer before the deadline")
+                break
             url = self._endpoint_for_model(model_name)
             request = urllib.request.Request(
                 url,
@@ -260,7 +268,7 @@ class GeminiRecognitionProvider:
                 method="POST",
             )
             try:
-                with urllib.request.urlopen(request, timeout=25) as response:
+                with urllib.request.urlopen(request, timeout=min(per_request_s, remaining_s)) as response:
                     body = json.load(response)
 
                 parts = body["candidates"][0]["content"]["parts"]
@@ -282,11 +290,16 @@ class GeminiRecognitionProvider:
             except urllib.error.HTTPError as exc:
                 details = exc.read().decode("utf-8", errors="replace")[:500]
                 last_error = RuntimeError(f"Gemini API returned HTTP {exc.code}: {details}")
-                if exc.code in (404, 429, 500, 502, 503, 504) and model_name != models_to_try[-1]:
+                if exc.code in (400, 404, 429, 500, 502, 503, 504) and model_name != models_to_try[-1]:
                     continue
                 raise last_error from exc
             except urllib.error.URLError as exc:
                 last_error = RuntimeError(f"Gemini API connection failed: {exc.reason}")
+                if model_name != models_to_try[-1]:
+                    continue
+                raise last_error from exc
+            except OSError as exc:                  # includes a read timeout while streaming the body
+                last_error = RuntimeError(f"Gemini API connection failed: {exc}")
                 if model_name != models_to_try[-1]:
                     continue
                 raise last_error from exc
@@ -302,7 +315,7 @@ class GeminiRecognitionProvider:
 
 
 DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
-DEFAULT_FALLBACKS = ("gemini-3-flash-preview", "gemini-2.5-flash-image", "gemini-flash-latest")
+DEFAULT_FALLBACKS = ("gemini-3-flash-preview", "gemini-flash-latest")
 
 
 def _load_env_if_needed() -> None:

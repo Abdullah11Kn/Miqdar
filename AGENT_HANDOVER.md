@@ -60,6 +60,8 @@ flowchart TD
 ├── scale_calibration.json         # Persisted scale tare offset & reference units
 ├── start_scale_app.sh             # Production launcher for hardware scale + API
 ├── start_server.sh                # Headless API server launcher (mock hardware)
+├── start_all.sh                   # One-click start: tunnel + fullscreen scale (desktop icon)
+├── install_pi_desktop.sh          # Pi setup: packages, virtualenv, API key, desktop icon
 ├── start_cloudflare_tunnel.sh     # Remote access tunnel launcher (cloudflared)
 ├── test_recognition.py            # CLI tool to test Gemini recognition on any image
 ├── run_checks.sh                  # All-in-one verification script (DB + Py + Flutter)
@@ -147,18 +149,19 @@ flowchart TD
 - **Single-Board Computer**: Raspberry Pi 4 Model B or Raspberry Pi 5 running Raspberry Pi OS (64-bit).
 - **Load Cell**: 4-wire strain gauge mounted under an acrylic or aluminum weighing platform.
 - **Amplifier IC**: HX711 24-bit ADC module:
-  - `DT` (Data): Connected to Raspberry Pi **GPIO 5** (Pin 29).
-  - `SCK` (Clock): Connected to Raspberry Pi **GPIO 6** (Pin 31).
+  - `DT` (Data): Connected to Raspberry Pi **GPIO 6** (Pin 31).
+  - `SCK` (Clock): Connected to Raspberry Pi **GPIO 5** (Pin 29).
   - `VCC`: 5V / 3.3V. `GND`: Ground.
 - **Tare & Calibration**:
   - Saved to `scale_calibration.json`:
     ```json
     {
-      "reference_unit": -412.5,
-      "offset": 8421050
+      "offset": 125430.0,
+      "factor": 421.35,
+      "cal_mass_g": 200.0
     }
     ```
-  - Formula: $\text{Weight (g)} = \frac{\text{Raw Reading} - \text{Offset}}{\text{Reference Unit}}$.
+  - Formula: $\text{Weight (g)} = \frac{\text{Raw Reading} - \text{Offset}}{\text{Factor}}$, minus the current tare.
 - **Camera Module 3 (IMX708 autofocus)**:
   - Mounted on an overhead bracket at approximately 30–40 cm height angled down at the weighing plate.
   - **4-Tier Capture Cascade** in `ScaleHardwareAdapter.capture_photo()` ([app.py](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/app.py)):
@@ -166,7 +169,10 @@ flowchart TD
     2. `rpicam-still` CLI: The official Raspberry Pi OS (Bookworm) command (`rpicam-still -t 800 -o <path> --width 1280 --height 960 -n`).
     3. `libcamera-still` CLI: The official Raspberry Pi OS (Bullseye) command (`libcamera-still -t 800 -o <path> --width 1280 --height 960 -n`).
     4. OpenCV `cv2.VideoCapture(0)`: V4L2 USB camera fallback.
-    5. Mock image fallback: Used automatically in headless development environments (e.g. macOS / CI).
+    5. If all of these fail on real hardware the capture fails with `CAMERA_UNAVAILABLE`. A stock photo is never substituted, because it would produce calories for food that is not on the plate. Sample dishes are used only in simulation mode (`--mock`, or off-Pi development), and every such result is flagged `simulated`.
+- **No silent simulation on a Pi**: if `lgpio`, the HX711 or the calibration file is unavailable on a Raspberry Pi, `app.py` exits with the fix instead of falling back to fake weights. Pass `--mock` to simulate on purpose.
+- **Auto-capture** (`AutoCaptureMonitor`, on by default, `--no-auto-capture` or `MIQDAR_AUTO_CAPTURE=0` to disable): when at least 20 g has been steady for 2 s the scale captures once. It re-arms when the plate is cleared or the weight changes by 25 g. An auto-capture that finds no food is not reported to the user.
+- **One pipeline**: the phone, the touchscreen and auto-capture all run `perform_capture()`, one at a time (a concurrent request gets `409 CAPTURE_IN_PROGRESS`). Results and failures are both published as capture events.
 
 ### 3.2 Backend Service & Recognition Engine (`backend/miqdar_backend/`)
 - **Primary AI Vision Model**: **`gemini-3.1-flash-lite-preview`**
@@ -194,7 +200,7 @@ flowchart TD
 
 ### 3.3 Flutter Mobile Application (`mobile/`)
 - **State Management**: Built on `ChangeNotifier` and `Provider` via [AppController](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/app_controller.dart).
-- **Scale Telemetry Client**: [ScaleHardwareService](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/services/api_service.dart) runs an adaptive background polling loop (every 500ms) against `/scale/live`.
+- **Scale Telemetry Client**: [ScaleHardwareService](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/services/api_service.dart) polls `/scale/live` every 500 ms and goes offline only after 3 missed polls in a row.
   - Automatically detects scale disconnection, renders an "Offline" badge, and offers a one-tap dialog to update the server URL.
   - Automatically receives live capture events pushed from physical button presses on the scale.
 - **Review & Logging UI** ([scan_and_add_screen.dart](file:///Users/q2q2312345gmail.com/Documents/senior%20project%20api%20test/mobile/lib/ui/scan_and_add_screen.dart)):
@@ -213,26 +219,38 @@ All endpoints listen on `http://<scale-ip>:8080` (or through the Cloudflare Tunn
 ### 4.1 Hardware Scale Endpoints
 
 #### `GET /scale/live`
-Fetches real-time load-cell reading and recent capture status.
+Lightweight telemetry polled twice a second (about 2 KB over a tunnel). It never contains the photo.
 - **Response `200 OK`**:
   ```json
   {
-    "weight_g": 245.8,
-    "raw_reading": 8522300,
-    "stable": true,
-    "mock_mode": false,
-    "latest_event": {
+    "mode": "real",
+    "live_weight_g": 245.8,
+    "is_stable": true,
+    "is_overloaded": false,
+    "sensor_ok": true,
+    "sensor_error": null,
+    "capture_state": "idle",
+    "auto_capture": true,
+    "battery_pct": 94,
+    "latest_capture": {
       "event_id": "cap-1-1730412345",
-      "timestamp": "2026-11-01T01:52:37Z",
+      "age_s": 2.4,
+      "status": "ok",
+      "source": "auto",
+      "simulated": false,
       "weight_g": 245.8,
-      "food_name_en": "Chicken Kabsa",
-      "food_name_ar": "كبسة دجاج",
-      "calories_kcal": 385.2,
-      "confidence": 0.95,
-      "image_base64": "/9j/4AAQSkZJRg..."
+      "food": {"food_id": "SA-001", "name_en": "Chicken Kabsa"},
+      "nutrients": {"calories_kcal": 385.2}
     }
   }
   ```
+  `capture_state` is `idle`, `settling`, `capturing` or `analyzing`. A failed capture has `"status": "error"` plus `error` and `message`.
+
+#### `GET /scale/capture/latest`
+The full latest capture event including `image_base64`. Clients fetch it once per new `event_id`.
+
+#### `POST /scale/simulate` (simulation mode only, 404 on a real scale)
+`{"weight_g": 240, "sample": "jareesh"}` puts food on the simulated plate. Samples: `kabsa`, `shawarma`, `jareesh`, `pizza`, `burger`.
 
 #### `POST /scale/tare`
 Resets the scale's current reading to 0.0g.
@@ -252,9 +270,12 @@ Triggers an immediate camera capture + Gemini recognition.
   ```json
   {
     "user_id": "usr_patient_1",
-    "hint": "extra sauce"
+    "hint": "extra sauce",
+    "save": false
   }
   ```
+  `save` defaults to `true`. The mobile app sends `false` and logs the meal when the user confirms it, so the server never double-counts. Touchscreen and auto-captures are always drafts awaiting that confirmation.
+- **Errors**: `{"error": "<code>", "message": "...", "candidates": [], "event_id": "..."}` with `CAMERA_UNAVAILABLE` (503), `EMPTY_SCALE` (422), `NOT_FOOD` (422), `FOOD_NOT_IN_DATABASE` (422), `CAPTURE_IN_PROGRESS` (409) or `AI_PROVIDER_UNAVAILABLE` (502).
 - **Response `200 OK`**:
   ```json
   {
@@ -338,33 +359,23 @@ MIQDAR_RECOGNITION_PROVIDER="gemini"
 ```
 
 ### 5.2 Running on the Physical Scale (Raspberry Pi)
+One-time setup, and again after every `git pull`:
 ```bash
-# 1. Clone repository
 git clone https://github.com/Abdullah11Kn/Miqdar.git
 cd Miqdar
-
-# 2. Set up virtualenv
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# 3. Create .env with your Gemini API Key
-cat << 'EOF' > .env
-GEMINI_API_KEY="AIzaSy..."
-GEMINI_MODEL="gemini-3.1-flash-lite-preview"
-MIQDAR_RECOGNITION_PROVIDER="gemini"
-EOF
-
-# 4. Start the scale application (Hardware + Camera + REST API)
-./start_scale_app.sh
+./install_pi_desktop.sh
 ```
+The installer adds the apt packages, cloudflared and a virtualenv created with `--system-site-packages` (a plain virtualenv cannot import the apt-installed `lgpio` and `picamera2`). It asks for the Gemini key once, stores it only in `.env`, and puts a **Miqdar Scale** icon on the desktop.
 
-### 5.3 Running Remote Access via Cloudflare Tunnel
-If the Raspberry Pi and the phone running the Flutter app are on different Wi-Fi networks:
-```bash
-./start_cloudflare_tunnel.sh
-```
-This prints a public URL: `https://<random-subdomain>.trycloudflare.com`. Enter this URL in the mobile app under **Profile & Device -> Scale Connection**.
+After that, **tap the icon**. `start_all.sh` stops any earlier run, starts the tunnel in the background and opens the scale fullscreen. The first start also walks through calibration.
+
+### 5.3 Connecting the App (Cloudflare Tunnel or Wi-Fi)
+The bottom of the scale's weigh screen shows the address to use: the tunnel URL once it is up, otherwise the LAN address.
+- **Same network as the Pi**: the LAN address `http://<pi-ip>:8080` is enough and has lower latency. No tunnel is needed unless the network isolates clients.
+- **Different networks**: use the `https://<random>.trycloudflare.com` URL.
+- Quick-tunnel URLs change on every start. An old one answers HTTP 530 (error 1033), which the app reports as an inactive tunnel URL. A permanent URL needs a named tunnel on a domain you own in Cloudflare.
+- Enter it in the app (tap the LIVE/OFFLINE badge on Add Meal), or pass it at launch, which overrides the saved one: `flutter run --dart-define=MIQDAR_API_URL=https://<random>.trycloudflare.com`.
+- **Security**: a tunnel makes the API, including the camera, reachable from the internet. Set `MIQDAR_API_TOKEN` in the Pi's `.env` and run the app with the matching `--dart-define=MIQDAR_API_TOKEN=...`. Only `/health` and `/scale/live` stay public.
 
 ### 5.4 Running the Flutter Mobile App
 ```bash
@@ -383,6 +394,12 @@ This runs:
 2. 15 Python backend tests (Gemini integration, nutrient math, clinical SLO <4s, load-cell REST endpoints).
 3. Flutter static analysis (`flutter analyze` -> 0 issues).
 4. Flutter test suite (`flutter test` -> 100% pass).
+
+The full flow in the real app, on a simulator, against a freshly started scale in simulation mode:
+```bash
+./start_scale_app.sh --headless --mock    # terminal 1 (this writes to database/miqdar_nutrition.db)
+cd mobile && flutter test integration_test/scale_flow_test.dart -d <simulator-id>    # terminal 2
+```
 
 ---
 
