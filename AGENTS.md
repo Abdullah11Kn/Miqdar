@@ -60,7 +60,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 ```
 AGENTS.md                 This file
 the local tool file                 Makes the coding tool load this file automatically
-.agents/skills/           38 agent skills from mattpocock/skills; a local folder links to them. skills-lock.json pins them
+.agents/skills/           38 agent skills from mattpocock/skills, plus frontend-design from a public skills repo; a local folder links to them. skills-lock.json pins them
 README.md                 Project overview
 app.py                    Runs on the Pi: scale screen, REST API on :8080, capture
 hardware.py, scale.py     HX711 and camera drivers; calibration tool
@@ -173,6 +173,11 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-02: Added the frontend-design skill
+- Changed: Abdullah pasted the `skills-lock.json` entry for `frontend-design` from `a public skills repo`, so it was installed in `.agents/skills/`. No app or Pi code changed.
+- Careful: the installed hash starts `89496d5d`, and his pasted entry had `4eabc661`. Probably the skill was updated since his copy, but that was not checked. The skill pushes bold, new visual choices; the decision above still stands, so ask him what he wants before another redesign.
+- Tested: the skill file was read and has instructions only. It has not been run.
 
 ### 2026-11-02: Added all the mattpocock skills
 - Changed: Abdullah asked for the whole set (`npx skills add mattpocock/skills`), so all 38 skills are now in `.agents/skills/`, linked from `a local folder`. No app or Pi code changed.
