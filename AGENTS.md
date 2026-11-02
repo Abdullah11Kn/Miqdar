@@ -60,7 +60,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 ```
 AGENTS.md                 This file
 the local tool file                 Makes the coding tool load this file automatically
-.agents/skills/           Agent skills (grill-me, grilling); a local folder links to them. skills-lock.json pins them
+.agents/skills/           38 agent skills from mattpocock/skills; a local folder links to them. skills-lock.json pins them
 README.md                 Project overview
 app.py                    Runs on the Pi: scale screen, REST API on :8080, capture
 hardware.py, scale.py     HX711 and camera drivers; calibration tool
@@ -173,6 +173,11 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-02: Added all the mattpocock skills
+- Changed: Abdullah asked for the whole set (`npx skills add mattpocock/skills`), so all 38 skills are now in `.agents/skills/`, linked from `a local folder`. No app or Pi code changed.
+- Careful: these are written for general software work, not for this project. Their advice does not override this file. `code-review` has the same name as a built-in the coding tool command. `git-guardrails-the tool-code` and `setup-pre-commit` change git or agent settings if run, so do not run them unless he asks.
+- Tested: 38 folders, 38 working links, 38 lock entries. No skill has been run. The repo's `software-factory` skill was skipped by the installer because of a YAML error in its own file.
 
 ### 2026-11-02: Added the grill-me skill
 - Changed: Abdullah ran `npx skills add mattpocock/skills --skill=grill-me`. Installed `grill-me` and `grilling` in `.agents/skills/`, linked from `a local folder`, pinned in `skills-lock.json`. `grill-me` only calls `grilling`, so it needs both. No app or Pi code changed.
