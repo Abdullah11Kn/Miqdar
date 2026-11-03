@@ -28,17 +28,15 @@ class SurfaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = color ?? (isDark ? MiqdarColors.darkCard : Colors.white);
-    final border = borderColor ?? (isDark ? MiqdarColors.darkBorder : MiqdarColors.border);
+    final c = context.mq;
 
     final card = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: bg,
+        color: color ?? c.surface,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: border),
-        boxShadow: MiqdarColors.ambientShadow(isDark),
+        border: Border.all(color: borderColor ?? c.border),
+        boxShadow: c.cardShadow,
       ),
       child: Material(type: MaterialType.transparency, child: child),
     );
@@ -55,48 +53,382 @@ class SurfaceCard extends StatelessWidget {
   }
 }
 
-class GlassCard extends StatelessWidget {
-  const GlassCard({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(18),
-    this.borderRadius = 22,
-    this.blur = 14,
-  });
+/// A list or chart with nothing in it: says what will appear and how.
+class EmptyStateCard extends StatelessWidget {
+  const EmptyStateCard({super.key, required this.icon, required this.title, this.text, this.action});
 
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final double borderRadius;
-  final double blur;
+  final IconData icon;
+  final String title;
+  final String? text;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.white.withValues(alpha: 0.78),
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.14)
-                  : Colors.white.withValues(alpha: 0.65),
+    final c = context.mq;
+    return SurfaceCard(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          children: [
+            Icon(icon, size: 40, color: c.inkMuted),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: MiqdarType.titleCard.copyWith(color: c.ink),
             ),
-          ),
-          child: child,
+            if (text != null) ...[
+              const SizedBox(height: 8),
+              Text(text!, textAlign: TextAlign.center, style: MiqdarType.body.copyWith(color: c.inkMuted)),
+            ],
+            if (action != null) ...[const SizedBox(height: 16), action!],
+          ],
         ),
       ),
     );
   }
 }
 
-/// Smooth animated circular calorie gauge with centered target readout (Section 3 & DES-09).
+class NutrientDot extends StatelessWidget {
+  const NutrientDot({super.key, required this.color, this.size = 10});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      );
+}
+
+enum PillTone { neutral, accent, danger, info }
+
+/// A small label for amounts and states. Never tappable.
+class MiqdarPill extends StatelessWidget {
+  const MiqdarPill({super.key, required this.text, this.tone = PillTone.neutral, this.icon});
+
+  final String text;
+  final PillTone tone;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mq;
+    final (bg, fg) = switch (tone) {
+      PillTone.neutral => (c.surfaceSunken, c.ink),
+      PillTone.accent => (c.accentSoft, c.accentInk),
+      PillTone.danger => (c.dangerSoft, c.danger),
+      PillTone.info => (c.infoSoft, c.info),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[Icon(icon, size: 16, color: fg), const SizedBox(width: 4)],
+          Flexible(
+            child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: MiqdarType.label.copyWith(color: fg)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One switch for mutually exclusive views: Add Meal mode, Insights period, language.
+class MiqdarSegmented<T> extends StatelessWidget {
+  const MiqdarSegmented({super.key, required this.options, required this.value, required this.onChanged});
+
+  final List<({T value, String label, IconData? icon})> options;
+  final T value;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mq;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        children: [
+          for (final (index, option) in options.indexed) ...[
+            if (index > 0) const SizedBox(width: 4),
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: option.value == value,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onChanged(option.value),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: option.value == value ? c.surface : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: option.value == value && !c.isDark
+                          ? const [BoxShadow(color: Color(0x1F1B2921), blurRadius: 3, offset: Offset(0, 1))]
+                          : null,
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (option.icon != null) ...[
+                            Icon(
+                              option.icon,
+                              size: 20,
+                              color: option.value == value ? c.primary : c.inkMuted,
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(
+                            option.label.replaceAll(' ', '\u00A0'),
+                            maxLines: 1,
+                            softWrap: false,
+                            style: MiqdarType.bodyStrong.copyWith(
+                              color: option.value == value ? c.ink : c.inkMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A round 40 px button with one icon and an optional unread count.
+class RoundIconButton extends StatelessWidget {
+  const RoundIconButton({super.key, required this.icon, required this.tooltip, this.onPressed, this.count = 0});
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mq;
+    return Badge(
+      isLabelVisible: count > 0,
+      label: Text('$count'),
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        style: IconButton.styleFrom(
+          fixedSize: const Size(40, 40),
+          minimumSize: const Size(40, 40),
+          padding: EdgeInsets.zero,
+          backgroundColor: c.surface,
+          foregroundColor: c.ink,
+          side: BorderSide(color: c.borderStrong, width: 1.5),
+        ),
+        icon: Icon(icon, size: 22),
+      ),
+    );
+  }
+}
+
+/// The square − and + buttons beside a number.
+class StepSquareButton extends StatelessWidget {
+  const StepSquareButton({super.key, this.icon, this.label, required this.onTap, this.tooltip})
+      : assert(icon != null || label != null);
+
+  final IconData? icon;
+  final String? label;
+  final VoidCallback? onTap;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mq;
+    final button = Material(
+      color: c.surfaceSunken,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: c.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          padding: EdgeInsets.symmetric(horizontal: label == null ? 0 : 10),
+          alignment: Alignment.center,
+          child: label != null
+              ? Text(label!, textDirection: ui.TextDirection.ltr, style: MiqdarType.label.copyWith(color: c.ink))
+              : Icon(icon, size: 20, color: c.ink),
+        ),
+      ),
+    );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+  }
+}
+
+enum ScaleVisualState { connected, disconnected, fault, simulated }
+
+extension ScaleVisualStateOf on ScaleDeviceState {
+  ScaleVisualState get visualState {
+    if (!online) return ScaleVisualState.disconnected;
+    if (sensorError != null) return ScaleVisualState.fault;
+    if (simulated) return ScaleVisualState.simulated;
+    return ScaleVisualState.connected;
+  }
+}
+
+/// The scale's state as a dot and words, wherever a weight is shown.
+class ScaleStatusLabel extends StatelessWidget {
+  const ScaleStatusLabel({super.key, required this.state, this.shortConnected = false});
+
+  final ScaleVisualState state;
+
+  /// "Connected" rather than "Scale connected", on the Scale screen itself.
+  final bool shortConnected;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mq;
+    final s = S.of(context);
+    final (dot, textColor, label) = switch (state) {
+      ScaleVisualState.connected => (
+          c.primary,
+          c.ink,
+          shortConnected ? s.tr('Connected', 'متصل') : s.tr('Scale connected', 'الميزان متصل'),
+        ),
+      ScaleVisualState.disconnected => (
+          c.inkMuted,
+          c.ink,
+          shortConnected ? s.tr('Not connected', 'غير متصل') : s.tr('Scale not connected', 'الميزان غير متصل'),
+        ),
+      ScaleVisualState.fault => (
+          c.danger,
+          c.danger,
+          s.tr('Weight sensor not responding', 'حساس الوزن لا يستجيب'),
+        ),
+      ScaleVisualState.simulated => (
+          c.accent,
+          c.accentInk,
+          s.tr('Simulated scale, not real food', 'ميزان محاكاة، ليس طعاماً حقيقياً'),
+        ),
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        NutrientDot(color: dot, size: 9),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: MiqdarType.bodyStrong.copyWith(fontSize: 14, color: textColor),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One nutrient amount on a neutral tile; the dot carries the nutrient's color.
+class NutrientTile extends StatelessWidget {
+  const NutrientTile({
+    super.key,
+    required this.label,
+    required this.color,
+    this.value,
+    this.unit,
+    this.goal,
+  });
+
+  final String label;
+  final Color color;
+
+  /// Null shows Unknown: never 0 for a nutrient nobody knows.
+  final String? value;
+  final String? unit;
+  final String? goal;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mq;
+    final s = S.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NutrientDot(color: color),
+                const SizedBox(width: 6),
+                Text(label, style: MiqdarType.label.copyWith(color: c.inkMuted)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: value == null
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(MiqdarIcons.help, size: 18, color: c.accentInk),
+                      const SizedBox(width: 4),
+                      Text(
+                        s.tr('Unknown', 'غير متوفر'),
+                        style: MiqdarType.bodyStrong.copyWith(height: 26 / 15, color: c.accentInk),
+                      ),
+                    ],
+                  )
+                : Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: value,
+                          style: const TextStyle(fontSize: 20, height: 26 / 20, fontWeight: FontWeight.w700),
+                        ),
+                        if (unit != null)
+                          TextSpan(
+                            text: ' $unit',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          ),
+                      ],
+                      style: TextStyle(color: c.ink, fontFeatures: const [FontFeature.tabularFigures()]),
+                    ),
+                  ),
+          ),
+          if (goal != null)
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(goal!, style: MiqdarType.caption.copyWith(color: c.inkMuted)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The Home calorie ring. It fills clockwise in English and counter-clockwise in Arabic.
 class RadialCalorieMeter extends StatelessWidget {
   const RadialCalorieMeter({
     super.key,
@@ -114,7 +446,7 @@ class RadialCalorieMeter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.mq;
     final ratio = (target > 0 && !trackingOnly) ? (consumed / target) : 0.0;
     final clampedRatio = ratio.isNaN || ratio.isInfinite ? 0.0 : ratio.clamp(0.0, 1.0);
     final isOver = !trackingOnly && target > 0 && consumed > target;
@@ -130,63 +462,48 @@ class RadialCalorieMeter extends StatelessWidget {
         child: CustomPaint(
           painter: _RadialCaloriePainter(
             progress: animatedRatio,
-            isOver: isOver,
-            isDark: isDark,
+            progressColor: isOver ? c.accent : c.nCalories,
+            trackColor: c.surfaceSunken,
+            tickColor: c.borderStrong.withValues(alpha: 0.55),
+            clockwise: !s.isAr,
           ),
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.local_fire_department_rounded,
-                    size: 18,
-                    color: isOver ? MiqdarColors.warning : MiqdarColors.emeraldBright,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    consumed.toStringAsFixed(0),
-                    style: TextStyle(
-                      fontSize: size * 0.21,
-                      fontWeight: FontWeight.w900,
-                      height: 1.05,
-                      color: isDark ? Colors.white : MiqdarColors.dark,
+              padding: const EdgeInsets.all(26),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      MiqdarIcons.localFireDepartment,
+                      fill: 1,
+                      size: 20,
+                      color: isOver ? c.accentInk : c.primary,
                     ),
-                  ),
-                  Text(
-                    trackingOnly || target <= 0
-                        ? s.unitKcal
-                        : '/ ${target.toStringAsFixed(0)} ${s.unitKcal}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
+                    const SizedBox(height: 2),
+                    Text(
+                      consumed.toStringAsFixed(0),
+                      textDirection: ui.TextDirection.ltr,
+                      style: MiqdarType.numberXl.copyWith(fontSize: 40, height: 44 / 40, color: c.ink),
                     ),
-                  ),
-                  if (!trackingOnly && target > 0) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isOver
-                            ? MiqdarColors.warning.withValues(alpha: 0.16)
-                            : MiqdarColors.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(99),
+                    Text(
+                      trackingOnly || target <= 0
+                          ? s.unitKcal
+                          : '/ ${target.toStringAsFixed(0)} ${s.unitKcal}',
+                      style: MiqdarType.label.copyWith(fontWeight: FontWeight.w500, color: c.inkMuted),
+                    ),
+                    if (!trackingOnly && target > 0) ...[
+                      const SizedBox(height: 6),
+                      MiqdarPill(
+                        tone: isOver ? PillTone.accent : PillTone.neutral,
+                        text: isOver
+                            ? '+${diff.toStringAsFixed(0)} ${s.tr("above", "فوق الهدف")}'
+                            : '${diff.toStringAsFixed(0)} ${s.tr("left", "متبقٍ")}',
                       ),
-                      child: Text(
-                        isOver
-                            ? '+${diff.toStringAsFixed(0)} ${s.tr("above", "إضافية")}'
-                            : '${diff.toStringAsFixed(0)} ${s.tr("left", "متبقية")}',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: isOver ? MiqdarColors.warning : MiqdarColors.primary,
-                        ),
-                      ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -199,87 +516,67 @@ class RadialCalorieMeter extends StatelessWidget {
 class _RadialCaloriePainter extends CustomPainter {
   const _RadialCaloriePainter({
     required this.progress,
-    required this.isOver,
-    required this.isDark,
+    required this.progressColor,
+    required this.trackColor,
+    required this.tickColor,
+    required this.clockwise,
   });
 
   final double progress;
-  final bool isOver;
-  final bool isDark;
+  final Color progressColor;
+  final Color trackColor;
+  final Color tickColor;
+  final bool clockwise;
 
   @override
   void paint(Canvas canvas, Size size) {
+    const strokeWidth = 14.0;
     final center = size.center(Offset.zero);
-    final radius = math.min(size.width, size.height) / 2 - 10;
+    final radius = math.min(size.width, size.height) / 2 - strokeWidth / 2;
     final rect = Rect.fromCircle(center: center, radius: radius);
 
-    const startAngle = -math.pi * 0.5;
-    const fullSweep = math.pi * 2;
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = trackColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth,
+    );
 
-    // Subtle track
-    final trackPaint = Paint()
-      ..color = isDark
-          ? Colors.white.withValues(alpha: 0.08)
-          : MiqdarColors.primary.withValues(alpha: 0.10)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 13
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(rect, 0, fullSweep, false, trackPaint);
-
-    // Subtle tick marks
     final tickPaint = Paint()
-      ..color = isDark
-          ? Colors.white.withValues(alpha: 0.12)
-          : MiqdarColors.primary.withValues(alpha: 0.16)
+      ..color = tickColor
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
     for (var i = 0; i < 24; i++) {
       final angle = (math.pi * 2 * i) / 24;
-      final inner = center + Offset(math.cos(angle), math.sin(angle)) * (radius - 11);
-      final outer = center + Offset(math.cos(angle), math.sin(angle)) * (radius - 8);
-      canvas.drawLine(inner, outer, tickPaint);
+      final direction = Offset(math.cos(angle), math.sin(angle));
+      final outer = radius - strokeWidth / 2 - 5;
+      canvas.drawLine(center + direction * outer, center + direction * (outer - (i % 6 == 0 ? 7 : 4)), tickPaint);
     }
 
     if (progress <= 0.001) return;
-
-    final sweep = fullSweep * progress.clamp(0.0, 1.0);
-    final colors = isOver
-        ? [const Color(0xFF10B981), const Color(0xFFF59E0B), const Color(0xFFD97706)]
-        : [const Color(0xFF047857), const Color(0xFF10B981), const Color(0xFF34D399)];
-
-    final arcPaint = Paint()
-      ..shader = SweepGradient(
-        startAngle: 0,
-        endAngle: fullSweep,
-        colors: colors,
-        transform: const GradientRotation(startAngle),
-      ).createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 13
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(rect, startAngle, sweep, false, arcPaint);
-
-    // Glowing tip dot
-    final endAngle = startAngle + sweep;
-    final tipOffset = center + Offset(math.cos(endAngle), math.sin(endAngle)) * radius;
-    canvas.drawCircle(
-      tipOffset,
-      6.5,
-      Paint()..color = isOver ? MiqdarColors.warning : MiqdarColors.mintGlow,
-    );
-    canvas.drawCircle(
-      tipOffset,
-      3.0,
-      Paint()..color = Colors.white,
+    final sweep = math.pi * 2 * progress.clamp(0.0, 1.0) * (clockwise ? 1 : -1);
+    canvas.drawArc(
+      rect,
+      -math.pi / 2,
+      sweep,
+      false,
+      Paint()
+        ..color = progressColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round,
     );
   }
 
   @override
   bool shouldRepaint(covariant _RadialCaloriePainter oldDelegate) =>
       oldDelegate.progress != progress ||
-      oldDelegate.isOver != isOver ||
-      oldDelegate.isDark != isDark;
+      oldDelegate.progressColor != progressColor ||
+      oldDelegate.trackColor != trackColor ||
+      oldDelegate.tickColor != tickColor ||
+      oldDelegate.clockwise != clockwise;
 }
 
 /// Interactive Macronutrient Donut Chart breaking down Protein, Carbs, and Fat energy percentages.
@@ -297,7 +594,7 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.mq;
     final proteinKcal = widget.values.protein * 4;
     final carbsKcal = widget.values.carbohydrates * 4;
     final fatKcal = widget.values.fat * 9;
@@ -305,27 +602,9 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
     double pct(double v) => macroTotalKcal <= 0 ? 0.0 : v / macroTotalKcal;
 
     final segments = [
-      (
-        s.protein,
-        pct(proteinKcal),
-        widget.values.protein,
-        proteinKcal,
-        MiqdarColors.proteinAccent,
-      ),
-      (
-        s.carbs,
-        pct(carbsKcal),
-        widget.values.carbohydrates,
-        carbsKcal,
-        MiqdarColors.carbsAccent,
-      ),
-      (
-        s.fat,
-        pct(fatKcal),
-        widget.values.fat,
-        fatKcal,
-        MiqdarColors.fatAccent,
-      ),
+      (s.protein, pct(proteinKcal), widget.values.protein, proteinKcal, c.nProtein),
+      (s.carbs, pct(carbsKcal), widget.values.carbohydrates, carbsKcal, c.nCarbs),
+      (s.fat, pct(fatKcal), widget.values.fat, fatKcal, c.nFat),
     ];
 
     final active = selectedIndex != null ? segments[selectedIndex!] : null;
@@ -337,13 +616,13 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
           Row(
             children: [
               SizedBox(
-                width: 132,
-                height: 132,
+                width: 124,
+                height: 124,
                 child: CustomPaint(
                   painter: _MacroDonutPainter(
                     segments: segments.map((e) => (e.$2, e.$5)).toList(),
                     selectedIndex: selectedIndex,
-                    isDark: isDark,
+                    trackColor: c.surfaceSunken,
                   ),
                   child: Center(
                     child: Column(
@@ -353,86 +632,57 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
                           active != null
                               ? '${(active.$2 * 100).round()}%'
                               : widget.values.calories.toStringAsFixed(0),
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            color: active != null
-                                ? active.$5
-                                : (isDark ? Colors.white : MiqdarColors.dark),
-                          ),
+                          style: MiqdarType.titleSection.copyWith(color: c.ink),
                         ),
                         Text(
                           active != null ? active.$1 : s.unitKcal,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
-                          ),
+                          style: MiqdarType.caption.copyWith(color: c.inkMuted),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 22),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   children: List.generate(segments.length, (i) {
                     final seg = segments[i];
                     final isSelected = selectedIndex == i;
                     return InkWell(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       onTap: () => setState(() => selectedIndex = isSelected ? null : i),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                         decoration: BoxDecoration(
-                          color: isSelected
-                              ? seg.$5.withValues(alpha: 0.12)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected ? seg.$5 : Colors.transparent,
-                          ),
+                          color: isSelected ? c.surfaceSunken : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
                           children: [
-                            Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: seg.$5,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
+                            NutrientDot(color: seg.$5),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    seg.$1,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
-                                      color: isDark ? Colors.white : MiqdarColors.dark,
+                                  Text(seg.$1, style: MiqdarType.label.copyWith(color: c.ink)),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: Text(
+                                      '${seg.$3.toStringAsFixed(1)} ${s.unitG} • ${seg.$4.toStringAsFixed(0)} ${s.unitKcal}',
+                                      style: MiqdarType.caption.copyWith(color: c.inkMuted),
                                     ),
-                                  ),
-                                  Text(
-                                    '${seg.$3.toStringAsFixed(1)} ${s.unitG} • ${seg.$4.toStringAsFixed(0)} ${s.unitKcal}',
-                                    style: const TextStyle(fontSize: 11),
                                   ),
                                 ],
                               ),
                             ),
+                            const SizedBox(width: 4),
                             Text(
                               '${(seg.$2 * 100).round()}%',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 14,
-                                color: seg.$5,
-                              ),
+                              style: MiqdarType.bodyStrong.copyWith(color: c.ink),
                             ),
                           ],
                         ),
@@ -449,7 +699,7 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
               'Share of calories from each, using 4, 4 and 9 kcal per gram.',
               'حصة السعرات من كل عنصر، بمعدل 4 و4 و9 سعرات لكل غرام.',
             ),
-            style: const TextStyle(fontSize: 11),
+            style: MiqdarType.caption.copyWith(color: c.inkMuted),
           ),
         ],
       ),
@@ -461,12 +711,12 @@ class _MacroDonutPainter extends CustomPainter {
   const _MacroDonutPainter({
     required this.segments,
     required this.selectedIndex,
-    required this.isDark,
+    required this.trackColor,
   });
 
   final List<(double, Color)> segments;
   final int? selectedIndex;
-  final bool isDark;
+  final Color trackColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -480,7 +730,7 @@ class _MacroDonutPainter extends CustomPainter {
         center,
         radius,
         Paint()
-          ..color = isDark ? Colors.white12 : MiqdarColors.border
+          ..color = trackColor
           ..style = PaintingStyle.stroke
           ..strokeWidth = 14,
       );
@@ -503,7 +753,7 @@ class _MacroDonutPainter extends CustomPainter {
           ..color = seg.$2
           ..style = PaintingStyle.stroke
           ..strokeWidth = isSelected ? 18 : 14
-          ..strokeCap = StrokeCap.round,
+          ..strokeCap = StrokeCap.butt,
       );
       start += math.pi * 2 * seg.$1;
     }
@@ -513,7 +763,7 @@ class _MacroDonutPainter extends CustomPainter {
   bool shouldRepaint(covariant _MacroDonutPainter oldDelegate) =>
       oldDelegate.segments != segments ||
       oldDelegate.selectedIndex != selectedIndex ||
-      oldDelegate.isDark != isDark;
+      oldDelegate.trackColor != trackColor;
 }
 
 /// Clean canvas line/bezier chart plotting daily calorie intake against target threshold (TREND-01).
@@ -538,7 +788,7 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.mq;
     final points = widget.dailyPoints;
     final selected = (selectedIndex != null && selectedIndex! < points.length)
         ? points[selectedIndex!]
@@ -553,39 +803,20 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: MiqdarColors.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Text(
-                          s.date(selected.$1, 'EEE, d MMM'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: MiqdarColors.primary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${selected.$3} ${s.tr("meal(s)", "وجبات")}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ],
+                  MiqdarPill(text: s.date(selected.$1, 'EEE, d MMM')),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${selected.$3} ${s.tr("meal(s)", "وجبات")}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: MiqdarType.caption.copyWith(color: c.inkMuted),
+                    ),
                   ),
                   Text(
                     '${selected.$2.toStringAsFixed(0)} / ${widget.target.toStringAsFixed(0)} ${s.unitKcal}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      color: isDark ? Colors.white : MiqdarColors.dark,
-                    ),
+                    style: MiqdarType.label.copyWith(color: c.ink),
                   ),
                 ],
               ),
@@ -604,14 +835,17 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
                       : ((relX / chartWidth) * (points.length - 1)).round();
                   setState(() => selectedIndex = idx.clamp(0, points.length - 1));
                 },
-                child: CustomPaint(
-                  painter: _WeeklyTrendPainter(
-                    points: points,
-                    target: widget.target,
-                    selectedIndex: selectedIndex ?? (points.isEmpty ? null : points.length - 1),
-                    isDark: isDark,
+                child: Directionality(
+                  textDirection: ui.TextDirection.ltr,
+                  child: CustomPaint(
+                    painter: _WeeklyTrendPainter(
+                      points: points,
+                      target: widget.target,
+                      selectedIndex: selectedIndex ?? (points.isEmpty ? null : points.length - 1),
+                      tokens: c,
+                    ),
+                    child: const SizedBox.expand(),
                   ),
-                  child: const SizedBox.expand(),
                 ),
               ),
             ),
@@ -619,26 +853,17 @@ class _WeeklyTrendChartState extends State<WeeklyTrendChart> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: MiqdarColors.primary,
-                  shape: BoxShape.circle,
-                ),
-              ),
+              NutrientDot(color: c.nCalories),
               const SizedBox(width: 6),
-              Text(s.tr('Daily intake', 'الاستهلاك اليومي'), style: const TextStyle(fontSize: 11)),
+              Text(s.tr('Daily intake', 'الاستهلاك اليومي'), style: MiqdarType.caption.copyWith(color: c.inkMuted)),
               const SizedBox(width: 16),
-              Container(
-                width: 14,
-                height: 2.5,
-                color: MiqdarColors.warning,
-              ),
+              Container(width: 14, height: 2.5, color: c.accent),
               const SizedBox(width: 6),
-              Text(
-                '${s.tr("Goal", "الهدف")}: ${widget.target.toStringAsFixed(0)} ${s.unitKcal}',
-                style: const TextStyle(fontSize: 11),
+              Flexible(
+                child: Text(
+                  '${s.tr("Goal", "الهدف")}: ${widget.target.toStringAsFixed(0)} ${s.unitKcal}',
+                  style: MiqdarType.caption.copyWith(color: c.inkMuted),
+                ),
               ),
             ],
           ),
@@ -653,19 +878,19 @@ class _WeeklyTrendPainter extends CustomPainter {
     required this.points,
     required this.target,
     required this.selectedIndex,
-    required this.isDark,
+    required this.tokens,
   });
 
   final List<(DateTime, double, int)> points;
   final double target;
   final int? selectedIndex;
-  final bool isDark;
+  final MiqdarTokens tokens;
 
   @override
   void paint(Canvas canvas, Size size) {
     final chart = Rect.fromLTWH(40, 10, size.width - 52, size.height - 38);
     final gridPaint = Paint()
-      ..color = isDark ? Colors.white.withValues(alpha: 0.08) : MiqdarColors.border
+      ..color = tokens.border
       ..strokeWidth = 1;
 
     var maxY = math.max(target * 1.25, 500.0);
@@ -680,10 +905,7 @@ class _WeeklyTrendPainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text: '$labelVal',
-          style: TextStyle(
-            fontSize: 9.5,
-            color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
-          ),
+          style: TextStyle(fontSize: 11, color: tokens.inkMuted),
         ),
         textDirection: ui.TextDirection.ltr,
       )..layout();
@@ -696,7 +918,7 @@ class _WeeklyTrendPainter extends CustomPainter {
     if (target > 0) {
       final targetY = chart.bottom - (target / maxY).clamp(0.0, 1.0) * chart.height;
       final targetPaint = Paint()
-        ..color = MiqdarColors.warning
+        ..color = tokens.accent
         ..strokeWidth = 1.6;
       for (var x = chart.left; x < chart.right; x += 10) {
         canvas.drawLine(
@@ -723,11 +945,9 @@ class _WeeklyTrendPainter extends CustomPainter {
           text: TextSpan(
             text: label,
             style: TextStyle(
-              fontSize: 9.5,
-              fontWeight: selectedIndex == i ? FontWeight.w800 : FontWeight.w500,
-              color: selectedIndex == i
-                  ? MiqdarColors.primary
-                  : (isDark ? MiqdarColors.darkMuted : MiqdarColors.muted),
+              fontSize: 11,
+              fontWeight: selectedIndex == i ? FontWeight.w700 : FontWeight.w500,
+              color: selectedIndex == i ? tokens.ink : tokens.inkMuted,
             ),
           ),
           textDirection: ui.TextDirection.ltr,
@@ -736,7 +956,7 @@ class _WeeklyTrendPainter extends CustomPainter {
       }
     }
 
-    // Smooth path & area fill
+    // Smooth line
     final linePath = Path()..moveTo(coords.first.dx, coords.first.dy);
     for (var i = 0; i < coords.length - 1; i++) {
       final p0 = coords[i];
@@ -745,28 +965,10 @@ class _WeeklyTrendPainter extends CustomPainter {
       linePath.cubicTo(controlX, p0.dy, controlX, p1.dy, p1.dx, p1.dy);
     }
 
-    final fillPath = Path.from(linePath)
-      ..lineTo(coords.last.dx, chart.bottom)
-      ..lineTo(coords.first.dx, chart.bottom)
-      ..close();
-
-    canvas.drawPath(
-      fillPath,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            MiqdarColors.emeraldBright.withValues(alpha: 0.28),
-            MiqdarColors.emeraldBright.withValues(alpha: 0.01),
-          ],
-        ).createShader(chart),
-    );
-
     canvas.drawPath(
       linePath,
       Paint()
-        ..color = MiqdarColors.primary
+        ..color = tokens.nCalories
         ..strokeWidth = 3.0
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round,
@@ -774,16 +976,8 @@ class _WeeklyTrendPainter extends CustomPainter {
 
     for (var i = 0; i < coords.length; i++) {
       final isSel = selectedIndex == i;
-      canvas.drawCircle(
-        coords[i],
-        isSel ? 6.5 : 4.0,
-        Paint()..color = isSel ? MiqdarColors.mintGlow : MiqdarColors.primary,
-      );
-      canvas.drawCircle(
-        coords[i],
-        isSel ? 3.0 : 1.8,
-        Paint()..color = Colors.white,
-      );
+      canvas.drawCircle(coords[i], isSel ? 7 : 4, Paint()..color = tokens.nCalories);
+      canvas.drawCircle(coords[i], isSel ? 3 : 1.8, Paint()..color = tokens.surface);
     }
   }
 
@@ -792,7 +986,7 @@ class _WeeklyTrendPainter extends CustomPainter {
       oldDelegate.points != points ||
       oldDelegate.target != target ||
       oldDelegate.selectedIndex != selectedIndex ||
-      oldDelegate.isDark != isDark;
+      oldDelegate.tokens != tokens;
 }
 
 /// 2x4 Nutrient Grid displaying Calories, Protein, Carbs, Fat, Sugar, Sodium, Potassium, and Fiber.
@@ -809,80 +1003,16 @@ class NutrientGrid2x4 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.mq;
     final items = [
-      (
-        'calories_kcal',
-        s.calories,
-        values.calories,
-        s.unitKcal,
-        Icons.local_fire_department_rounded,
-        MiqdarColors.caloriesAccent,
-        goals?.calories,
-      ),
-      (
-        'protein_g',
-        s.protein,
-        values.protein,
-        s.unitG,
-        Icons.fitness_center_rounded,
-        MiqdarColors.proteinAccent,
-        goals?.protein,
-      ),
-      (
-        'carbohydrate_g',
-        s.carbs,
-        values.carbohydrates,
-        s.unitG,
-        Icons.grain_rounded,
-        MiqdarColors.carbsAccent,
-        goals?.carbohydrates,
-      ),
-      (
-        'fat_g',
-        s.fat,
-        values.fat,
-        s.unitG,
-        Icons.water_drop_rounded,
-        MiqdarColors.fatAccent,
-        goals?.fat,
-      ),
-      (
-        'sugar_g',
-        s.sugar,
-        values.sugar,
-        s.unitG,
-        Icons.icecream_outlined,
-        MiqdarColors.sugarAccent,
-        goals?.sugar,
-      ),
-      (
-        'sodium_mg',
-        s.sodium,
-        values.sodium,
-        s.unitMg,
-        Icons.science_outlined,
-        MiqdarColors.sodiumAccent,
-        goals?.sodium,
-      ),
-      (
-        'potassium_mg',
-        s.potassium,
-        values.potassium,
-        s.unitMg,
-        Icons.bolt_rounded,
-        MiqdarColors.potassiumAccent,
-        goals?.potassium,
-      ),
-      (
-        'fiber_g',
-        s.fiber,
-        values.fiber,
-        s.unitG,
-        Icons.eco_rounded,
-        MiqdarColors.fiberAccent,
-        goals?.fiber,
-      ),
+      ('calories_kcal', s.calories, values.calories, s.unitKcal, c.nCalories),
+      ('protein_g', s.protein, values.protein, s.unitG, c.nProtein),
+      ('carbohydrate_g', s.carbs, values.carbohydrates, s.unitG, c.nCarbs),
+      ('fat_g', s.fat, values.fat, s.unitG, c.nFat),
+      ('sugar_g', s.sugar, values.sugar, s.unitG, c.nSugar),
+      ('sodium_mg', s.sodium, values.sodium, s.unitMg, c.nSodium),
+      ('potassium_mg', s.potassium, values.potassium, s.unitMg, c.nPotassium),
+      ('fiber_g', s.fiber, values.fiber, s.unitG, c.nFiber),
     ];
 
     return LayoutBuilder(
@@ -894,70 +1024,19 @@ class NutrientGrid2x4 extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: cols,
-            childAspectRatio: cols == 4 ? 1.55 : 1.75,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
+            mainAxisExtent: 76,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
           ),
           itemBuilder: (context, index) {
             final item = items[index];
-            final isMissing = values.isMissing(item.$1);
-            final valText = isMissing
-                ? s.tr('Unknown', 'غير متوفر')
-                : '${item.$3.toStringAsFixed(item.$3 >= 100 || item.$1 == 'calories_kcal' ? 0 : 1)} ${item.$4}';
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: isDark ? MiqdarColors.darkCard : Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: isDark ? MiqdarColors.darkBorder : MiqdarColors.border,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: item.$6.withValues(alpha: 0.13),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(item.$5, color: item.$6, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.$2,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          valText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: isMissing
-                                ? MiqdarColors.warning
-                                : (isDark ? Colors.white : MiqdarColors.dark),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            return NutrientTile(
+              label: item.$2,
+              color: item.$5,
+              value: values.isMissing(item.$1)
+                  ? null
+                  : item.$3.toStringAsFixed(item.$3 >= 100 || item.$1 == 'calories_kcal' ? 0 : 1),
+              unit: item.$4,
             );
           },
         );
@@ -966,7 +1045,7 @@ class NutrientGrid2x4 extends StatelessWidget {
   }
 }
 
-/// AI Verification & Provenance Badge (AI-05, AI-07).
+/// Where a meal's values and its weight came from.
 class AiVerificationBadge extends StatelessWidget {
   const AiVerificationBadge({
     super.key,
@@ -986,80 +1065,62 @@ class AiVerificationBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
+    final c = context.mq;
     final isVerified = verificationStatus == 'verified_official_record';
     final isCustom = verificationStatus == 'user_entered';
 
     final Color bg;
     final Color fg;
+    final Color iconColor;
     final IconData icon;
     final String title;
 
     if (isMock) {
-      bg = const Color(0xFFFFFBEB);
-      fg = MiqdarColors.warning;
-      icon = Icons.science_outlined;
+      (bg, fg, iconColor) = (c.accentSoft, c.accentInk, c.accentInk);
+      icon = MiqdarIcons.science;
       title = s.offlineDemoRecord;
     } else if (isVerified) {
-      bg = MiqdarColors.softGreen;
-      fg = MiqdarColors.primary;
-      icon = Icons.verified_rounded;
+      (bg, fg, iconColor) = (c.surfaceSunken, c.ink, c.primary);
+      icon = MiqdarIcons.verified;
       title = s.verifiedOfficialRecord;
     } else if (verificationStatus == aiEstimateStatus) {
-      bg = const Color(0xFFFFFBEB);
-      fg = MiqdarColors.warning;
-      icon = Icons.auto_awesome_rounded;
+      (bg, fg, iconColor) = (c.accentSoft, c.accentInk, c.accentInk);
+      icon = MiqdarIcons.autoAwesome;
       title = s.aiEstimateRecord;
     } else if (isCustom) {
-      bg = MiqdarColors.infoBg;
-      fg = MiqdarColors.info;
-      icon = Icons.edit_note_rounded;
+      (bg, fg, iconColor) = (c.infoSoft, c.info, c.info);
+      icon = MiqdarIcons.editNote;
       title = s.userEnteredRecord;
     } else {
-      bg = const Color(0xFFFFFBEB);
-      fg = MiqdarColors.warning;
-      icon = Icons.fact_check_outlined;
+      (bg, fg, iconColor) = (c.surfaceSunken, c.ink, c.ink);
+      icon = MiqdarIcons.menuBook;
       title = s.referenceSeedRecord;
     }
 
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark ? fg.withValues(alpha: 0.14) : bg,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: fg.withValues(alpha: 0.28)),
-      ),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Icon(icon, color: fg, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    color: fg,
-                  ),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: iconColor, size: 20),
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(title, style: MiqdarType.bodyStrong.copyWith(fontSize: 14, color: fg))),
+                ],
               ),
               if (portionSource != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: fg.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    portionSource!.label(s.isAr),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: fg,
-                    ),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(999)),
+                  child: Text(portionSource!.label(s.isAr), style: MiqdarType.label.copyWith(color: c.ink)),
                 ),
             ],
           ),
@@ -1070,7 +1131,7 @@ class AiVerificationBadge extends StatelessWidget {
                 'Calculated for the exact weight of this portion.',
                 'محسوب حسب الوزن الفعلي لهذه الحصة.',
               ),
-              style: TextStyle(fontSize: 11.5, color: fg.withValues(alpha: 0.85)),
+              style: MiqdarType.caption.copyWith(color: fg),
             ),
           ],
         ],
@@ -1079,106 +1140,6 @@ class AiVerificationBadge extends StatelessWidget {
   }
 }
 
-/// Pulsing camera aiming reticle for the capture viewfinder.
-class AimingReticleOverlay extends StatefulWidget {
-  const AimingReticleOverlay({super.key, this.isStable = true});
-  final bool isStable;
-
-  @override
-  State<AimingReticleOverlay> createState() => _AimingReticleOverlayState();
-}
-
-class _AimingReticleOverlayState extends State<AimingReticleOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final scale = 0.96 + (_controller.value * 0.06);
-          return Transform.scale(
-            scale: scale,
-            child: CustomPaint(
-              size: const Size(220, 164),
-              painter: _ReticleCornerPainter(
-                color: widget.isStable ? MiqdarColors.mintGlow : MiqdarColors.warning,
-                glowOpacity: 0.25 + _controller.value * 0.35,
-              ),
-            ),
-          );
-        },
-      );
-}
-
-class _ReticleCornerPainter extends CustomPainter {
-  const _ReticleCornerPainter({required this.color, required this.glowOpacity});
-  final Color color;
-  final double glowOpacity;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(26));
-    canvas.drawRRect(
-      rrect,
-      Paint()
-        ..color = color.withValues(alpha: glowOpacity * 0.45)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-    );
-
-    final cornerPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-
-    const len = 26.0;
-    // Top-left
-    canvas.drawLine(const Offset(0, len), const Offset(0, 8), cornerPaint);
-    canvas.drawLine(const Offset(8, 0), const Offset(len, 0), cornerPaint);
-    // Top-right
-    canvas.drawLine(Offset(size.width - len, 0), Offset(size.width - 8, 0), cornerPaint);
-    canvas.drawLine(Offset(size.width, 8), Offset(size.width, len), cornerPaint);
-    // Bottom-left
-    canvas.drawLine(Offset(0, size.height - len), Offset(0, size.height - 8), cornerPaint);
-    canvas.drawLine(Offset(8, size.height), Offset(len, size.height), cornerPaint);
-    // Bottom-right
-    canvas.drawLine(
-      Offset(size.width - len, size.height),
-      Offset(size.width - 8, size.height),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(size.width, size.height - len),
-      Offset(size.width, size.height - 8),
-      cornerPaint,
-    );
-
-    // Center crosshair dot
-    canvas.drawCircle(
-      size.center(Offset.zero),
-      3.5,
-      Paint()..color = color.withValues(alpha: 0.85),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ReticleCornerPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.glowOpacity != glowOpacity;
-}
-
-/// Calm, neutral nutrient notice card (PRD-07, NOTICE-06).
 class NutrientNoticeCard extends StatelessWidget {
   const NutrientNoticeCard({
     super.key,
@@ -1194,57 +1155,51 @@ class NutrientNoticeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = alert.severity == 'critical' ? MiqdarColors.warning : MiqdarColors.info;
+    final c = context.mq;
+    final isOver = alert.severity == 'critical';
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: isDark ? 0.14 : 0.08),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: 0.32)),
+        color: isOver ? c.accentSoft : c.infoSoft,
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.notifications_none_rounded, color: accent, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
+          Icon(
+            isOver ? MiqdarIcons.notificationsActive : MiqdarIcons.notifications,
+            color: isOver ? c.accentInk : c.info,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   isPreview
                       ? s.tr('If you save this meal', 'إذا حفظت هذه الوجبة')
                       : '${s.nutrientLabel(alert.nutrientKey)} • ${s.tr("Above your goal", "أعلى من هدفك")}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    color: accent,
-                  ),
+                  style: MiqdarType.bodyStrong.copyWith(color: c.ink),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            alert.localizedMessage(s.isAr),
-            style: TextStyle(
-              fontSize: 13,
-              color: isDark ? Colors.white : MiqdarColors.dark,
-              height: 1.4,
+                const SizedBox(height: 2),
+                Text(
+                  alert.localizedMessage(s.isAr),
+                  style: MiqdarType.body.copyWith(fontSize: 14, height: 20 / 14, color: c.ink),
+                ),
+                if (onAcknowledge != null && !alert.acknowledged)
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: c.ink,
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(40, 32),
+                    ),
+                    onPressed: onAcknowledge,
+                    child: Text(s.tr('Got it', 'حسناً')),
+                  ),
+              ],
             ),
           ),
-          if (onAcknowledge != null && !alert.acknowledged) ...[
-            const SizedBox(height: 10),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: TextButton.icon(
-                onPressed: onAcknowledge,
-                icon: const Icon(Icons.check_rounded, size: 16),
-                label: Text(s.tr('Got it', 'حسناً')),
-              ),
-            ),
-          ],
         ],
       ),
     );

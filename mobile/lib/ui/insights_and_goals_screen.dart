@@ -65,52 +65,40 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    s.tr('Insights', 'الإحصاءات'),
+                    s.navInsights,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ],
               ),
             ),
-            IconButton.filledTonal(
+            RoundIconButton(
               tooltip: s.tr('Export', 'تصدير'),
               onPressed: () => showExportSheet(context, days: periodDays),
-              icon: const Icon(Icons.download_rounded),
+              icon: MiqdarIcons.download,
             ),
           ],
         ),
         const SizedBox(height: 16),
 
         // Period Selector (7 / 30 / 90 days)
-        SegmentedButton<int>(
-          segments: [
-            ButtonSegment(value: 7, label: Text(s.tr('7 Days', '7 أيام'))),
-            ButtonSegment(value: 30, label: Text(s.tr('30 Days', '30 يوماً'))),
-            ButtonSegment(value: 90, label: Text(s.tr('90 Days', '90 يوماً'))),
+        MiqdarSegmented<int>(
+          options: [
+            (value: 7, label: s.tr('7 Days', '7 أيام'), icon: null),
+            (value: 30, label: s.tr('30 Days', '30 يوماً'), icon: null),
+            (value: 90, label: s.tr('90 Days', '90 يوماً'), icon: null),
           ],
-          selected: {periodDays},
-          onSelectionChanged: (sel) => setState(() => periodDays = sel.first),
+          value: periodDays,
+          onChanged: (days) => setState(() => periodDays = days),
         ),
         const SizedBox(height: 16),
 
         if (periodMeals.isEmpty)
-          SurfaceCard(
-            child: Column(
-              children: [
-                const Icon(Icons.insights_rounded, size: 36, color: MiqdarColors.muted),
-                const SizedBox(height: 10),
-                Text(
-                  s.tr('Nothing to show yet', 'لا يوجد ما يُعرض بعد'),
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  s.tr(
-                    'Save a meal and your averages appear here.',
-                    'احفظ وجبة وستظهر متوسطاتك هنا.',
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+          EmptyStateCard(
+            icon: MiqdarIcons.insights,
+            title: s.tr('Nothing to show yet', 'لا يوجد ما يُعرض بعد'),
+            text: s.tr(
+              'Save a meal and your averages appear here.',
+              'احفظ وجبة وستظهر متوسطاتك هنا.',
             ),
           )
         else ...[
@@ -120,24 +108,26 @@ class _TrendsScreenState extends State<TrendsScreen> {
             Expanded(
               child: _InsightMetricTile(
                 label: s.tr('Calories per day', 'السعرات في اليوم'),
-                value: '${dailyAvg.calories.toStringAsFixed(0)} ${s.unitKcal}',
+                value: dailyAvg.calories.toStringAsFixed(0),
+                unit: s.unitKcal,
                 detail:
                     s.tr(
                   '${byDate.length} logged ${byDate.length == 1 ? 'day' : 'days'}',
                   '${byDate.length} يوم مسجل',
                 ),
-                accent: MiqdarColors.primary,
+                color: context.mq.nCalories,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _InsightMetricTile(
                 label: s.tr('Protein per day', 'البروتين في اليوم'),
-                value: '${dailyAvg.protein.toStringAsFixed(1)} ${s.unitG}',
+                value: dailyAvg.protein.toStringAsFixed(1),
+                unit: s.unitG,
                 detail: goals.trackingOnly
                     ? s.tr('Average', 'المتوسط')
                     : '${s.tr("Goal", "الهدف")}: ${goals.protein.toStringAsFixed(0)} ${s.unitG}',
-                accent: MiqdarColors.proteinAccent,
+                color: context.mq.nProtein,
               ),
             ),
           ],
@@ -147,7 +137,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
         // Daily Calorie Trend Curve vs Daily Target (TREND-01)
         Text(
           s.tr('Calories by day', 'السعرات حسب اليوم'),
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
         ),
         const SizedBox(height: 10),
         WeeklyTrendChart(
@@ -159,7 +149,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
         // Macronutrient Energy Distribution Donut Chart
         Text(
           s.tr('Where your calories come from', 'مصدر سعراتك'),
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
         ),
         const SizedBox(height: 10),
         MacroDonutChart(values: periodTotals),
@@ -168,18 +158,18 @@ class _TrendsScreenState extends State<TrendsScreen> {
         // Daily average per nutrient; tap one to see which meals contributed most
         Text(
           s.tr('Daily averages', 'المتوسطات اليومية'),
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
         ),
         const SizedBox(height: 10),
         ...[
-          (s.calories, dailyAvg.calories, goals.calories, s.unitKcal, MiqdarColors.caloriesAccent, (MealEntry m) => m.nutrients.calories),
-          (s.protein, dailyAvg.protein, goals.protein, s.unitG, MiqdarColors.proteinAccent, (MealEntry m) => m.nutrients.protein),
-          (s.carbs, dailyAvg.carbohydrates, goals.carbohydrates, s.unitG, MiqdarColors.carbsAccent, (MealEntry m) => m.nutrients.carbohydrates),
-          (s.fat, dailyAvg.fat, goals.fat, s.unitG, MiqdarColors.fatAccent, (MealEntry m) => m.nutrients.fat),
-          (s.sugar, dailyAvg.sugar, goals.sugar, s.unitG, MiqdarColors.sugarAccent, (MealEntry m) => m.nutrients.sugar),
-          (s.sodium, dailyAvg.sodium, goals.sodium, s.unitMg, MiqdarColors.sodiumAccent, (MealEntry m) => m.nutrients.sodium),
-          (s.potassium, dailyAvg.potassium, goals.potassium, s.unitMg, MiqdarColors.potassiumAccent, (MealEntry m) => m.nutrients.potassium),
-          (s.fiber, dailyAvg.fiber, goals.fiber, s.unitG, MiqdarColors.fiberAccent, (MealEntry m) => m.nutrients.fiber),
+          (s.calories, dailyAvg.calories, goals.calories, s.unitKcal, context.mq.nCalories, (MealEntry m) => m.nutrients.calories),
+          (s.protein, dailyAvg.protein, goals.protein, s.unitG, context.mq.nProtein, (MealEntry m) => m.nutrients.protein),
+          (s.carbs, dailyAvg.carbohydrates, goals.carbohydrates, s.unitG, context.mq.nCarbs, (MealEntry m) => m.nutrients.carbohydrates),
+          (s.fat, dailyAvg.fat, goals.fat, s.unitG, context.mq.nFat, (MealEntry m) => m.nutrients.fat),
+          (s.sugar, dailyAvg.sugar, goals.sugar, s.unitG, context.mq.nSugar, (MealEntry m) => m.nutrients.sugar),
+          (s.sodium, dailyAvg.sodium, goals.sodium, s.unitMg, context.mq.nSodium, (MealEntry m) => m.nutrients.sodium),
+          (s.potassium, dailyAvg.potassium, goals.potassium, s.unitMg, context.mq.nPotassium, (MealEntry m) => m.nutrients.potassium),
+          (s.fiber, dailyAvg.fiber, goals.fiber, s.unitG, context.mq.nFiber, (MealEntry m) => m.nutrients.fiber),
         ].map(
           (n) => _NutrientTrendBar(
             label: n.$1,
@@ -239,12 +229,12 @@ class _TrendsScreenState extends State<TrendsScreen> {
               const SizedBox(height: 6),
               Text(
                 '${s.tr("Average per day", "المتوسط اليومي")}: ${dailyAvg.toStringAsFixed(1)} $unit • ${s.tr("Goal", "الهدف")}: ${target.toStringAsFixed(0)} $unit',
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: TextStyle(fontWeight: FontWeight.w700, color: context.mq.ink),
               ),
               const SizedBox(height: 14),
               Text(
                 s.tr('Meals with the most', 'الوجبات الأعلى'),
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: context.mq.ink),
               ),
               const SizedBox(height: 8),
               ...topContributors.map(
@@ -253,16 +243,16 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   dense: true,
                   title: Text(
                     m.displayName(s.isAr),
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    style: TextStyle(fontWeight: FontWeight.w600, color: context.mq.ink),
                   ),
                   subtitle: Text(
                     '${s.date(m.eatenAt.toLocal(), 'd MMM')} • ${m.weightG.toStringAsFixed(0)} ${s.unitG}',
                   ),
                   trailing: Text(
                     '${selector(m).toStringAsFixed(1)} $unit',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: MiqdarColors.primary,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: context.mq.primary,
                     ),
                   ),
                 ),
@@ -300,14 +290,14 @@ void showExportSheet(BuildContext context, {required int days}) {
               'Copy your meals from the last $days days, then paste them into a spreadsheet or note.',
               'انسخ وجباتك من آخر $days يوماً ثم الصقها في جدول بيانات أو ملاحظة.',
             ),
-            style: const TextStyle(fontSize: 12.5),
+            style: const TextStyle(fontSize: 13),
           ),
           const SizedBox(height: 12),
           Container(
             height: 150,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: context.mq.surfaceSunken,
               borderRadius: BorderRadius.circular(14),
             ),
             child: SingleChildScrollView(
@@ -315,7 +305,7 @@ void showExportSheet(BuildContext context, {required int days}) {
                 textDirection: TextDirection.ltr,
                 child: SelectableText(
                   csv,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
               ),
             ),
@@ -333,7 +323,7 @@ void showExportSheet(BuildContext context, {required int days}) {
                 ),
               );
             },
-            icon: const Icon(Icons.copy_rounded),
+            icon: const Icon(MiqdarIcons.contentCopy),
             label: Text(s.tr('Copy', 'نسخ')),
           ),
         ],
@@ -346,48 +336,50 @@ class _InsightMetricTile extends StatelessWidget {
   const _InsightMetricTile({
     required this.label,
     required this.value,
+    required this.unit,
     required this.detail,
-    required this.accent,
+    required this.color,
   });
 
   final String label;
   final String value;
+  final String unit;
   final String detail;
-  final Color accent;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDark ? MiqdarColors.darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: accent.withValues(alpha: 0.3)),
-        boxShadow: MiqdarColors.ambientShadow(isDark),
-      ),
+    final c = context.mq;
+    return SurfaceCard(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: isDark ? MiqdarColors.darkMuted : MiqdarColors.muted,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              color: accent,
-            ),
+          Row(
+            children: [
+              NutrientDot(color: color),
+              const SizedBox(width: 6),
+              Expanded(child: Text(label, style: MiqdarType.label.copyWith(color: c.inkMuted))),
+            ],
           ),
           const SizedBox(height: 4),
-          Text(detail, style: const TextStyle(fontSize: 11.5)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: value, style: MiqdarType.numberLg.copyWith(color: c.ink)),
+                  TextSpan(
+                    text: ' $unit',
+                    style: MiqdarType.bodyStrong.copyWith(color: c.inkMuted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(detail, style: MiqdarType.caption.copyWith(color: c.inkMuted)),
         ],
       ),
     );
@@ -416,55 +408,47 @@ class _NutrientTrendBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
+    final c = context.mq;
     final percent = target > 0 ? (value / target * 100).round() : null;
     final amount = value.toStringAsFixed(value >= 100 ? 0 : 1);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: SurfaceCard(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                ),
+                NutrientDot(color: color),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
+                Expanded(child: Text(label, style: MiqdarType.bodyStrong.copyWith(color: c.ink))),
                 Text(
                   percent == null
                       ? '$amount $unit'
                       : '$amount / ${target.toStringAsFixed(0)} $unit',
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  style: MiqdarType.label.copyWith(fontSize: 14, color: c.ink),
                 ),
                 const SizedBox(width: 4),
-                const Icon(Icons.chevron_right_rounded, size: 18, color: MiqdarColors.muted),
+                Icon(MiqdarIcons.chevronRight, size: 20, color: c.inkMuted),
               ],
             ),
             if (percent != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               ClipRRect(
-                borderRadius: BorderRadius.circular(99),
+                borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: (percent / 100).clamp(0.0, 1.0),
                   minHeight: 8,
-                  backgroundColor: color.withValues(alpha: 0.14),
-                  color: color,
+                  backgroundColor: c.surfaceSunken,
+                  color: percent > 100 ? c.accent : color,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 s.tr('$percent% of your goal', '$percent% من هدفك'),
-                style: const TextStyle(fontSize: 11),
+                style: MiqdarType.caption.copyWith(color: c.inkMuted),
               ),
             ],
           ],
@@ -487,7 +471,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
   Widget _heading(String text) => Padding(
         padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
-        child: Text(text, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+        child: Text(text, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: context.mq.ink)),
       );
 
   Future<void> _save(MiqdarController controller, S s) async {
@@ -536,7 +520,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(
                       s.tr('Just track, no goals', 'تتبع فقط بدون أهداف'),
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: context.mq.ink),
                     ),
                     subtitle: Text(
                       s.tr('Hides goals and turns off notices', 'يخفي الأهداف ويوقف التنبيهات'),
@@ -699,14 +683,13 @@ class _GoalNumericEditorCardState extends State<_GoalNumericEditorCard> {
               Expanded(
                 child: Text(
                   widget.label,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: context.mq.ink),
                 ),
               ),
-              IconButton.outlined(
-                visualDensity: VisualDensity.compact,
+              StepSquareButton(
                 tooltip: '-${widget.step.toStringAsFixed(0)}',
-                onPressed: () => _step(-widget.step),
-                icon: const Icon(Icons.remove_rounded, size: 16),
+                onTap: () => _step(-widget.step),
+                icon: MiqdarIcons.remove,
               ),
               const SizedBox(width: 6),
               SizedBox(
@@ -715,9 +698,9 @@ class _GoalNumericEditorCardState extends State<_GoalNumericEditorCard> {
                   controller: _ctrl,
                   textAlign: TextAlign.center,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    color: MiqdarColors.primary,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: context.mq.ink,
                   ),
                   decoration: InputDecoration(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -731,11 +714,10 @@ class _GoalNumericEditorCardState extends State<_GoalNumericEditorCard> {
                 ),
               ),
               const SizedBox(width: 6),
-              IconButton.outlined(
-                visualDensity: VisualDensity.compact,
+              StepSquareButton(
                 tooltip: '+${widget.step.toStringAsFixed(0)}',
-                onPressed: () => _step(widget.step),
-                icon: const Icon(Icons.add_rounded, size: 16),
+                onTap: () => _step(widget.step),
+                icon: MiqdarIcons.add,
               ),
             ],
           ),
@@ -761,44 +743,26 @@ class AlertsScreen extends StatelessWidget {
             if (controller.unreadAlertsCount > 0)
               TextButton.icon(
                 onPressed: controller.markAllAlertsRead,
-                icon: const Icon(Icons.done_all_rounded, size: 18),
+                icon: const Icon(MiqdarIcons.doneAll, size: 18),
                 label: Text(s.tr('Mark all read', 'تحديد الكل كمقروء')),
               ),
             TextButton.icon(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const GoalsScreen()),
               ),
-              icon: const Icon(Icons.tune_rounded, size: 18),
+              icon: const Icon(MiqdarIcons.tune, size: 18),
               label: Text(s.tr('Goals', 'الأهداف')),
             ),
           ],
         ),
         const SizedBox(height: 8),
         if (controller.alerts.isEmpty)
-          SurfaceCard(
-            child: Row(
-              children: [
-                const Icon(Icons.check_circle_outline_rounded, color: MiqdarColors.primary, size: 28),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        s.tr('No notices', 'لا توجد تنبيهات'),
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                      ),
-                      Text(
-                        s.tr(
-                          'You will see a note here when a meal takes you past a goal.',
-                          'سترى تنبيهاً هنا عندما تتجاوز وجبة أحد أهدافك.',
-                        ),
-                        style: const TextStyle(fontSize: 12.5),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          EmptyStateCard(
+            icon: MiqdarIcons.checkCircle,
+            title: s.tr('No notices', 'لا توجد تنبيهات'),
+            text: s.tr(
+              'You will see a note here when a meal takes you past a goal.',
+              'سترى تنبيهاً هنا عندما تتجاوز وجبة أحد أهدافك.',
             ),
           )
         else

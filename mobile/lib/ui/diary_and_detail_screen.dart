@@ -61,30 +61,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
         const SizedBox(height: 16),
 
         if (controller.meals.isEmpty)
-          SurfaceCard(
-            child: Column(
-              children: [
-                const Icon(Icons.restaurant_outlined, size: 36, color: MiqdarColors.muted),
-                const SizedBox(height: 10),
-                Text(
-                  s.tr('Your diary is empty', 'سجلك فارغ'),
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  s.tr('Meals you save will appear here.', 'ستظهر هنا الوجبات التي تحفظها.'),
-                  textAlign: TextAlign.center,
-                ),
-                if (widget.onAddMeal != null) ...[
-                  const SizedBox(height: 14),
-                  FilledButton.icon(
+          EmptyStateCard(
+            icon: MiqdarIcons.restaurant,
+            title: s.tr('Your diary is empty', 'سجلك فارغ'),
+            text: s.tr('Meals you save will appear here.', 'ستظهر هنا الوجبات التي تحفظها.'),
+            action: widget.onAddMeal == null
+                ? null
+                : FilledButton.icon(
                     onPressed: widget.onAddMeal,
-                    icon: const Icon(Icons.add_rounded),
+                    icon: const Icon(MiqdarIcons.add),
                     label: Text(s.navAdd),
                   ),
-                ],
-              ],
-            ),
           )
         else ...[
           TextField(
@@ -92,7 +79,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: s.tr('Search your meals', 'ابحث في وجباتك'),
-              prefixIcon: const Icon(Icons.search_rounded),
+              prefixIcon: const Icon(MiqdarIcons.search),
               suffixIcon: searchCtrl.text.isEmpty
                   ? null
                   : IconButton(
@@ -101,7 +88,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         searchCtrl.clear();
                         setState(() {});
                       },
-                      icon: const Icon(Icons.clear_rounded),
+                      icon: const Icon(MiqdarIcons.close),
                     ),
             ),
           ),
@@ -123,17 +110,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
           const SizedBox(height: 16),
           if (sortedKeys.isEmpty)
-            SurfaceCard(
-              child: Column(
-                children: [
-                  const Icon(Icons.search_off_rounded, size: 36, color: MiqdarColors.muted),
-                  const SizedBox(height: 8),
-                  Text(
-                    s.tr('No meals match your search.', 'لا توجد وجبات تطابق بحثك.'),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
+            EmptyStateCard(
+              icon: MiqdarIcons.searchOff,
+              title: s.tr('No meals match your search.', 'لا توجد وجبات تطابق بحثك.'),
             )
           else
             ...sortedKeys.map((dateKey) {
@@ -156,15 +135,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               isToday
                                   ? s.tr('Today', 'اليوم')
                                   : s.date(dayDate, 'EEE, d MMM yyyy'),
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: context.mq.ink),
                             ),
                           ),
                           Text(
                             '${dayCalories.toStringAsFixed(0)} ${s.unitKcal}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: MiqdarColors.primary,
+                              fontWeight: FontWeight.w600,
+                              color: context.mq.primary,
                             ),
                           ),
                         ],
@@ -249,14 +228,14 @@ class MealDetailScreen extends StatelessWidget {
                         children: [
                           Text(
                             currentMeal.displayName(s.isAr),
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: context.mq.ink),
                           ),
                           if (secondaryName.isNotEmpty && secondaryName != currentMeal.displayName(s.isAr))
-                            Text(secondaryName, style: const TextStyle(fontSize: 13.5)),
+                            Text(secondaryName, style: const TextStyle(fontSize: 14)),
                           const SizedBox(height: 4),
                           Text(
                             '${s.date(currentMeal.eatenAt.toLocal(), 'EEE, d MMM • h:mm a')} • ${currentMeal.weightG.toStringAsFixed(0)} ${s.unitG}',
-                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.mq.ink),
                           ),
                         ],
                       ),
@@ -267,14 +246,14 @@ class MealDetailScreen extends StatelessWidget {
                       children: [
                         Text(
                           currentMeal.nutrients.calories.toStringAsFixed(0),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 34,
                             height: 1.1,
-                            fontWeight: FontWeight.w900,
-                            color: MiqdarColors.primary,
+                            fontWeight: FontWeight.w700,
+                            color: context.mq.primary,
                           ),
                         ),
-                        Text(s.unitKcal, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        Text(s.unitKcal, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.mq.ink)),
                       ],
                     ),
                   ],
@@ -290,7 +269,7 @@ class MealDetailScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(14),
                     child: Row(
                       children: [
-                        const Icon(Icons.notes_rounded, color: MiqdarColors.primary),
+                        Icon(MiqdarIcons.notes, color: context.mq.primary),
                         const SizedBox(width: 10),
                         Expanded(child: Text(currentMeal.notes)),
                       ],
@@ -308,7 +287,7 @@ class MealDetailScreen extends StatelessWidget {
                     Expanded(
                       child: FilledButton.icon(
                         onPressed: () => _showEditMealSheet(context, controller, currentMeal),
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: const Icon(MiqdarIcons.edit),
                         label: Text(s.tr('Edit', 'تعديل')),
                       ),
                     ),
@@ -316,7 +295,7 @@ class MealDetailScreen extends StatelessWidget {
                     Expanded(
                       child: FilledButton.tonalIcon(
                         onPressed: () => _logAgain(context, controller, currentMeal),
-                        icon: const Icon(Icons.replay_rounded),
+                        icon: const Icon(MiqdarIcons.replay),
                         label: Text(s.tr('Log Again', 'تسجيل مجدداً')),
                       ),
                     ),
@@ -324,9 +303,9 @@ class MealDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 TextButton.icon(
-                  style: TextButton.styleFrom(foregroundColor: MiqdarColors.danger),
+                  style: TextButton.styleFrom(foregroundColor: context.mq.danger),
                   onPressed: () => _confirmDelete(context, controller, currentMeal),
-                  icon: const Icon(Icons.delete_outline_rounded),
+                  icon: const Icon(MiqdarIcons.delete),
                   label: Text(s.tr('Delete Meal', 'حذف الوجبة')),
                 ),
               ],
@@ -415,12 +394,12 @@ class MealDetailScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_rounded, size: 16, color: MiqdarColors.primary),
+                    Icon(MiqdarIcons.calendarMonth, size: 16, color: context.mq.primary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         s.date(selectedDate, 'EEE, d MMM yyyy'),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        style: TextStyle(fontWeight: FontWeight.w700, color: context.mq.ink),
                       ),
                     ),
                     TextButton(
@@ -451,7 +430,7 @@ class MealDetailScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: MiqdarColors.primary.withValues(alpha: 0.08),
+                    color: context.mq.surfaceSunken,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Wrap(
@@ -461,9 +440,9 @@ class MealDetailScreen extends StatelessWidget {
                     children: [
                       Text(
                         '${previewMeal.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          color: MiqdarColors.primary,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: context.mq.primary,
                         ),
                       ),
                       Text('${s.protein} ${previewMeal.nutrients.protein.toStringAsFixed(1)}${s.unitG}'),
@@ -527,7 +506,7 @@ class MealDetailScreen extends StatelessWidget {
             child: Text(s.tr('Cancel', 'إلغاء')),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: MiqdarColors.danger),
+            style: FilledButton.styleFrom(backgroundColor: context.mq.danger),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(s.tr('Delete', 'حذف')),
           ),

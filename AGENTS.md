@@ -39,11 +39,11 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 
 ## Current state
 
-*Update this section whenever it stops being true. Last updated 2026-11-02.*
+*Update this section whenever it stops being true. Last updated 2026-11-04.*
 
 - **Branch:** `feature/scale-live-flow` holds all current work, and the Pi is on it. `main` is well behind and
   `origin/usb` is an older copy. Do not merge to `main` until Abdullah says so.
-- **App:** the green design, in English and Arabic, light and dark. The orange redesign was reverted at his request. There are no accounts, by decision.
+- **App:** follows the Miqdar design system from a design tool (`docs/DESIGN.md`), in English and Arabic, light and dark. There are no accounts, by decision.
 - **Real scale, new app, verified 2026-11-02:** connects at `foodscale.local`, shows the true reading (0 g, sensor ok),
   Zero works, and an empty-plate capture is refused.
 - **Still not verified on the real scale:**
@@ -78,6 +78,8 @@ mobile/lib/
   services/               gemini_service (prompt, model order), api_service (scale), alert_service
   data/                   local_database (SQLite v3, meal photos), food_catalog
   models/nutrition.dart   Data models
+  theme.dart              All colors (context.mq) and text styles (MiqdarType)
+  miqdar_icons.dart       Icons from mobile/assets/fonts, generated; see the README there
   l10n/strings.dart       English and Arabic text, s.tr(en, ar), s.date(...)
   ui/                     Screens; ui/widgets/charts_and_gauges.dart for shared widgets
 mobile/test/              Unit tests
@@ -132,6 +134,7 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 
 **Code**
 - All user-facing text goes through `s.tr(en, ar)`, and dates through `s.date(...)`. Check Arabic and dark mode.
+- Follow `docs/DESIGN.md`. Colors come from `context.mq` and text from `MiqdarType`, never values written in a screen.
 - A database column change needs a version bump and a migration in `local_database.dart`.
 - No screen-code jargon in the interface (S36, PRD-07, ms timings).
 - New documents go in `docs/`, or `docs/archive/` once outdated, and in the `docs/README.md` list. Do not add loose `.md` files to the root. Keep one document per topic.
@@ -156,6 +159,7 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - The 400-sample benchmark is fake placeholder data: ignore it.
 - 2026-11-02: he tried the orange brand redesign (commit 199e6dd) on his simulator, did not like it, and asked for the previous green design back. Do not bring back the orange look unless he asks. The earlier request to improve the design is still open: ask him what he wants before another redesign.
 - 2026-11-02: earlier requirements no longer bind the project, including `docs/archive/FRONTEND_REQUIREMENTS_V3.md`. No accounts or sign-in; the diary stays on the phone. "You are one of us, do the best for the project": act on your own judgment and report plainly.
+- 2026-11-04: he made a design system in a design tool and asked for it to be applied ("do it"). It replaces the green design as the app's look. It keeps a green, in a deeper shade, with orange as the attention color.
 
 ## Open decisions
 
@@ -173,6 +177,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-04: Applied the a design tool design system to the whole app
+- Changed: new colors with a new dark mode, type, shapes and shared components across every screen, as a theme in `theme.dart` plus the components in `charts_and_gauges.dart`. Icons are now Material Symbols Rounded, cut to a 17 KB font in `mobile/assets/fonts`. New bottom bar. One main button per screen; Capture becomes secondary once a photo is chosen. Scale fault and simulated states now show on the Home card. Review tiles show Unknown for missing macros. Removed unused GlassCard and aiming overlay. No logic, API or database change. `docs/DESIGN.md` rewritten, `docs/APP_SCREENS.md` updated.
+- Also fixed: Insights had two Arabic names; some small English text on Arabic screens; the Choose Meal Photo sheet overflowed on a phone, found while testing.
+- Tested: `flutter analyze`; 35 unit tests; `scale_flow_test` on a throwaway simulator with a simulated scale and real Gemini (Saleeg, 240 g, 336 kcal, saved); a temporary screenshot tour of the main screens in all four language and theme modes, sheets in two, with no layout errors, and most of the screenshots looked at; not-connected states in English light; his simulator rebuilt and Home confirmed by screenshot, his data kept.
+- Not tested / risks: the REAL scale with this design, which read "not connected" from his simulator at that moment; real food capture is still the top test. Not looked at after the change: the Failure sheet, Analyzing screen, Edit Meal, Name and Export sheets, dialogs, low-confidence and Gemini source badge colors, the wide sidebar, Android.
+- Next: Abdullah to judge the look. Weak points the design system did not address are listed in `docs/APP_SCREENS.md` section 13, such as the phone camera being hard to reach.
 
 ### 2026-11-04: Wrote the current screens down for a redesign
 - Decided: Abdullah wants to redesign the app with a design tool, and asked for a description of the current design, screens and buttons to give it. He has not said yet what direction he wants.

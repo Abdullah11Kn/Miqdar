@@ -36,3 +36,7 @@ flutter:
     - assets/demo/jareesh.jpeg
     - assets/demo/pizza.jpeg
     - assets/demo/burger.jpg
+  fonts:
+    - family: MiqdarSymbols
+      fonts:
+        - asset: assets/fonts/MiqdarSymbols.ttf

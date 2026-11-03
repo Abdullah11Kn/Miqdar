@@ -1,10 +1,8 @@
 # Miqdar app: current screens and controls
 
-This describes the app as it is today, as a starting point for a redesign. It lists every screen, what sits where from
-top to bottom, and what each control does. It was written from the app's code on 2026-11-04 and checked against one
-screenshot (Home, empty day). Other screens were not checked by eye, so exact appearance may differ slightly.
-
-No redesign direction is set here. Ask the owner what they want before choosing a look.
+This describes the app as it is today. It lists every screen, what sits where from top to bottom, and what each control
+does. It was written from the app's code on 2026-11-04 and updated the same day, after the Miqdar design system was
+applied. Colors, type and component rules are in [DESIGN.md](DESIGN.md).
 
 ## 1. The product
 
@@ -48,7 +46,7 @@ dark mode. There are no accounts and no cloud sync.
 **Build limits**
 
 - The design must be buildable in Flutter on iPhone first. The wide layout in section 3 also exists.
-- Fonts must be bundled with the app. No custom fonts are bundled today.
+- Fonts must be bundled with the app. The only bundled font is the icon font; text uses the system font.
 - The `phosphor_flutter` icon package does not build on the project's Flutter version. Bundled icon fonts do work.
 
 **A direction already rejected**
@@ -59,33 +57,8 @@ Arabic for text, Phosphor icons, and a calorie dial on Home. Do not bring that l
 
 ## 3. Current visual design
 
-**Style:** white rounded cards on a very pale green-grey background, emerald green as the main color, heavy bold type.
-
-| Role | Light | Dark |
-|---|---|---|
-| Page background | `#F4F7F5` | `#0A120E` |
-| Card | `#FFFFFF` | `#182920` |
-| Card border | `#E2E8F0` | `#263E31` |
-| Main text | `#0F172A` | `#F1F5F9` |
-| Secondary text | `#475569` | `#94A3B8` |
-| Main green | `#059669` | `#34D399` (text and icons), `#10B981` (buttons) |
-| Dark green button | `#112A20` | `#10B981` |
-| Selected or soft green | `#ECFDF5` | `#064E3B` |
-| Hero gradient | `#042F2E` → `#065F46` → `#059669` | `#06281E` → `#064E3B` → `#047857` |
-
-Status colors: warning `#D97706`, danger `#E11D48`, info `#0284C7`.
-
-Each nutrient has its own color: calories `#059669`, protein `#0D9488`, carbs `#D97706`, fat `#3B82F6`, sugar `#EC4899`,
-fiber `#16A34A`, sodium `#6366F1`, potassium `#8B5CF6`.
-
-**Type:** the system font (SF Pro on iPhone), very heavy weights. Screen titles about 24 px, card titles 15 to 18 px, body
-12 to 14 px. The largest numbers are the live weight at 84 px and calories on Review at 48 px.
-
-**Shapes:** cards 22 px radius with a thin border and a soft shadow. Buttons 16 to 18 px radius and 52 to 58 px tall.
-Bottom sheets have a 28 px top radius, dialogs 24 px. Status labels are full pills.
-
-**Icons and images:** rounded Material icons. Food photos are real photos. The logo image appears only in the wide
-sidebar. The splash and Welcome screens use a white scale icon on a dark green rounded square.
+White rounded cards on a very pale background, one deep green for actions, warm orange for "look at this". See
+[DESIGN.md](DESIGN.md) for every color, type style and rule; the values live in `mobile/lib/theme.dart`.
 
 **Layout:** one scrolling column with 20 px side margins. At 780 px wide or more, the bottom bar becomes a 248 px sidebar
 (see section 4), and Home places some cards side by side.
@@ -116,11 +89,11 @@ Main app: bottom bar with 5 tabs
 └─ Profile → Name sheet, Daily Goals, Food Preferences, Scale, Privacy & Data
 ```
 
-**Bottom bar, left to right:** Home (house), Add Meal (camera with plus, inside a tinted circle, solid green when
-selected), Diary (calendar), Insights (rising line), Profile (person). The selected tab has a soft green pill behind its
-icon and a green label. Arabic labels: الرئيسية، إضافة وجبة، السجل، التحليلات، حسابي.
+**Bottom bar, left to right:** Home (house), Add Meal (camera with plus, inside an outlined circle, solid green when
+selected), Diary (calendar), Insights (rising line), Profile (person). The selected tab has a solid green pill with a
+filled icon. Arabic labels: الرئيسية، إضافة وجبة، السجل، التحليلات، حسابي.
 
-**Wide layout sidebar, top to bottom:** logo and name, Add Meal button, then Home, Add Meal, Diary, Insights and Profile.
+**Wide layout sidebar, top to bottom:** the name, Add Meal button, then Home, Add Meal, Diary, Insights and Profile.
 At the bottom are Notices with an unread badge, and Scale with the live weight.
 
 **Capture strip:** while the scale or Gemini is working, a thin progress line and a one-line message appear at the top of
@@ -165,13 +138,14 @@ A scrolling page, top to bottom:
 5. **Nutrition card:**
    - Title "Nutrition" and a **Goals** text button that opens Daily Goals.
    - Left: a calorie ring, 152 px, with tick marks, flame icon, calories eaten, "/ 2200 kcal", and a pill such as "2200 left".
-     Over the goal, the ring turns amber and the pill says "+120 above".
+     Over the goal, the ring turns orange and the pill says "+120 above".
    - Right: four progress lines for protein, carbs, fat and sugar, each with a colored dot and "0 / 120 g".
-   - Below a divider: three tinted tiles for fiber, sodium and potassium, each with value and goal.
+   - Below them: three neutral tiles for fiber, sodium and potassium, each with value and goal.
    - In "Just track" mode, goals and "left" are hidden and only amounts show.
 6. **Scale card** (dark green gradient):
-   - Connected: scale icon and "On the scale: 243 g".
-   - Not connected: amber icon, "Scale not connected", and a **Connect** text button that opens the Scale screen.
+   - Connected: scale icon and "On the scale: 243 g". A simulated scale adds "Simulated scale, not real food".
+   - Not connected or sensor fault: orange icon, "Scale not connected" or "Weight sensor not responding", and a **Connect**
+     text button that opens the Scale screen.
    - **Add Meal** (white, full width): goes to the Add Meal tab.
 7. **Meals section:** title "Today's Meals" or "Meals on 2 Nov", and a **See diary** text button. Below it are meal rows,
    or an empty card reading "Nothing logged yet."
@@ -201,6 +175,7 @@ Title "Add Meal", then a three-part switch: **Scale**, **Search**, **Manual**. S
    - Gemini is analyzing your food…
 4. **Main button,** 58 px, full width:
    - Connected: **Capture** with a camera icon. It is disabled under 5 g or while working, and shows a spinner while working.
+     Once a photo is chosen it becomes a secondary button, because Analyze This Photo is then the main action.
    - Not connected: **Connect to Scale**, which opens the Scale Address dialog.
 5. **Note field,** when connected: "Note for AI (optional): grilled, no sauce…"
 
@@ -266,7 +241,7 @@ Going back without saving keeps the result, and Home shows the "Meal not saved y
 The page, top to bottom:
 
 1. **Photo,** 16:10. Tapping opens it full screen with zoom and a close button. A corner pill shows "85% sure". Under 60% it
-   turns amber: "Gemini is unsure (45%), please check".
+   turns orange: "Gemini is unsure (45%), please check".
 2. **Food name,** large, with the other language's name below.
 3. **Calories,** 48 px, green. The total weight is on the far side.
 4. **Three tiles:** protein, carbs, fat.
@@ -304,7 +279,7 @@ The page, top to bottom:
 **Empty diary:** a card reading "Your diary is empty. Meals you save will appear here." with an **Add Meal** button, and no
 search or chips. **No matches:** "No meals match your search."
 
-**Meal row** (also used on Home): a 52 px photo, or the name's first letter on a tint. Then the name, "Lunch • 1:32 PM • 380 g",
+**Meal row** (also used on Home): a 52 px photo, or the name's first letter on a neutral tile. Then the name, "Lunch • 1:32 PM • 380 g",
 and calories in green on the far side. Tapping opens Meal Detail.
 
 ### Meal Detail
@@ -384,8 +359,8 @@ One screen, titled "Meal Ideas". From Profile, the preferences section starts op
 1. **"Your preferences"** (expandable):
    - "I am" chips, multiple choice: Managing my weight, Watching sugar, Watching salt, Watching fat, Kidney diet, Vegetarian, Vegan.
    - **Allergies** field, **Foods to avoid** field, **Save**.
-2. **Idea cards:** icon, name, Arabic name, portion pill, badges for calories, protein and sodium, reasons, and a **Log This**
-   text button that opens Review Meal. It never logs a meal directly.
+2. **Idea cards:** name, Arabic name, portion, a row of numbers for calories, protein and sodium, reasons, and a **Log This**
+   button that opens Review Meal. It never logs a meal directly.
 3. **No ideas:** "No ideas fit your preferences. Try removing something you excluded."
 4. A small disclaimer, when one is provided.
 
@@ -417,7 +392,7 @@ a red message if the address does not answer, then **Cancel** and **Connect** (o
 
 Opened from the bell. Top bar "Notices". Text buttons at the top: **Mark all read** (when there are unread notices) and **Goals**.
 
-**Notice card:** bell icon, "Sodium • Above your goal", a message, and **Got it**. Amber at 125% of a goal or more, blue below that.
+**Notice card:** bell icon, "Sodium • Above your goal", a message, and **Got it**. Orange at 125% of a goal or more, blue below that.
 
 **Empty:** a check icon, "No notices. You will see a note here when a meal takes you past a goal."
 
@@ -426,9 +401,9 @@ Opened from the bell. Top bar "Notices". Text buttons at the top: **Mark all rea
 | Component | Description | Used on |
 |---|---|---|
 | Card | White rounded card with border and soft shadow, optionally tappable | Everywhere |
-| Calorie ring | Green gradient ring with tick marks and a glowing tip, amber over goal | Home |
-| Nutrient grid | Eight tiles, two across on phones: icon tile, label, value, or an amber "Unknown" | Review, Meal Detail |
-| Source badge | Tinted box with icon and source, plus a pill for the weight's source. Green for official, blue for entered by hand, amber otherwise | Review, Meal Detail |
+| Calorie ring | Solid green ring with tick marks, orange over goal, filling the other way in Arabic | Home |
+| Nutrient grid | Eight neutral tiles, two across on phones: colored dot, label, value, or an orange "Unknown" | Review, Meal Detail |
+| Source badge | Tinted box with icon and source, plus a pill for the weight's source. Neutral for official and typical values, blue for entered by hand, orange for Gemini estimates and demo | Review, Meal Detail |
 | Meal row | Photo, name, details, calories | Home, Diary |
 | Notice card | Tinted box with a bell, a message and an optional **Got it** | Notices, Review |
 | Idea card | Food suggestion with **Log This** | Home, Meal Ideas |
@@ -436,20 +411,15 @@ Opened from the bell. Top bar "Notices". Text buttons at the top: **Mark all rea
 
 ## 13. Weak points in the current design
 
-These come from reading the code. They are observations, not decisions.
+These come from reading the code. They are observations, not decisions. The design system did not address them.
 
 - **Phone camera is hard to reach:** it appears only in Choose Meal Photo, which opens from Change Photo, so a photo must
   already be chosen first. The "Choose a photo" box offers only files, photos and samples.
-- **Two main button colors:** Capture and Analyze are bright green, while Get Started and Save to Diary are dark green.
-- **Colors set outside the shared theme:** Welcome, Add Meal and Review use many of their own color values, so they differ
-  slightly from the other screens.
 - **Home is long:** on an iPhone 16 Pro, the Nutrition and scale cards fill the first view. Only the meals heading is
   visible above the bottom bar, so the meals themselves need scrolling.
 - **Add Meal appears twice** on the first Home view: as a tab and as the scale card's button.
 - **Date navigation only on Home:** Diary has search and filters but cannot jump to a date.
 - **Review has many controls:** alternatives, three small buttons, portion, sides and two collapsed sections on one page.
 - **Manual form gap:** the form has no fields for fiber or potassium, so they always show as Unknown.
-- **Uneven Arabic:** Insights is التحليلات on the tab but الإحصاءات as its title. Profile is حسابي ("my account") although there
-  are no accounts. Some small text stays in English, such as "kcal/100g" in Change Food and "-10g" on Review.
-- **Logo barely used:** the logo image appears only in the wide sidebar, and the phone screens use a generic scale icon.
-- **Unused pieces:** a glass card, a camera aiming overlay and `miqdar-food.png` exist in the code but appear on no screen.
+- **Uneven Arabic:** Profile is حسابي ("my account") although there are no accounts.
+- **No logo:** the design system has none yet, so the name is set in type, with a generic scale icon on Splash and Welcome.

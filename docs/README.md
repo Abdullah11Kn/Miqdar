@@ -10,8 +10,8 @@ When a document disagrees with the code, the code is right.
 | [TECHNICAL_REFERENCE.md](TECHNICAL_REFERENCE.md) | How the scale, backend and app work, and how to run them |
 | [API.md](API.md) | Scale REST API, checked against the code |
 | [HARDWARE.md](HARDWARE.md) | Wiring, Raspberry Pi and calibration |
-| [DESIGN.md](DESIGN.md) | Colors, type and design rules. The screens themselves have changed since it was written |
-| [APP_SCREENS.md](APP_SCREENS.md) | Every screen and control as they are now, written as a brief for a redesign |
+| [DESIGN.md](DESIGN.md) | The design system: colors, type, components and rules |
+| [APP_SCREENS.md](APP_SCREENS.md) | Every screen and control as they are now |
 
 Next to their own code: [database/README.md](../database/README.md), [mobile/README.md](../mobile/README.md),
 [database/reference_images/CAPTURE_GUIDE.md](../database/reference_images/CAPTURE_GUIDE.md).
