@@ -174,6 +174,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-04: Wrote the current screens down for a redesign
+- Decided: Abdullah wants to redesign the app with a design tool, and asked for a description of the current design, screens and buttons to give it. He has not said yet what direction he wants.
+- Changed: added `docs/APP_SCREENS.md` and listed it in `docs/README.md`. No app or Pi code changed.
+- Tested: written from reading every file in `mobile/lib/ui`, `theme.dart` and `strings.dart`. Only Home (empty day) was compared with a screenshot; other screens were not looked at.
+- Next: when the app's screens change, update that document too. Any design he brings back still has to follow the App honesty rules.
+
 ### 2026-11-02: Added the frontend-design skill
 - Changed: Abdullah pasted the `skills-lock.json` entry for `frontend-design` from `a public skills repo`, so it was installed in `.agents/skills/`. No app or Pi code changed.
 - Careful: the installed hash starts `89496d5d`, and his pasted entry had `4eabc661`. Probably the skill was updated since his copy, but that was not checked. The skill pushes bold, new visual choices; the decision above still stands, so ask him what he wants before another redesign.

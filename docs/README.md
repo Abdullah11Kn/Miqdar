@@ -11,6 +11,7 @@ When a document disagrees with the code, the code is right.
 | [API.md](API.md) | Scale REST API, checked against the code |
 | [HARDWARE.md](HARDWARE.md) | Wiring, Raspberry Pi and calibration |
 | [DESIGN.md](DESIGN.md) | Colors, type and design rules. The screens themselves have changed since it was written |
+| [APP_SCREENS.md](APP_SCREENS.md) | Every screen and control as they are now, written as a brief for a redesign |
 
 Next to their own code: [database/README.md](../database/README.md), [mobile/README.md](../mobile/README.md),
 [database/reference_images/CAPTURE_GUIDE.md](../database/reference_images/CAPTURE_GUIDE.md).
