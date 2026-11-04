@@ -440,6 +440,12 @@ class RecognitionResult {
     int recognitionMs = 0,
   }) {
     final first = items.first;
+    // The meal row says one thing for the whole plate, so it takes the weakest claim on it.
+    final anyEstimate = items.any((item) => item.verificationStatus == aiEstimateStatus);
+    final portion = const [PortionSource.estimated, PortionSource.manual, PortionSource.serving]
+            .where((source) => items.any((item) => item.portionSource == source))
+            .firstOrNull ??
+        PortionSource.scale;
     return RecognitionResult(
       eventId: eventId,
       foodId: first.foodId,
@@ -447,7 +453,7 @@ class RecognitionResult {
       nameAr: first.nameAr,
       weightG: first.weightG,
       confidence: confidence,
-      verificationStatus: first.verificationStatus,
+      verificationStatus: anyEstimate ? aiEstimateStatus : first.verificationStatus,
       nutrients: first.nutrients,
       basisPer100g: first.resolvedBasisPer100g,
       alertEvaluationMs: 0,
@@ -456,7 +462,7 @@ class RecognitionResult {
       provider: provider,
       model: model,
       recognitionMs: recognitionMs,
-      portionSource: first.portionSource,
+      portionSource: portion,
       additionalItems: items.sublist(1),
       plateItems: items,
       plateNameEn: nameEn,
@@ -708,11 +714,10 @@ class MealEntry {
 
 /// A mixed plate in progress, as the scale reports it. The scale alone sets the grams.
 class ScalePlate {
-  const ScalePlate({required this.plateId, required this.finished, required this.simulated, required this.steps});
+  const ScalePlate({required this.plateId, required this.finished, required this.steps});
 
   final String plateId;
   final bool finished;
-  final bool simulated;
   final List<ScalePlateStep> steps;
 
   bool get isOpen => !finished;
@@ -721,27 +726,28 @@ class ScalePlate {
   factory ScalePlate.fromJson(Map<String, dynamic> json) => ScalePlate(
         plateId: json['plate_id'] as String,
         finished: json['state'] == 'finished',
-        simulated: json['simulated'] as bool? ?? false,
         steps: (json['steps'] as List<dynamic>)
             .cast<Map<String, dynamic>>()
             .map((step) => ScalePlateStep(
                   index: step['index'] as int,
                   grams: (step['grams'] as num).toDouble(),
                   readingG: (step['reading_g'] as num).toDouble(),
+                  stepId: step['step_id'] as String?,
                 ))
             .toList(),
       );
 }
 
 class ScalePlateStep {
-  const ScalePlateStep({required this.index, required this.grams, required this.readingG});
+  const ScalePlateStep({required this.index, required this.grams, required this.readingG, this.stepId});
 
   final int index;
   final double grams;
   final double readingG;
+  final String? stepId;
 
-  /// Undo and adding again reuse an index, so the reading tells the photos apart.
-  String photoKey(String plateId) => '$plateId/$index/$readingG';
+  /// Undo and adding again reuse an index, and can even land on the same reading.
+  String photoKey(String plateId) => '$plateId/${stepId ?? '$index/$readingG'}';
 }
 
 class NutritionGoals {

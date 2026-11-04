@@ -54,6 +54,7 @@ import urllib.error
 import shutil
 import subprocess
 import urllib.request
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -228,6 +229,8 @@ class ScaleHardwareAdapter:
         self.latest_analysis: Optional[Dict[str, Any]] = None
         # A mixed plate in progress. Kept here so both screens show the same plate.
         self.plate: Optional[Dict[str, Any]] = None
+        # Plates live in memory, so the app uses this to tell a restart from a cancel.
+        self.boot_id = uuid.uuid4().hex
         self._plate_counter = 0
 
         PHOTOS_DIR.mkdir(exist_ok=True)
@@ -550,6 +553,7 @@ class ScaleHardwareAdapter:
             "auto_capture": self.auto_capture,
             "latest_capture": summary,
             "plate": self.plate_summary(),
+            "boot_id": self.boot_id,
         }
 
     @property
@@ -803,7 +807,8 @@ def add_plate_step(hw: ScaleHardwareAdapter, *, finishing: bool = False) -> Opti
             hw._plate_counter += 1
             hw.plate = {"plate_id": f"plate-{hw._plate_counter}-{int(time.time())}", "state": "open", "steps": []}
         hw.plate["steps"].append({
-            "index": len(steps) if steps else 0,
+            "index": len(steps),
+            "step_id": uuid.uuid4().hex,
             "reading_g": round(float(reading), 1),
             "grams": round(float(added), 1),
             "image_base64": image,
@@ -927,7 +932,8 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/scale/plate/photo":
             steps = self.scale_hw.plate["steps"] if self.scale_hw.plate else []
-            index = int(query.get("step", ["-1"])[0])
+            step = query.get("step", [""])[0]
+            index = int(step) if step.isdigit() else -1
             if 0 <= index < len(steps):
                 self.send_json(200, {"image_base64": steps[index]["image_base64"]})
             else:
@@ -1205,7 +1211,8 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
             p.text(W // 2, 326, "OVERLOAD: remove weight (max 5 kg)", 20, True, C_WHITE, "center")
         elif s.get("plate"):
             steps = s["plate"]["steps"]
-            note = s.get("plate_note") or f"{len(steps)} on the plate, last {steps[-1]['grams']:.0f} g. Add the next food."
+            foods = "  ".join(f"{i + 1}: {step['grams']:.0f} g" for i, step in enumerate(steps))
+            note = s.get("plate_note") or foods
             for i, line in enumerate(_wrap(note, 34)[:2]):
                 p.text(24, 316 + i * 24, line, 16, False, C_WHITE, "w")
             button(470, 306, W - 24, 352, "CANCEL", C_TILE, "plate_cancel", 16)
@@ -1487,6 +1494,7 @@ class ScaleTouchscreenApp:
             return
         self._worker_active = True
         self.state["plate_note"] = None
+        self.state.pop("hint", None)
 
         def worker() -> None:
             try:

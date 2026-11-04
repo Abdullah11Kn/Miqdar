@@ -71,8 +71,8 @@ Sets the current reading to 0 g. Returns `{"success": true, "scale": { ...same a
 ### Mixed plates
 
 The plate is kept on the scale, and `/scale/live` reports it as `plate`: null, or
-`{"plate_id", "state": "open" | "finished", "simulated", "steps": [{"index", "reading_g", "grams"}]}`. Each food's `grams`
-is the change in weight, and only the scale sets it. If the Pi restarts, an unfinished plate is lost.
+`{"plate_id", "state": "open" | "finished", "simulated", "steps": [{"index", "step_id", "reading_g", "grams"}]}`. Each food's `grams`
+is the change in weight, and only the scale sets it. If the Pi restarts, an unfinished plate is lost; `/scale/live` also reports `boot_id`, which changes on a restart, so the app can say so.
 
 - `POST /scale/plate/add` records the food added since the last step, and opens a plate if none is open. Returns `{"plate": ...}`.
 - `POST /scale/plate/finish` records a last food if the weight rose, then sets `state` to `finished`.

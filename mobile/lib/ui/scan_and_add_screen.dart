@@ -1008,6 +1008,26 @@ class _ScanScreenState extends State<ScanScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (controller.plateLostToRestart) ...[
+            SurfaceCard(
+              color: c.accentSoft,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    s.tr(
+                      'The scale restarted, so your unfinished plate was lost. Weigh the foods again.',
+                      'أُعيد تشغيل الميزان، لذا فُقد طبقك غير المكتمل. زِن الأطعمة مجدداً.',
+                    ),
+                    style: MiqdarType.body.copyWith(color: c.ink),
+                  ),
+                  TextButton(onPressed: controller.dismissPlateLost, child: Text(s.tr('Got It', 'حسناً'))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               Expanded(
@@ -1163,14 +1183,11 @@ class _ScanScreenState extends State<ScanScreen> {
       await controller.plateAction(action);
     } on RecognitionException catch (error) {
       if (!mounted) return;
+      if (error.code == 'PLATE_WEIGHT_DROPPED') return _askAboutLighterPlate(controller, s, action);
       final message = switch (error.code) {
         'PLATE_STEP_TOO_SMALL' => s.tr(
             'Too little was added to weigh. For small amounts, use Add Side on the review screen.',
             'الكمية المضافة قليلة جداً للوزن. للكميات الصغيرة استخدم إضافة صنف في شاشة المراجعة.',
-          ),
-        'PLATE_WEIGHT_DROPPED' => s.tr(
-            'The plate got lighter. Undo the last food, or put the food back and try again.',
-            'أصبح الطبق أخف. تراجع عن آخر طعام، أو أعد الطعام وحاول مجدداً.',
           ),
         'WEIGHT_NOT_STEADY' => s.tr(
             'The weight is still moving. Take your hand off the plate, then try again.',
@@ -1183,6 +1200,26 @@ class _ScanScreenState extends State<ScanScreen> {
       };
       messenger.showSnackBar(SnackBar(behavior: SnackBarBehavior.floating, content: Text(message)));
     }
+  }
+
+  Future<void> _askAboutLighterPlate(MiqdarController controller, S s, String action) async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(s.tr('The plate got lighter', 'أصبح الطبق أخف')),
+        content: Text(
+          s.tr(
+            'Something was taken off, so the grams would be wrong. Undo the last food, or put the food back and weigh it again.',
+            'أُزيل شيء من الطبق، لذا ستكون الجرامات خاطئة. تراجع عن آخر طعام، أو أعد الطعام وزِنه مجدداً.',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogCtx).pop('undo'), child: Text(s.tr('Undo Last Food', 'تراجع عن آخر طعام'))),
+          FilledButton(onPressed: () => Navigator.of(dialogCtx).pop(action), child: Text(s.tr('Weigh Again', 'زِن مجدداً'))),
+        ],
+      ),
+    );
+    if (choice != null && mounted) await _plateAction(controller, s, choice);
   }
 
   Widget _plateSteps(MiqdarController controller, S s, ScalePlate plate) {
@@ -2677,7 +2714,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
           const SizedBox(height: 6),
           for (final item in result.plateItems)
             InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               onTap: () => _showPlateItemSheet(context, controller, result, item),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
@@ -2756,6 +2793,14 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(MiqdarIcons.editNote),
+              title: Text(s.tr('Enter by Hand', 'أدخله يدوياً')),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                _enterPlateItemByHand(context, controller, item);
+              },
+            ),
+            ListTile(
               leading: const Icon(MiqdarIcons.scale),
               title: Text(s.tr('Change Weight', 'تغيير الوزن')),
               onTap: () {
@@ -2766,7 +2811,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
             if (result.plateItems.length > 1)
               ListTile(
                 leading: Icon(MiqdarIcons.removeCircle, color: context.mq.danger),
-                title: Text(s.tr('Remove', 'إزالة'), style: TextStyle(color: context.mq.danger)),
+                title: Text(s.tr('Remove', 'إزالة'), style: MiqdarType.body.copyWith(color: context.mq.danger)),
                 onTap: () async {
                   Navigator.of(sheetCtx).pop();
                   final updated = await controller.removePlateItem(item.id);
@@ -2826,6 +2871,69 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
         content: Text(error.recoveryAdvice(s.isAr)),
       ));
     }
+  }
+
+  Future<void> _enterPlateItemByHand(BuildContext context, MiqdarController controller, MealItemEntry item) async {
+    final s = S.of(context);
+    final name = TextEditingController();
+    final calories = TextEditingController();
+    final protein = TextEditingController();
+    final carbs = TextEditingController();
+    final fat = TextEditingController();
+    double? number(TextEditingController field) => double.tryParse(normalizeDigits(field.text).trim());
+    Widget field(TextEditingController ctrl, String label, {bool isNumber = true}) => Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: TextField(
+            controller: ctrl,
+            keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : null,
+            decoration: InputDecoration(labelText: label),
+          ),
+        );
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(s.tr('Enter by Hand', 'أدخله يدوياً')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                s.tr(
+                  'Values per 100 g, from the label. Leave blank what you do not know; it shows as Unknown.',
+                  'القيم لكل 100 غ من الملصق. اترك ما لا تعرفه فارغاً؛ سيظهر كغير متوفر.',
+                ),
+                style: MiqdarType.body.copyWith(color: context.mq.inkMuted),
+              ),
+              field(name, s.tr('Food name', 'اسم الطعام'), isNumber: false),
+              field(calories, s.tr('Calories (kcal)', 'السعرات (سعرة)')),
+              field(protein, s.tr('Protein (g)', 'البروتين (غ)')),
+              field(carbs, s.tr('Carbs (g)', 'الكربوهيدرات (غ)')),
+              field(fat, s.tr('Fat (g)', 'الدهون (غ)')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogCtx).pop(false), child: Text(s.tr('Cancel', 'إلغاء'))),
+          FilledButton(
+            onPressed: () {
+              if (name.text.trim().isEmpty || (number(calories) ?? -1) < 0) return;
+              Navigator.of(dialogCtx).pop(true);
+            },
+            child: Text(s.tr('Save', 'حفظ')),
+          ),
+        ],
+      ),
+    );
+    if (save != true) return;
+    final updated = await controller.enterPlateItemByHand(
+      item.id,
+      name: name.text.trim(),
+      caloriesPer100g: number(calories)!,
+      protein: number(protein),
+      carbs: number(carbs),
+      fat: number(fat),
+    );
+    if (updated != null && mounted) setState(() => currentResult = updated);
   }
 
   Future<void> _changePlateItemWeight(BuildContext context, MiqdarController controller, MealItemEntry item) async {

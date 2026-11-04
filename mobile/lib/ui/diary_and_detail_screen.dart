@@ -274,7 +274,10 @@ class MealDetailScreen extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    s.isAr && item.nameAr.isNotEmpty ? item.nameAr : item.nameEn,
+                                    [
+                                      s.isAr && item.nameAr.isNotEmpty ? item.nameAr : item.nameEn,
+                                      if (item.portionSource != PortionSource.scale) item.portionSource.label(s.isAr),
+                                    ].join(' • '),
                                     style: MiqdarType.body.copyWith(color: context.mq.ink),
                                   ),
                                 ),

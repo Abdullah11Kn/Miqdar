@@ -55,7 +55,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Not working:** USB-C networking (Mac → Pi gets no answers). Wi-Fi is used instead, and this is not being pursued.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
-- **Next work:** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
+- **Next work (after the code review, all fixed):** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
 - **Agent skills setup:** done. See Agent skills below.
 
 ## Where things live
@@ -198,6 +198,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-04: Fixed what the code review found
+- Decided: no reply was needed from Abdullah. Both reviews covered all the feature work.
+- Changed: a plate no longer takes its labels from its first food, so it cannot read as verified while any food is a Gemini estimate. Plate foods can be entered by hand. The app says when a scale restart lost a plate, using a new `boot_id` from the Pi. A lighter plate now asks Undo Last Food or Weigh Again. A profile weight change joins the weight log, and reaching a target still offers a goal. A new user who leaves during the profile stays a new user, so an under-18 user cannot keep the default goal that way. Repeats keep saved values, and estimates stay estimates. Photos are told apart by a new `step_id`. The touchscreen lists every food's grams. Added a real upgrade test from database v3, using `sqflite_common_ffi` for tests only.
+- Tested: `flutter analyze`; 96 unit tests; 42 of 42 Python tests; `mixed_plate_flow_test` on a throwaway simulator with real Gemini. The upgrade test passed before any fix, so upgrades were already safe. The same sample photos gave 448 kcal in one run and 403 in another, so a plate's estimate can move by about 10% between runs. New dialogs and cards were checked by unit tests or not at all, not by eye.
+- Not tested / risks: the Pi changes are not on the Pi. Left alone on purpose: a plate is stored in both `plateItems` and `additionalItems`, `MiqdarController` keeps growing, and reminder settings are JSON in `settings` rather than a table. All are design debt, not faults.
 
 ### 2026-11-04: Checked the untested screens; fixed Unknown values, Arabic units and the 90-day test
 - Changed: a plate with unnamed foods now shows Unknown instead of 0 for its total and macros. The Home card uses the plate's name. Arabic units on the new screens now match the app (غ and كغ). `test_at_least_90_days_are_queryable` creates its own dated meals, so it no longer ages.

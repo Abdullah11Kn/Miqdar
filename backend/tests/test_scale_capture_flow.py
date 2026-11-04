@@ -156,6 +156,23 @@ class ScaleCaptureFlowTests(unittest.TestCase):
         self.plate_call(server, "cancel")
         self.assertIsNone(self.hw.status()["plate"])
 
+    def test_each_plate_step_has_its_own_id_even_at_the_same_reading(self) -> None:
+        server = self.serve(self.hw)
+        _, first = self.plate_call(server, "add", 200.0)
+        self.plate_call(server, "undo")
+        _, second = self.plate_call(server, "add", 200.0)
+        self.assertNotEqual(first["plate"]["steps"][0]["step_id"], second["plate"]["steps"][0]["step_id"])
+
+    def test_a_restart_changes_the_boot_id(self) -> None:
+        other = ScaleHardwareAdapter(force_mock=True)
+        self.assertNotEqual(self.hw.status()["boot_id"], other.status()["boot_id"])
+
+    def test_plate_photo_refuses_a_step_that_is_not_a_number(self) -> None:
+        server = self.serve(self.hw)
+        self.plate_call(server, "add", 200.0)
+        for step in ("abc", "-1"):
+            self.assertEqual(self.request(server, f"/scale/plate/photo?step={step}")[0], 404)
+
     def test_finish_with_no_new_food_closes_the_plate_without_an_extra_step(self) -> None:
         server = self.serve(self.hw)
         self.plate_call(server, "add", 200.0)

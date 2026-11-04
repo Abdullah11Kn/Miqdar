@@ -56,6 +56,8 @@ class _Rig {
 
   Map<String, dynamic>? plate;
   Map<String, dynamic>? refusal;
+  String bootId = 'one';
+  int photoFetches = 0;
 
   Map<String, dynamic> plateJson(List<double> grams, {bool finished = false}) => {
         'plate_id': 'plate-1',
@@ -63,7 +65,7 @@ class _Rig {
         'simulated': true,
         'steps': [
           for (var i = 0; i < grams.length; i++)
-            {'index': i, 'grams': grams[i], 'reading_g': grams.take(i + 1).reduce((a, b) => a + b)},
+            <String, dynamic>{'index': i, 'grams': grams[i], 'reading_g': grams.take(i + 1).reduce((a, b) => a + b)},
         ],
       };
 
@@ -75,9 +77,10 @@ class _Rig {
       }
       final path = request.url.path;
       if (path == '/scale/live') {
-        return http.Response(jsonEncode({'mode': 'simulated', 'live_weight_g': 300.0, 'plate': plate}), 200);
+        return http.Response(jsonEncode({'mode': 'simulated', 'live_weight_g': 300.0, 'plate': plate, 'boot_id': bootId}), 200);
       }
       if (path == '/scale/plate/photo') {
+        photoFetches++;
         return http.Response(jsonEncode({'image_base64': base64Encode(Uint8List.fromList([0xFF, 0xD8, 1]))}), 200);
       }
       if (path.startsWith('/scale/plate/')) {
@@ -189,6 +192,87 @@ void main() {
     final result = rig.controller.lastRecognition!;
     expect(result.displayName(false), 'Chicken Kabsa');
     expect(result.displayName(true), 'كبسة دجاج');
+  });
+
+  group('what a plate says about its sources', () {
+    test('it stays an estimate while any food is, even if the first came from the catalog', () async {
+      final rig = _Rig();
+      await rig.setUp();
+      await rig.finishPlate();
+      final first = rig.controller.lastRecognition!.plateItems.first;
+      final food = MiqdarFoodCatalog.builtInFoods.firstWhere((f) => f.verificationStatus != aiEstimateStatus);
+      await rig.controller.replacePlateItemFood(first.id, food);
+      expect(rig.controller.lastRecognition!.verificationStatus, aiEstimateStatus);
+      final meal = (await rig.controller.saveLastRecognition())!;
+      expect(meal.verificationStatus, aiEstimateStatus);
+    });
+
+    test('it counts as entered by hand once any food\'s grams were typed', () async {
+      final rig = _Rig();
+      await rig.setUp();
+      await rig.finishPlate();
+      await rig.controller.setPlateItemWeight(rig.controller.lastRecognition!.plateItems[1].id, 50);
+      expect(rig.controller.lastRecognition!.portionSource, PortionSource.manual);
+    });
+
+    test('Log Again keeps an estimated amount estimated', () async {
+      final rig = _Rig();
+      await rig.setUp();
+      await rig.finishPlate();
+      final meal = (await rig.controller.saveLastRecognition())!;
+      final again = await rig.controller.prepareMealAgain(meal.copyWith(items: [
+        for (final item in meal.items) item.withWeight(item.weightG, newSource: PortionSource.estimated),
+      ]));
+      expect(again.plateItems.first.portionSource, PortionSource.estimated);
+    });
+  });
+
+  test('a photo is fetched again when undo and a new food land on the same reading', () async {
+    final rig = _Rig();
+    await rig.setUp();
+    rig.plate = rig.plateJson([200]);
+    (rig.plate!['steps'] as List).first['step_id'] = 'a';
+    await rig.controller.syncScaleLive();
+    final before = rig.photoFetches;
+    rig.plate = rig.plateJson([200]);
+    (rig.plate!['steps'] as List).first['step_id'] = 'b';
+    await rig.controller.syncScaleLive();
+    expect(rig.photoFetches, before + 1);
+  });
+
+  test('a plate lost to a scale restart is reported, but a cancelled one is not', () async {
+    final rig = _Rig();
+    await rig.setUp();
+    rig.bootId = 'one';
+    rig.plate = rig.plateJson([200]);
+    await rig.controller.syncScaleLive();
+    rig.plate = null;
+    await rig.controller.syncScaleLive();
+    expect(rig.controller.plateLostToRestart, isFalse);
+
+    rig.plate = rig.plateJson([200]);
+    await rig.controller.syncScaleLive();
+    rig.bootId = 'two';
+    rig.plate = null;
+    await rig.controller.syncScaleLive();
+    expect(rig.controller.plateLostToRestart, isTrue);
+    rig.controller.dismissPlateLost();
+    expect(rig.controller.plateLostToRestart, isFalse);
+  });
+
+  test('a food can be entered by hand, keeping its measured grams, with unknowns left unknown', () async {
+    final rig = _Rig(geminiStatus: 503);
+    await rig.setUp();
+    await rig.finishPlate();
+    await rig.controller.openPlateForNaming(rig.controller.latestScaleCaptureFailure!.plate!);
+    final item = rig.controller.lastRecognition!.plateItems.first;
+    await rig.controller.enterPlateItemByHand(item.id, name: 'Home bread', caloriesPer100g: 250);
+    final entered = rig.controller.lastRecognition!.plateItems.first;
+    expect(entered.nameEn, 'Home bread');
+    expect(entered.weightG, 200);
+    expect(entered.nutrients.calories, closeTo(500, 0.01));
+    expect(entered.nutrients.isMissing('protein_g'), isTrue);
+    expect(entered.isUnidentified, isFalse);
   });
 
   test('Log Again brings back every food', () async {

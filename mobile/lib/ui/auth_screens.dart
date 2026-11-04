@@ -45,13 +45,14 @@ class _SplashScreenState extends State<SplashScreen>
       final controller = MiqdarScope.of(context);
       final returning = controller.onboarded;
       final needsProfile = controller.needsBodyProfile;
+      final firstRun = controller.bodyProfileIsFirstRun;
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 400),
           pageBuilder: (_, __, ___) => !returning
               ? const WelcomeScreen()
               : needsProfile
-                  ? const BodyProfileScreen()
+                  ? BodyProfileScreen(firstRun: firstRun)
                   : const MainShell(),
           transitionsBuilder: (_, animation, __, child) =>
               FadeTransition(opacity: animation, child: child),
@@ -406,7 +407,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
                           builder: (_) => controller.needsBodyProfile
-                              ? const BodyProfileScreen(firstRun: true)
+                              ? BodyProfileScreen(firstRun: controller.bodyProfileIsFirstRun)
                               : const MainShell(),
                         ),
                       );

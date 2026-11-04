@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:miqdar_mobile/app_controller.dart';
+import 'package:miqdar_mobile/data/food_catalog.dart';
 import 'package:miqdar_mobile/data/local_database.dart';
 import 'package:miqdar_mobile/models/body_profile.dart';
 import 'package:miqdar_mobile/models/nutrition.dart';
@@ -80,6 +81,24 @@ void main() {
         portionSource: PortionSource.scale,
       );
 
+  group('a new user who leaves during the profile', () {
+    test('is still a new user when they come back', () async {
+      final c = await build();
+      expect(c.bodyProfileIsFirstRun, isTrue);
+      final database = c.localDatabase;
+      final reopened = MiqdarController(
+        localDatabase: database,
+        apiService: c.apiService,
+        alertService: AlertService(),
+        reminderScheduler: reminders,
+      );
+      await reopened.restorePreferences();
+      expect(reopened.bodyProfileIsFirstRun, isTrue);
+      await reopened.saveBodyProfile(_profile);
+      expect(reopened.bodyProfileIsFirstRun, isFalse);
+    });
+  });
+
   group('quick re-logging', () {
     test('recent foods are newest first, one per name, at most five', () async {
       final c = await build();
@@ -99,6 +118,25 @@ void main() {
       expect(draft.verificationStatus, aiEstimateStatus);
       expect(draft.portionSource, PortionSource.manual);
       expect(c.meals, isEmpty);
+    });
+
+    test('an estimated amount stays estimated', () async {
+      final c = await build();
+      final draft = await c.prepareRelog(
+        meal('Kabsa', DateTime(2026, 11, 4)).copyWith(portionSource: PortionSource.estimated),
+      );
+      expect(draft.portionSource, PortionSource.estimated);
+    });
+
+    test('a food that matches the catalog keeps the values it was saved with', () async {
+      final c = await build();
+      final catalog = MiqdarFoodCatalog.builtInFoods.first;
+      final saved = MealEntry(
+        id: 'x', foodId: catalog.foodId, nameEn: catalog.nameEn, nameAr: catalog.nameAr,
+        eatenAt: DateTime(2026, 11, 4), mealType: 'Lunch', weightG: 100, confidence: 1,
+        nutrients: const NutritionValues(calories: 999, protein: 0, carbohydrates: 0, fat: 0, sugar: 0, fiber: 0, sodium: 0, potassium: 0),
+      );
+      expect((await c.prepareRelog(saved)).nutrients.calories, closeTo(999, 0.01));
     });
   });
 
@@ -136,6 +174,29 @@ void main() {
       await c.saveWeightEntry(measuredOn: DateTime(2026, 11, 4), weightKg: 78);
       expect(c.goalUpdateOffer, isNotNull);
       expect(c.goals.calories, before);
+    });
+
+    test('changing the weight in the profile also joins the log, so the two never disagree', () async {
+      final c = await withGoal();
+      await c.saveWeightEntry(measuredOn: DateTime(2026, 11, 3), weightKg: 80);
+      await c.saveBodyProfile(_profile.withWeight(75));
+      await c.rememberGoalWeight(75);
+      expect(c.weightEntries.last.weightKg, 75);
+      expect(c.goalUpdateOffer, isNull);
+      await c.saveWeightEntry(measuredOn: DateTime(2020, 1, 1), weightKg: 90);
+      expect(c.bodyProfile!.weightKg, 75);
+    });
+
+    test('reaching the target still offers a goal, to keep the new weight', () async {
+      final c = await build();
+      await c.saveBodyProfile(const BodyProfile(
+        sex: BodySex.male, birthYear: 1996, heightCm: 180, weightKg: 80, activity: ActivityLevel.moderate,
+        goal: WeightGoal.lose, targetWeightKg: 75, weeklyPaceKg: 0.5,
+      ));
+      await c.rememberGoalWeight(80);
+      await c.saveWeightEntry(measuredOn: DateTime(2026, 11, 4), weightKg: 74);
+      final expected = suggestGoals(_profile.withWeight(74), c.goals, DateTime.now()).goals!.calories;
+      expect(c.goalUpdateOffer?.calories, expected);
     });
 
     test('declining changes nothing and stops asking until weight moves as far again', () async {

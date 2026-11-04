@@ -51,6 +51,17 @@ class BodyProfile {
 
   int ageOn(DateTime now) => now.year - birthYear;
 
+  /// The same person, once a target has been reached or no longer applies.
+  BodyProfile get maintaining => BodyProfile(
+        sex: sex,
+        birthYear: birthYear,
+        heightCm: heightCm,
+        weightKg: weightKg,
+        activity: activity,
+        goal: WeightGoal.maintain,
+        pregnantOrBreastfeeding: pregnantOrBreastfeeding,
+      );
+
   BodyProfile withWeight(double kg) => BodyProfile(
         sex: sex,
         birthYear: birthYear,

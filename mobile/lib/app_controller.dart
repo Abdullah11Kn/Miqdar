@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import 'data/food_catalog.dart';
 import 'data/local_database.dart';
+import 'l10n/strings.dart';
 import 'models/body_profile.dart';
 import 'models/nutrition.dart';
 import 'services/alert_service.dart';
@@ -113,13 +114,22 @@ class MiqdarController extends ChangeNotifier {
   /// Test builds only: lets Abdullah get past the required profile while testing.
   bool bodyProfileSkipped = false;
 
+  /// A brand new user with no goals of their own to keep, even if they left and came back.
+  bool bodyProfileIsFirstRun = false;
+
   bool get needsBodyProfile => !account.isDemo && bodyProfile == null && !bodyProfileSkipped;
 
   /// Saves the answers only. Goals change separately, when the user accepts them.
   Future<void> saveBodyProfile(BodyProfile value) async {
     if (account.isDemo) return;
     bodyProfile = value;
+    bodyProfileIsFirstRun = false;
+    _remember('body_profile_first_run', '0');
     await localDatabase.saveBodyProfile(value);
+    // The log's newest entry is the current weight, so a change here belongs in it too.
+    if (weightEntries.isNotEmpty && weightEntries.last.weightKg != value.weightKg) {
+      await saveWeightEntry(measuredOn: DateTime.now(), weightKg: value.weightKg);
+    }
     notifyListeners();
   }
 
@@ -149,6 +159,10 @@ class MiqdarController extends ChangeNotifier {
       // Sample meals stay in memory and never mix with a real diary.
       meals = localDatabase.demoHistory();
     } else {
+      if (!onboarded) {
+        bodyProfileIsFirstRun = true;
+        _remember('body_profile_first_run', '1');
+      }
       onboarded = true;
       _remember('onboarded', '1');
       _rememberAccount();
@@ -195,6 +209,7 @@ class MiqdarController extends ChangeNotifier {
     onboarded = false;
     bodyProfile = null;
     bodyProfileSkipped = false;
+    bodyProfileIsFirstRun = false;
     weightEntries = [];
     goalBasisWeightKg = null;
     if (reminderSettings.enabled) {
@@ -223,12 +238,13 @@ class MiqdarController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> _restorePreferences() async {
+  Future<void> restorePreferences() async {
     if (await localDatabase.getSetting('locale') == 'ar') locale = const Locale('ar');
     apiService.gemini.noteInArabic = isAr;
     if (await localDatabase.getSetting('theme') == 'dark') themeMode = ThemeMode.dark;
     onboarded = await localDatabase.getSetting('onboarded') == '1';
     bodyProfileSkipped = await localDatabase.getSetting('body_profile_skipped') == '1';
+    bodyProfileIsFirstRun = await localDatabase.getSetting('body_profile_first_run') == '1';
     bodyProfile = await localDatabase.loadBodyProfile();
     weightEntries = await localDatabase.loadBodyWeights();
     goalBasisWeightKg = double.tryParse(await localDatabase.getSetting('goal_weight_kg') ?? '');
@@ -311,7 +327,7 @@ class MiqdarController extends ChangeNotifier {
     // Dates use the same digits as every other number in the app.
     DateFormat.useNativeDigitsByDefaultFor('ar', false);
     await localDatabase.initialize();
-    await _restorePreferences();
+    await restorePreferences();
     final savedUrl = await localDatabase.getSetting('api_base_url');
     // A URL passed with --dart-define=MIQDAR_API_URL wins over the one saved last time.
     const launchUrl = String.fromEnvironment('MIQDAR_API_URL');
@@ -501,6 +517,12 @@ class MiqdarController extends ChangeNotifier {
         }
         if (wasOffline) unawaited(checkServer());
 
+        final bootId = data['boot_id'] as String?;
+        final restarted = _scaleBootId != null && bootId != null && bootId != _scaleBootId;
+        if (bootId != null) _scaleBootId = bootId;
+        if (restarted && scalePlate != null && scalePlate!.isOpen && data['plate'] == null) {
+          plateLostToRestart = true;
+        }
         final plateChanged = await _followPlate(data['plate'] as Map<String, dynamic>?);
         final newCapture = await _followLatestCapture(data['latest_capture']);
         if (newCapture ||
@@ -535,6 +557,15 @@ class MiqdarController extends ChangeNotifier {
   bool plateBusy = false;
   final Map<String, Uint8List> _platePhotos = {};
   String? _takenPlateId;
+  String? _scaleBootId;
+
+  /// The scale restarted during a plate. It keeps plates in memory, so that plate is gone.
+  bool plateLostToRestart = false;
+
+  void dismissPlateLost() {
+    plateLostToRestart = false;
+    notifyListeners();
+  }
 
   /// Step photos for the rows on Review. Only the last photo is kept with the saved meal.
   Map<String, Uint8List> plateItemPhotos = {};
@@ -747,21 +778,24 @@ class MiqdarController extends ChangeNotifier {
   Future<RecognitionResult> prepareRelog(MealEntry meal) {
     if (meal.items.length > 1) return prepareMealAgain(meal);
     return prepareCatalogDraft(
-      food: MiqdarFoodCatalog.findByIdOrLabel(meal.foodId) ??
-          FoodCatalogItem(
-            foodId: meal.foodId,
-            nameEn: meal.nameEn,
-            nameAr: meal.nameAr,
-            category: 'Logged',
-            preparation: 'Copied snapshot',
-            verificationStatus: meal.verificationStatus,
-            sourceId: 'DIARY_REPEAT',
-            per100g: meal.resolvedBasisPer100g,
-          ),
+      food: FoodCatalogItem(
+        foodId: meal.foodId,
+        nameEn: meal.nameEn,
+        nameAr: meal.nameAr,
+        category: 'Logged',
+        preparation: 'Copied snapshot',
+        verificationStatus: meal.verificationStatus,
+        sourceId: 'DIARY_REPEAT',
+        per100g: meal.resolvedBasisPer100g,
+      ),
       weightG: meal.weightG,
-      portionSource: PortionSource.manual,
+      portionSource: _repeatedSource(meal.portionSource),
     );
   }
+
+  /// Nobody weighed the repeat, so it is not "weighed". An estimate is still only an estimate.
+  PortionSource _repeatedSource(PortionSource saved) =>
+      saved == PortionSource.estimated ? PortionSource.estimated : PortionSource.manual;
 
   // Body weight log
 
@@ -783,6 +817,7 @@ class MiqdarController extends ChangeNotifier {
   }
 
   Future<void> deleteWeightEntry(String id) async {
+    if (account.isDemo) return;
     await localDatabase.deleteBodyWeight(id);
     await _reloadWeights();
   }
@@ -805,11 +840,14 @@ class MiqdarController extends ChangeNotifier {
     if (profile == null || basis == null || goals.trackingOnly || weightEntries.isEmpty) return null;
     if ((weightEntries.last.weightKg - basis).abs() < goalUpdateAfterKg) return null;
     final now = DateTime.now();
-    if (profile.problems(now).isNotEmpty) return null;
-    return suggestGoals(profile, goals, now).goals;
+    // Reaching the target makes it invalid, and then the goal is to keep the new weight.
+    final plan = profile.problems(now).isEmpty ? profile : profile.maintaining;
+    if (plan.problems(now).isNotEmpty) return null;
+    return suggestGoals(plan, goals, now).goals;
   }
 
   Future<void> rememberGoalWeight(double kg) async {
+    if (account.isDemo) return;
     goalBasisWeightKg = kg;
     await localDatabase.saveSetting('goal_weight_kg', '$kg');
     notifyListeners();
@@ -833,6 +871,7 @@ class MiqdarController extends ChangeNotifier {
 
   /// False if the user refused permission, in which case reminders stay off.
   Future<bool> updateReminders(ReminderSettings value) async {
+    if (account.isDemo) return false;
     var settings = value;
     var allowed = true;
     if (value.enabled && !reminderSettings.enabled) {
@@ -858,11 +897,48 @@ class MiqdarController extends ChangeNotifier {
               ),
       ]);
 
-  String _reminderText(String meal) => switch (meal) {
-        'Breakfast' => isAr ? 'حان وقت تسجيل فطورك' : 'Time to log your breakfast',
-        'Lunch' => isAr ? 'حان وقت تسجيل غدائك' : 'Time to log your lunch',
-        _ => isAr ? 'حان وقت تسجيل عشائك' : 'Time to log your dinner',
-      };
+  String _reminderText(String meal) {
+    final s = S(isAr);
+    return switch (meal) {
+      'Breakfast' => s.tr('Time to log your breakfast', 'حان وقت تسجيل فطورك'),
+      'Lunch' => s.tr('Time to log your lunch', 'حان وقت تسجيل غدائك'),
+      _ => s.tr('Time to log your dinner', 'حان وقت تسجيل عشائك'),
+    };
+  }
+
+  /// When Gemini cannot help and the food is not in Search. The measured grams stay, and
+  /// anything not typed stays Unknown.
+  Future<RecognitionResult?> enterPlateItemByHand(
+    String itemId, {
+    required String name,
+    required double caloriesPer100g,
+    double? protein,
+    double? carbs,
+    double? fat,
+  }) {
+    final per100g = NutritionValues.fromJson({
+      'calories_kcal': caloriesPer100g,
+      'protein_g': protein,
+      'carbohydrate_g': carbs,
+      'fat_g': fat,
+    });
+    return _replacePlateItems(
+      _platePatched(
+        itemId,
+        (old) => MealItemEntry(
+          id: old.id,
+          foodId: 'custom-${old.id}',
+          nameEn: name,
+          nameAr: name,
+          weightG: old.weightG,
+          nutrients: per100g.forPortionGrams(old.weightG),
+          basisPer100g: per100g,
+          portionSource: old.portionSource,
+          verificationStatus: 'user_entered',
+        ),
+      ),
+    );
+  }
 
   /// Log Again for a meal of several foods keeps all of them.
   Future<RecognitionResult> prepareMealAgain(MealEntry meal) async {
@@ -880,7 +956,7 @@ class MiqdarController extends ChangeNotifier {
             weightG: meal.items[i].weightG,
             nutrients: meal.items[i].nutrients,
             basisPer100g: meal.items[i].resolvedBasisPer100g,
-            portionSource: PortionSource.manual,
+            portionSource: _repeatedSource(meal.items[i].portionSource),
             verificationStatus: meal.items[i].verificationStatus,
             preparation: meal.items[i].preparation,
           ),

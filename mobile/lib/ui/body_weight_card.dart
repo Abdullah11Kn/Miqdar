@@ -74,7 +74,7 @@ class _BodyWeightCardState extends State<BodyWeightCard> {
               ),
               const SizedBox(height: 8),
               FilledButton(
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
                 onPressed: () {
                   final kg = double.tryParse(normalizeDigits(field.text).trim());
                   if (kg == null || kg < 20 || kg > 300) {
