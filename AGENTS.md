@@ -39,7 +39,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 
 ## Current state
 
-*Update this section whenever it stops being true. Last updated 2026-11-04.*
+*Update this section whenever it stops being true. Last updated 2026-11-05.*
 
 - **Branch:** `feature/scale-live-flow` holds all current work, and the Pi is on it. `main` is well behind and
   `origin/usb` is an older copy. Do not merge to `main` until Abdullah says so.
@@ -48,11 +48,10 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
   Zero works, and an empty-plate capture is refused.
 - **Still not verified on the real scale:**
   1. A real food capture with the new app: nobody was there to put food on the plate. This is the most important next test.
-  2. Starting at boot: the startup entry was launched by hand and worked, but the Pi has not been rebooted, because
-     `sudo reboot` needs a password. Power-cycle it once to prove this.
+  2. Starting at boot: on the 2026-11-05 00:04 boot the scale was not running 8 minutes later, cause unknown. The same autostart mechanism ran a test entry correctly. `start_all.sh` now logs to `/tmp/miqdar_start.log`. Power-cycle it and read that log; rebooting over SSH needs a password.
 - **Pi:** tunnel off by default and not running. The scale's Wi-Fi address works.
-- **Pi needs one special update:** git history was rewritten on 2026-11-04, so a plain `git pull` fails there. Once, check `git status` for Pi-only changes first, then run `git fetch origin && git reset --hard origin/feature/scale-live-flow && ./install_pi_desktop.sh`. After that, the usual command works.
-- **Not working:** USB-C networking (Mac → Pi gets no answers). Wi-Fi is used instead, and this is not being pursued.
+- **Pi code:** updated 2026-11-05 to the rewritten history, so `git pull` works there again. The earlier calibration is backed up in `~/miqdar-backup/` on the Pi.
+- **USB-C networking:** Abdullah remembers it working. On 2026-11-04 the Mac got no reply at 192.168.7.1 and no address from the Pi, even though the Pi's `miqdar-usb` connection reads as active. Use the `iphone A` hotspot, which works.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
 - **Next work (after the code review, all fixed):** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
@@ -71,7 +70,7 @@ start_all.sh              What boot and the Pi icons run: fullscreen scale; --tu
 start_scale_app.sh        Start the scale app (--headless --mock simulates it on a Mac)
 start_cloudflare_tunnel.sh, start_server.sh
 install_pi_desktop.sh     Pi setup, desktop icons, start at boot. Run again after every git pull on the Pi
-enable_usb_ssh_pi.sh      Pi: USB-C network (not working, see Current state)
+enable_usb_ssh_pi.sh      Pi: USB-C network (see Current state)
 connect_pi.sh             Mac: terminal on the Pi
 run_simulator.sh          Mac: run the app with the key from .env, on the real scale by default
 run_checks.sh             Rebuilds the database, then runs all tests
@@ -198,6 +197,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-05: Updated the Pi; boot start not proven (commit 3139f8a)
+- Decided: Abdullah asked for the Pi to be controlled and updated, and the real-scale steps done.
+- Changed: Pi moved to the rewritten history and new code, installer run, calibration unchanged and backed up. `start_all.sh` logs its output to `/tmp/miqdar_start.log`. Someone had tapped the Internet icon, so the public tunnel was running; it was stopped when the scale restarted without it.
+- Tested: over the hotspot: the new code answers on the real scale at `foodscale.local`, with plate and boot fields, 0 g, sensor ok, no throttling. A test entry ran through `lxsession-xdg-autostart`.
+- Not tested / risks: food on the real plate, mixed plates, and wobble limits. Boot start failed once, cause unknown. A clean reboot over SSH was refused for lack of a password.
+- Next: Abdullah power-cycles the Pi, then read the log and run the food tests. #4 and #5 stay open until then.
 
 ### 2026-11-04: Fixed what the code review found
 - Decided: no reply was needed from Abdullah. Both reviews covered all the feature work.
