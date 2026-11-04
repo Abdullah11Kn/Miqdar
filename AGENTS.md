@@ -203,6 +203,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-05: Wrote the source material for Report 3
+- Decided: Abdullah asked for a file his colleague can give an AI, with a picture, to write Report 3. It covers the work since Report 2 and leaves out the design from his design system artifact, which is held for the next report.
+- Changed: added `docs/REPORT_3_INPUT.md`. No app or Pi code changed.
+- Careful: Report 2 was taken to be his Second Design Notebook, so the period starts on 12 October. The design system's earlier version, applied on 4 November, is left out too, because it came from the same artifact. Features built on top of it are described by function only.
+- Tested: facts checked against the code, git log, these notes and the notebook. Nothing to run.
+- Not tested / risks: the file cannot cover meetings, coach feedback, or mechanical and electrical work after 11 October; the team must add those. It should be corrected if food tests happen before the report is written.
+
 ### 2026-11-05: Scale touchscreen matches the app's design (commit aeae659)
 - Decided: Abdullah asked for the "balance screen" to be made compatible with the new design. Taken to mean the Pi's touchscreen.
 - Changed: `draw_screen` in `app.py` uses the design system's dark tokens, Thmanyah, pill buttons, a white main action, plain weight with locked digits, and sentence-style labels. Phone results now read "Gemini estimate", and a missing value reads Unknown, not 0. The exit screen now says plainly that closing stops the phone connecting. Actions and flow are unchanged. New `install_thmanyah_pi.sh` copies the fonts over SSH, because the licence keeps them out of git; without them the screen falls back to DejaVu Sans.
