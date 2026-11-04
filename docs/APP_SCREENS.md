@@ -92,7 +92,7 @@ Main app: bottom bar with 5 tabs
 
 **Bottom bar, left to right:** Home (house), Add Meal (camera with plus, inside an outlined circle, solid green when
 selected), Diary (calendar), Insights (rising line), Profile (person). The selected tab has a solid green pill with a
-filled icon. Arabic labels: الرئيسية، إضافة وجبة، السجل، التحليلات، حسابي.
+filled icon. Arabic labels: الرئيسية، إضافة وجبة، السجل، التحليلات، ملفي.
 
 **Wide layout sidebar, top to bottom:** the name, Add Meal button, then Home, Add Meal, Diary, Insights and Profile.
 At the bottom are Notices with an unread badge, and Scale with the live weight.
@@ -469,13 +469,10 @@ Opened from the bell. Top bar "Notices". Text buttons at the top: **Mark all rea
 
 These come from reading the code. They are observations, not decisions. The design system did not address them.
 
-- **Phone camera is hard to reach:** it appears only in Choose Meal Photo, which opens from Change Photo, so a photo must
-  already be chosen first. The "Choose a photo" box offers only files, photos and samples.
 - **Home is long:** on an iPhone 16 Pro, the Nutrition and scale cards fill the first view. Only the meals heading is
   visible above the bottom bar, so the meals themselves need scrolling.
 - **Add Meal appears twice** on the first Home view: as a tab and as the scale card's button.
 - **Date navigation only on Home:** Diary has search and filters but cannot jump to a date.
 - **Review has many controls:** alternatives, three small buttons, portion, sides and two collapsed sections on one page.
 - **Manual form gap:** the form has no fields for fiber or potassium, so they always show as Unknown.
-- **Uneven Arabic:** Profile is حسابي ("my account") although there are no accounts.
 - **No logo:** the design system has none yet, so the name is set in type, with a generic scale icon on Splash and Welcome.

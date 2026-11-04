@@ -56,7 +56,7 @@ class S {
   String get navDiary => isAr ? 'السجل' : 'Diary';
   String get navAdd => isAr ? 'إضافة وجبة' : 'Add Meal';
   String get navInsights => isAr ? 'التحليلات' : 'Insights';
-  String get navProfile => isAr ? 'حسابي' : 'Profile';
+  String get navProfile => isAr ? 'ملفي' : 'Profile';
   String get navNotices => isAr ? 'التنبيهات' : 'Notices';
   String get navDevices => isAr ? 'الميزان' : 'Scale';
 

@@ -73,6 +73,7 @@ install_pi_desktop.sh     Pi setup, desktop icons, start at boot. Run again afte
 enable_usb_ssh_pi.sh      Pi: USB-C network (see Current state)
 connect_pi.sh             Mac: terminal on the Pi
 run_simulator.sh          Mac: run the app with the key from .env, on the real scale by default
+run_iphone.sh             Mac: install a test build on his own iPhone; never distribute it, the key is inside
 run_checks.sh             Rebuilds the database, then runs all tests
 mobile/lib/
   app_controller.dart     App state; capture flow; saving
@@ -197,6 +198,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-05: Prepared the app for a real iPhone and Android
+- Decided: Abdullah asked for everything not yet done to be finished while he tests food. Another session has a large uncommitted redesign in this folder, so this work was tested in a separate git worktree and only its own files were committed.
+- Changed: added the Local Network message and local networking setting a real iPhone needs. Added `run_iphone.sh`. Added Android permissions, notification receivers and desugaring for voice and reminders. Recent foods in Search show their source. The Arabic Profile tab is ملفي, because there are no accounts.
+- Tested: 96 unit tests and `flutter analyze` in the clean worktree.
+- Not tested / risks: Android has never been built here, because this Mac has no Android SDK, so that setup follows the packages' instructions only. `run_iphone.sh` had not run at this entry. The screen tour for the Enter by Hand and lighter-plate dialogs, the restart card and the Arabic plate food sheet had not completed at this entry, because something kept shutting down its throwaway simulator. Separate sessions sharing this folder can collide on `mobile/build` and on simulators.
+- Next: real-iPhone tests for #10 and #13; food tests for #4 and #5.
 
 ### 2026-11-05: Checked the Pi update on the real scale
 - Decided: Abdullah asked for the Pi update and hardware steps. Another session had already updated the Pi, so it was not repeated. A separate session has uncommitted design work in this folder, so only this file was committed.

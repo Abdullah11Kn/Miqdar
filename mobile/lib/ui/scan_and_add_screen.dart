@@ -1342,11 +1342,20 @@ class _ScanScreenState extends State<ScanScreen> {
                     Icon(MiqdarIcons.replay, size: 20, color: context.mq.primary),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        meal.displayName(s.isAr),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            meal.displayName(s.isAr),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
+                          ),
+                          Text(
+                            meal.portionSource.label(s.isAr),
+                            style: MiqdarType.caption.copyWith(color: context.mq.inkMuted),
+                          ),
+                        ],
                       ),
                     ),
                     Text(

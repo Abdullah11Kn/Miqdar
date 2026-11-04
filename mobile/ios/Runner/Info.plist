@@ -47,6 +47,13 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Miqdar connects to your kitchen scale on this network to read the weight and the photo.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Miqdar listens when you choose to say what you ate.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
