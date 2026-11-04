@@ -54,6 +54,8 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Not working:** USB-C networking (Mac → Pi gets no answers). Wi-Fi is used instead, and this is not being pursued.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
+- **Next work:** the agreed plan is GitHub issue #1 (https://github.com/Abdullah11Kn/Miqdar/issues/1). Nothing in it is built yet. Start with the body profile.
+- **Agent skills setup:** `/setup-matt-pocock-skills` was started but not finished, so `docs/agents/` does not exist. The `ready-for-agent` label was created on GitHub for issue #1.
 
 ## Where things live
 
@@ -160,6 +162,9 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - 2026-11-02: he tried the orange brand redesign (commit 199e6dd) on his simulator, did not like it, and asked for the previous green design back. Do not bring back the orange look unless he asks. The earlier request to improve the design is still open: ask him what he wants before another redesign.
 - 2026-11-02: earlier requirements no longer bind the project, including `docs/archive/FRONTEND_REQUIREMENTS_V3.md`. No accounts or sign-in; the diary stays on the phone. "You are one of us, do the best for the project": act on your own judgment and report plainly.
 - 2026-11-04: he made a design system in a design tool and asked for it to be applied ("do it"). It replaces the green design as the app's look. It keeps a green, in a deeper shade, with orange as the attention color.
+- 2026-11-04: new feature plan, in issue #1. Priority is daily use, with the most effort on what will be demonstrated. Build one at a time: body profile and goal; mixed plates; logging away from the scale (phone camera, describe by text or voice, as a secondary option); quick re-logging from Search; body weight log; meal reminders.
+- 2026-11-04: the profile is required for every user, but skippable in test builds while he tests. Rice with chicken added as one plate is one meal. Adding the next food uses a button on both screens, not automatic detection. Short wobbles of the weight are accepted.
+- 2026-11-04: features that do not use the scale need no hardware testing. He will come back to agents when he is ready for a real-meal accuracy test.
 
 ## Open decisions
 
@@ -168,7 +173,7 @@ Waiting for Abdullah. Do not settle these alone.
 1. **Public repository contains the Pi hotspot password** in `docs/HARDWARE.md`, and possibly the PDFs in
    `docs/archive/handover/`. Deleting it from current files does not remove it from git history. Change the password on
    the devices (Wi-Fi and Pi login), or make the repository private. Going private also needs login on the Pi for `git pull`.
-2. **Enable Gemini billing** for reliability during the demo. Recommended, his cost to decide.
+2. **Enable Gemini billing.** On 2026-11-04 he chose to stay on the free plan for now and pay later if other people will test the app.
 3. **Merge to `main`.** Only when he says.
 
 Settled 2026-11-02: boot start and tunnel off (done); Change Food and Add Side stay, because they are the way to log food
@@ -177,6 +182,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-04: Agreed the next features and published the spec (issue #1)
+- Decided: through `/grill-me`, Abdullah chose the plan listed under Decisions. He re-ran `/to-spec` without finishing `/setup-matt-pocock-skills`, which was taken as approval of GitHub Issues, the three test points and one spec.
+- Changed: published the spec as GitHub issue #1, public, labelled `ready-for-agent`, a label created for it. No app or Pi code changed.
+- Tested: nothing to run. The facts in the spec came from reading the code, and the plan itself is untested.
+- Not tested / risks: one Gemini request per plate is a reasoned choice, not measured. The macro split, the 2 kg goal-update offer and the target weight checks are agent defaults he did not ask for. Real food capture on the real scale is still unverified.
+- Next: build the body profile. Finish `/setup-matt-pocock-skills` if he wants `docs/agents/`.
 
 ### 2026-11-04: Applied the a design tool design system to the whole app
 - Changed: new colors with a new dark mode, type, shapes and shared components across every screen, as a theme in `theme.dart` plus the components in `charts_and_gauges.dart`. Icons are now Material Symbols Rounded, cut to a 17 KB font in `mobile/assets/fonts`. New bottom bar. One main button per screen; Capture becomes secondary once a photo is chosen. Scale fault and simulated states now show on the Home card. Review tiles show Unknown for missing macros. Removed unused GlassCard and aiming overlay. No logic, API or database change. `docs/DESIGN.md` rewritten, `docs/APP_SCREENS.md` updated.
