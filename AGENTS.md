@@ -198,6 +198,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-05: Checked the Pi update on the real scale
+- Decided: Abdullah asked for the Pi update and hardware steps. Another session had already updated the Pi, so it was not repeated. A separate session has uncommitted design work in this folder, so only this file was committed.
+- Tested: on the real scale: code at 3139f8a, no local changes, calibration unchanged, sensor ok, no throttling, tunnel not running. `/scale/live` has the plate and boot fields, and Add Next Food on an empty plate is refused with `EMPTY_SCALE`, leaving no plate open. It also reached the Pi on a second Wi-Fi network, at 192.168.1.164.
+- Not tested / risks: no food has been on the plate. Boot start is still unproven: the Pi booted at 00:07 and the scale started at 00:21, which was the other session's manual start, and `/tmp/miqdar_start.log` does not exist yet. The empty plate reads about 1.5 g, so it should be zeroed before weighing.
+- Next: Abdullah power-cycles the Pi, then the food tests.
+
 ### 2026-11-05: Updated the Pi; boot start not proven (commit 3139f8a)
 - Decided: Abdullah asked for the Pi to be controlled and updated, and the real-scale steps done.
 - Changed: Pi moved to the rewritten history and new code, installer run, calibration unchanged and backed up. `start_all.sh` logs its output to `/tmp/miqdar_start.log`. Someone had tapped the Internet icon, so the public tunnel was running; it was stopped when the scale restarted without it.
