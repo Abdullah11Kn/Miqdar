@@ -1,68 +1,95 @@
 # Miqdar design system
 
-The app follows the Miqdar design system Abdullah made on 2026-11-03. The original is private to him. This page holds what an agent needs
-when changing the app. If the design system changes, update `mobile/lib/theme.dart` and this page.
+The app follows the Miqdar design system Abdullah made, in the version he asked to apply on 2026-11-05. It is black and white,
+with big type and real food photos. The original is private to him. This page holds what an agent needs when changing the app.
+If the design system changes, update `mobile/lib/theme.dart` and this page.
 
 ## In the code
 
 | What | Where |
 |---|---|
-| Colors, for light and dark | `MiqdarTokens` in `mobile/lib/theme.dart`. Use `context.mq.primary`, never a color value in a screen |
+| Colors, for light and dark | `MiqdarTokens` in `mobile/lib/theme.dart`. Use `context.mq.ink`, never a color value in a screen |
 | Text styles | `MiqdarType` in `mobile/lib/theme.dart` |
+| Fonts | Thmanyah, in `mobile/assets/fonts/thmanyah/`. Not in git; see below |
 | Icons | `MiqdarIcons` in `mobile/lib/miqdar_icons.dart`. To add one, see `mobile/assets/fonts/README.md` |
 | Shared components | `mobile/lib/ui/widgets/charts_and_gauges.dart` |
-| Button styles | `FilledButton` is primary, `FilledButton.tonal` is secondary, `OutlinedButton` is outline, `TextButton` is text |
+| Floating scale bar and tab capsule | `_ScaleBar`, `_TabCapsule` and `_FloatingBars` in `mobile/lib/ui/screens.dart` |
+| Button styles | `FilledButton` is the main ink pill, `FilledButton.tonal` is secondary, `OutlinedButton` is outline, `TextButton` is text |
+
+## The fonts and their licence
+
+Thmanyah's licence is inside the font files. It allows embedding the fonts in the built app. It forbids uploading or hosting
+the files anywhere, and forbids changing them, which includes cutting them down. This repository is public, so:
+
+- `mobile/assets/fonts/thmanyah/` and the zips are ignored by git. Never commit them, and never subset them.
+- `mobile/assets/fonts/install_thmanyah.sh` installs them from the official zips. `./run_simulator.sh` runs it when needed.
+- A fresh clone does not build until that script has run on that Mac.
 
 ## Rules
 
 **Honest numbers**
-- Always show where values came from (`AiVerificationBadge`). Gemini results are estimates, never "verified".
+- Always show where values came from (`AiVerificationBadge`), on Review and Meal Detail. Gemini results are estimates, never "verified".
 - A nutrient nobody knows reads **Unknown**, never 0.
 - Wherever a weight appears, make the scale's state clear with its words: connected, not connected, weight sensor not
-  responding, or simulated (`ScaleStatusLabel`). Never show a battery level.
+  responding, or simulated. Never show a battery level.
 
 **Actions**
-- One main action per screen: a single `FilledButton`, usually 58 px tall. Everything else is secondary, outline or text.
-- Destructive actions are `danger` text or outlines, never filled red, except the final confirm in a delete dialog.
+- One main action per screen: a single `FilledButton`, an inverted ink pill, black in light and white in dark. 56 px at the
+  bottom of a screen (`Size.fromHeight(56)`), 48 by default, 40 inside cards.
+- Every button is a pill. Green is never a button fill.
+- Destructive actions are `danger` text, never filled and never outlined.
 - When Gemini is down or out of quota, Search and Manual entry stay one tap away.
 
 **Color**
-- Screens sit on `bg`, content on `surface` cards, recessed parts on `surfaceSunken`.
-- `primary` is the only action color. Text on it is `onPrimary`: white in light, deep green in dark.
-- Never put green on green. A selected item is solid `primary` with `onPrimary` content (chips, selected tab), or raised
-  `surface` with `ink` (segments). `primarySoft` is only for a large quiet area with `ink` text.
-- The hero gradient appears twice only: the Home scale card and the Profile header. It is the only gradient, apart from
-  dark scrims that keep labels readable over photos.
-- `accent` (orange) means "look at this", not an error: over a goal, scale not connected, low confidence, Unknown. On light
-  backgrounds use `accentInk` for its text and small icons.
+- Let the food be the color. Screens are pure white or pure black (`bg`).
+- `surface` for filled containers on `bg`, `surfaceSunken` for things inside a `surface`. `SurfaceCard` handles this for its
+  children: fields, chips, pills and secondary buttons inside it switch to `surfaceSunken` on their own.
+- `border` is for full-bleed hairlines only, never around a card.
+- `primary` (green) carries meaning only: selected chip, live scale dot, calorie progress, Add Meal, the profile initial,
+  switches, text links. Never a large panel, and never green on green.
+- `accent` (orange) means "look at this", not an error: over a goal, scale not connected, low confidence, Unknown. Use
+  `accentInk` for its text and small icons.
 - `danger` is for destructive actions and failures. `info` is for neutral notices and hand-entered values.
-- Each nutrient owns a mark color (`nProtein` and so on) for dots, bars and charts. Nutrient names and values stay `ink`.
+- Each nutrient owns a mark color (`nProtein` and so on) for dots, bars and charts. Names and values, calories included, stay `ink`.
 
 **Type**
-- The system font. Weights 400, 600 and 700 only, plus 500 for `caption`. No custom text font.
-- One `titleScreen` per screen. Numbers use tabular figures and stay left to right in Arabic.
+- Thmanyah Sans for the interface and every number. Thmanyah Serif Display for screen and section titles and the profile name,
+  nothing under 20 px. Thmanyah Serif Text only for long reading (`MiqdarType.reading`): Privacy & Data, Welcome.
+- Weights 400, 500 and 700. The family has no 600 or 800, so strong text is 700.
+- One `titleScreen` per screen, start-aligned, with no card behind it. Numbers stay left to right in Arabic.
+- Thmanyah's digits are proportional and it has no tabular feature. A number that updates live goes through `LockedNumber`.
+
+**Layout**
+- Hierarchy comes from size and weight, not boxes. 40 px between sections, 20 px screen margins.
+- Sections use `MiqdarSectionHeader`, with a chevron instead of a "See all" button.
+- Meal lists are bare rows (`MealRowCard`). Settings are `MiqdarListGroup`s of `MiqdarSettingsRow`s. No cards around lists and no icon tiles.
+- Cards only where content needs a ground: Nutrition, an idea, a form, a chart.
+- The tabs float, so a tab's list ends with `MediaQuery.paddingOf(context).bottom + 24` of padding to clear them.
+- Chip and filter rows bleed off the screen edge so people can see they scroll.
 
 **Shape**
-- Cards 22 px radius, buttons, fields and tiles 16, steppers 10, sheets 28 on the top corners, pills and chips full.
-- Screen margins and main card padding 20 px, between cards 12, before a section heading 24.
-- Cards have a 1 px border and a soft shadow in light; in dark the border does the work.
-- Touch targets never go below 40 px.
+- Cards 24 px, photos and fields 16, thumbnails and tiles 12, sheets 28 on the top corners, everything else a pill.
+- Only floating things cast a shadow (`floatShadow`). Touch targets never go below 40 px.
 
 **Language**
 - Every screen mirrors in Arabic and works in dark mode. Leave room for longer Arabic text; do not fix button or tab widths.
 - Plain, friendly, second person. No exclamation marks or emoji. Title Case for buttons, tabs and screen titles in English;
-  sentence case elsewhere.
-- One name per screen across its tab and title.
+  sentence case elsewhere. Meta lines are joined with " · ", and units follow a space.
 
 **Do not**
-- Bring back the rejected date-brown, laban and saffron look or serif numbers.
+- Bring back the rejected date-brown, laban and saffron look, or serif numbers.
+- Bring back the green gradient hero or the deep green palette the 2026-11-04 version used.
 - Add sign-in, pairing, sync or battery screens, or invent numbers.
 - Use `phosphor_flutter`, which does not build on this Flutter version.
-- Use colored left-border cards or illustrations of food. Food photos are real photos.
+- Use gradients other than the fade under the floating bars and dark scrims over photos, colored left borders, or
+  illustrations of food. Food photos are real photos.
 
 ## Differences from the design system
 
-- Text fields keep Flutter's label on the outline, not a separate label above the field.
+- A field's label sits inside its filled ground and floats up when typing, rather than above the field.
 - Focus rings for keyboards are Flutter's defaults, because the app is touch-first.
 - The goal rows keep an editable number field between − and +, so a goal can be typed.
-- There is no logo yet. The name is set in type, with a scale icon on a dark green square on Splash and Welcome.
+- The Scale bar hides on the Add Meal tab, which already has the live weight and Capture as its whole screen.
+- A locked digit is 0.66 em wide, not the design system's 0.62: Thmanyah Sans Bold's 0 has a 0.696 em advance and would touch its neighbor.
+- The Home card keeps sugar as a fourth bar beside protein, carbs and fat, so no nutrient is lost from the day's view.
+- There is no logo yet. The name is set in type, as the design system says.

@@ -7,6 +7,7 @@
 // Run it on a throwaway simulator: installing the test wipes the app's saved meals.
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';
@@ -65,9 +66,9 @@ void main() {
     await tester.tap(find.text('Get Started').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Skip').first);
-    await pumpUntil(() => find.byType(MainShell).evaluate().isNotEmpty);
+    await pumpUntil(() => find.byType(MainShell).evaluate().length == 1);
     await hold(1);
-    await tester.tap(find.text('Add Meal').last);
+    await tester.tap(find.byKey(const ValueKey('addMealButton')));
     await pumpUntil(() => controller.scaleDevice.online);
 
     await placeFood(200, 'kabsa');
@@ -104,7 +105,7 @@ void main() {
 
     if (!result.plateNeedsNames) {
       await tester.tap(find.text('Save to Diary'));
-      await pumpUntil(() => find.byType(MainShell).evaluate().isNotEmpty);
+      await pumpUntil(() => find.byType(MainShell).evaluate().length == 1);
       await hold(1);
       await shot('plate_saved');
       expect(controller.meals, hasLength(1));

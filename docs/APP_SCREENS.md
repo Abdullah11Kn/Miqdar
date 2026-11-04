@@ -1,8 +1,10 @@
 # Miqdar app: current screens and controls
 
 This describes the app as it is today. It lists every screen, what sits where from top to bottom, and what each control
-does. It was written from the app's code on 2026-11-04 and updated the same day, after the Miqdar design system was
-applied. Colors, type and component rules are in [DESIGN.md](DESIGN.md).
+does. It was written from the app's code on 2026-11-04 and updated on 2026-11-05, after the black and white version of the
+Miqdar design system was applied. Colors, type and component rules are in [DESIGN.md](DESIGN.md). Where a screen below
+differs from what is on the phone, trust the phone and correct this page: the redesign changed the look of every screen and
+this page was only corrected for the parts that moved.
 
 ## 1. The product
 
@@ -46,7 +48,7 @@ dark mode. There are no accounts and no cloud sync.
 **Build limits**
 
 - The design must be buildable in Flutter on iPhone first. The wide layout in section 3 also exists.
-- Fonts must be bundled with the app. The only bundled font is the icon font; text uses the system font.
+- Fonts must be bundled with the app. Text is set in Thmanyah, whose licence keeps the files out of this public repository; see [DESIGN.md](DESIGN.md).
 - The `phosphor_flutter` icon package does not build on the project's Flutter version. Bundled icon fonts do work.
 
 **A direction already rejected**
@@ -57,10 +59,11 @@ Arabic for text, Phosphor icons, and a calorie dial on Home. Do not bring that l
 
 ## 3. Current visual design
 
-White rounded cards on a very pale background, one deep green for actions, warm orange for "look at this". See
-[DESIGN.md](DESIGN.md) for every color, type style and rule; the values live in `mobile/lib/theme.dart`.
+Pure white and pure black grounds, big Thmanyah type, real food photos, an inverted ink pill for the main action, green for
+meaning only and warm orange for "look at this". See [DESIGN.md](DESIGN.md) for every color, type style and rule; the values
+live in `mobile/lib/theme.dart`.
 
-**Layout:** one scrolling column with 20 px side margins. At 780 px wide or more, the bottom bar becomes a 248 px sidebar
+**Layout:** one scrolling column with 20 px side margins. At 780 px wide or more, the floating bars become a 268 px sidebar
 (see section 4), and Home places some cards side by side.
 
 ## 4. Navigation
@@ -73,16 +76,14 @@ Splash
 ├─ Returning, no body profile yet → Body Profile → Your Daily Goal → Main app
 └─ Returning → Main app
 
-Main app: bottom bar with 5 tabs
+Main app: floating tab capsule with 4 tabs, and a separate Add Meal circle
 ├─ Home
 │    ├─ Bell → Notices → Daily Goals
 │    ├─ Goals → Daily Goals
-│    ├─ Add Meal → Add Meal tab
-│    ├─ Connect → Scale
 │    ├─ Resume → Review Meal
-│    ├─ See diary → Diary tab
+│    ├─ Today's Meals chevron → Diary tab
 │    ├─ A meal → Meal Detail
-│    └─ See all → Meal Ideas
+│    └─ Meal Ideas chevron → Meal Ideas
 ├─ Add Meal (Scale / Search / Manual) → Review Meal
 │    └─ Capture → Analyzing → Review Meal, or Failure sheet
 ├─ Diary → Meal Detail → Edit sheet, Log Again, Delete
@@ -90,15 +91,20 @@ Main app: bottom bar with 5 tabs
 └─ Profile → Name sheet, Body Profile, Daily Goals, Food Preferences, Scale, Privacy & Data
 ```
 
-**Bottom bar, left to right:** Home (house), Add Meal (camera with plus, inside an outlined circle, solid green when
-selected), Diary (calendar), Insights (rising line), Profile (person). The selected tab has a solid green pill with a
-filled icon. Arabic labels: الرئيسية، إضافة وجبة، السجل، التحليلات، ملفي.
+**Floating bars, at the bottom of every tab, over content that fades out beneath them:**
 
-**Wide layout sidebar, top to bottom:** the name, Add Meal button, then Home, Add Meal, Diary, Insights and Profile.
-At the bottom are Notices with an unread badge, and Scale with the live weight.
+- **Tab capsule:** Home (house), Diary (calendar), Insights (rising line), Profile (person). The current tab has a pale pill
+  and a filled icon. Beside it, the round green **Add Meal** circle (camera with plus) opens the Add Meal tab.
+- **Scale bar,** above the capsule, on every tab except Add Meal:
+  - Connected: the weight, a green dot with "Ready to capture", "On the scale" or "Put your food on the plate", and a round
+    **Capture** button, faded while there is nothing to capture. Tapping the bar opens Add Meal.
+  - Working: a spinner in the button, the status such as "Gemini is analyzing your food…", and a green progress line along the bottom edge.
+  - A plate in progress: "Add the next food, or Finish." and a **+** button that opens Add Meal, where a plate is finished.
+  - Simulated: "Simulated scale, not real food" in orange.
+  - Not connected or sensor fault: the state in words, "Tap to connect" in orange, and a link button. Both open the Scale screen.
 
-**Capture strip:** while the scale or Gemini is working, a thin progress line and a one-line message appear at the top of
-every tab, such as "Gemini is analyzing your food (243 g)…".
+**Wide layout sidebar, top to bottom:** the name, Add Meal button, then Home, Diary, Insights and Profile, with the scale bar
+at the bottom. Home adds a plain scale card beside Nutrition.
 
 ## 5. Start screens
 
@@ -153,28 +159,23 @@ Top bar with a back arrow to correct the answers.
 A scrolling page, top to bottom:
 
 1. **Demo banner**, only in the demo: amber strip, "Demo with sample data. Nothing here is saved."
-2. **Header:** a greeting by time of day, with the name below it if the user set one. On the far side is a round outlined
-   **bell** with an unread count, which opens Notices.
-3. **Day picker,** centered: back arrow, the date or "Today" (opens a calendar, up to a year back), forward arrow
-   (disabled on today). This changes the day shown on this screen.
-4. **"Meal not saved yet" card,** only with an unsaved result: pale green, meal name and weight, and a **Resume** button
-   that reopens Review Meal.
+2. **Header:** a greeting by time of day as the screen title. On the far side is a round **bell** with an unread count, which opens Notices.
+3. **Date line,** which is also the day picker: "Today · Thu, 5 Nov" (opens a calendar, up to a year back), then back and
+   forward arrows at the far end (forward is disabled on today). This changes the day shown on this screen.
+4. **"Meal not saved yet" card,** only with an unsaved result: meal name and weight, and a **Resume** button that reopens Review Meal.
 5. **Nutrition card:**
    - Title "Nutrition" and a **Goals** text button that opens Daily Goals.
-   - Left: a calorie ring, 152 px, with tick marks, flame icon, calories eaten, "/ 2200 kcal", and a pill such as "2200 left".
-     Over the goal, the ring turns orange and the pill says "+120 above".
+   - Left: a calorie ring, 152 px, with calories eaten, "/ 2200 kcal", and "2200 left". Over the goal, the ring turns orange
+     and the line says "+120 above".
    - Right: four progress lines for protein, carbs, fat and sugar, each with a colored dot and "0 / 120 g".
-   - Below them: three neutral tiles for fiber, sodium and potassium, each with value and goal.
+   - Below them: three tiles for fiber, sodium and potassium, each with value and goal.
    - In "Just track" mode, goals and "left" are hidden and only amounts show.
-6. **Scale card** (dark green gradient):
-   - Connected: scale icon and "On the scale: 243 g". A simulated scale adds "Simulated scale, not real food".
-   - Not connected or sensor fault: orange icon, "Scale not connected" or "Weight sensor not responding", and a **Connect**
-     text button that opens the Scale screen.
-   - **Add Meal** (white, full width): goes to the Add Meal tab.
-7. **Meals section:** title "Today's Meals" or "Meals on 2 Nov", and a **See diary** text button. Below it are meal rows,
-   or an empty card reading "Nothing logged yet."
-8. **Meal Ideas section:** sparkle icon, title, and a **See all** text button that opens Meal Ideas. Below it is one of:
-   a loading bar, up to two idea cards, or a tappable prompt: "Tell us what you like and what to avoid to get meal ideas."
+6. **Meals section:** title "Today's Meals" or "Meals on 2 Nov", with a chevron that opens the Diary. Below it are bare meal
+   rows, or "Nothing logged yet."
+7. **Meal Ideas section:** title and a chevron that opens Meal Ideas. Below it is one of: a loading bar, up to two idea cards,
+   or a tappable prompt: "Tell us what you like and what to avoid to get meal ideas."
+
+The scale is on the floating scale bar, in section 4.
 
 Default goals: 2200 kcal, protein 120 g, carbs 275 g, fat 70 g, sugar 50 g, fiber 28 g, sodium 2300 mg, potassium 3500 mg.
 
@@ -369,17 +370,17 @@ clipboard; no file is created.
 ## 11. Profile tab
 
 1. **Title** "Profile".
-2. **Hero card** (green gradient): white circle with the name's first letter, the name, "Your diary stays on this phone" (or
+2. **Header,** closed by a hairline: a green circle with the name's first letter, the name, "Your diary stays on this phone" (or
    "Demo with sample data"), and a **pencil** that opens the Name sheet: "Your name", a field, **Save**.
-3. **Appearance card:**
-   - Language: **English** and **العربية** switch.
+3. **Appearance,** a group of rows:
+   - **Language,** with the current one at the far end. Tapping switches between English and العربية.
    - **Dark Mode** switch.
    - **Phone-sized layout** switch, on wide screens only.
-4. **Settings,** tappable rows, each with an icon tile, title, subtitle and arrow:
+4. **Settings,** a group of bare rows, each with a light outline icon, title, subtitle or value, and chevron:
    - **Body Profile,** "165 cm, 70 kg" or "Not filled in yet". Not shown in the demo.
    - **Daily Goals,** "2200 kcal a day" or "Tracking without goals".
-   - **Meal Reminders,** "On" or "Off". Not shown in the demo.
    - **Food Preferences,** "Allergies, foods to avoid, meal ideas".
+   - **Meal Reminders,** "On" or "Off". Not shown in the demo.
    - **Scale,** "Connected" or "Not connected".
    - **Privacy & Data,** "Where your data goes, export, delete".
 5. **Exit Demo** (outlined), only in the demo. Returns to Welcome.
@@ -456,11 +457,11 @@ Opened from the bell. Top bar "Notices". Text buttons at the top: **Mark all rea
 
 | Component | Description | Used on |
 |---|---|---|
-| Card | White rounded card with border and soft shadow, optionally tappable | Everywhere |
-| Calorie ring | Solid green ring with tick marks, orange over goal, filling the other way in Arabic | Home |
+| Card | Filled `surface`, 24 px radius, no border or shadow, optionally tappable. Used only where content needs a ground | Nutrition, ideas, forms, charts |
+| Calorie ring | Solid green ring, orange over goal, filling the other way in Arabic | Home |
 | Nutrient grid | Eight neutral tiles, two across on phones: colored dot, label, value, or an orange "Unknown" | Review, Meal Detail |
-| Source badge | Tinted box with icon and source, plus a pill for the weight's source. Neutral for official and typical values, blue for entered by hand, orange for Gemini estimates and demo | Review, Meal Detail |
-| Meal row | Photo, name, details, calories | Home, Diary |
+| Source badge | Tinted box with icon and source, plus the weight's source as plain text at the end. Neutral for official and typical values, blue for entered by hand, orange for Gemini estimates and demo | Review, Meal Detail |
+| Meal row | Bare row: 64 px photo, name, details, calories | Home, Diary |
 | Notice card | Tinted box with a bell, a message and an optional **Got it** | Notices, Review |
 | Idea card | Food suggestion with **Log This** | Home, Meal Ideas |
 | Message bar | Floats at the bottom, with **Undo** after saving or deleting | Across the app |
@@ -469,10 +470,10 @@ Opened from the bell. Top bar "Notices". Text buttons at the top: **Mark all rea
 
 These come from reading the code. They are observations, not decisions. The design system did not address them.
 
-- **Home is long:** on an iPhone 16 Pro, the Nutrition and scale cards fill the first view. Only the meals heading is
-  visible above the bottom bar, so the meals themselves need scrolling.
-- **Add Meal appears twice** on the first Home view: as a tab and as the scale card's button.
+- **Phone camera is hard to reach:** it appears only in Choose Meal Photo, which opens from Change Photo, so a photo must
+  already be chosen first. The "Choose a photo" box offers only files, photos and samples.
 - **Date navigation only on Home:** Diary has search and filters but cannot jump to a date.
 - **Review has many controls:** alternatives, three small buttons, portion, sides and two collapsed sections on one page.
 - **Manual form gap:** the form has no fields for fiber or potassium, so they always show as Unknown.
-- **No logo:** the design system has none yet, so the name is set in type, with a generic scale icon on Splash and Welcome.
+- **Uneven Arabic:** the design system names the Profile tab حسابي ("my account") although there are no accounts.
+- **No logo:** the design system has none yet, so the name is set in type.

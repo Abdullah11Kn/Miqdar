@@ -420,8 +420,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, idx) {
                   final sample = _samplePhotos[idx];
-                  return SurfaceCard(
-                    padding: const EdgeInsets.all(12),
+                  return InkWell(
                     onTap: () {
                       Navigator.of(ctx).pop();
                       _selectSamplePhoto(sample);
@@ -429,8 +428,8 @@ class _ScanScreenState extends State<ScanScreen> {
                     child: Row(
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.asset(sample.asset, width: 52, height: 52, fit: BoxFit.cover),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.asset(sample.asset, width: 64, height: 64, fit: BoxFit.cover),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -579,7 +578,7 @@ class _ScanScreenState extends State<ScanScreen> {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.paddingOf(context).bottom + 24),
       children: [
         Text(
           s.tr('Add Meal', 'إضافة وجبة'),
@@ -595,7 +594,7 @@ class _ScanScreenState extends State<ScanScreen> {
           value: modeIndex,
           onChanged: (mode) => setState(() => modeIndex = mode),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         if (modeIndex == 0)
           _buildCameraAndScaleMode(context, controller, s)
@@ -641,12 +640,12 @@ class _ScanScreenState extends State<ScanScreen> {
               _buildPortionInput(context, controller, s),
               const SizedBox(height: 12),
               FilledButton.icon(
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
                 onPressed: controller.busy ? null : () => _runAiRecognition(controller),
                 icon: controller.busy
                     ? SizedBox.square(
                         dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.3, color: context.mq.onPrimary),
+                        child: CircularProgressIndicator(strokeWidth: 2.3, color: context.mq.onAction),
                       )
                     : const Icon(MiqdarIcons.autoAwesome, size: 20),
                 label: Text(
@@ -698,7 +697,7 @@ class _ScanScreenState extends State<ScanScreen> {
     final textPrimary = context.mq.ink;
     final textSecondary = context.mq.inkMuted;
     return SurfaceCard(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -726,7 +725,7 @@ class _ScanScreenState extends State<ScanScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              StepSquareButton(
+              StepRoundButton(
                 icon: MiqdarIcons.remove,
                 onTap: () => _setWeight(weight - 10, source: PortionSource.manual),
               ),
@@ -735,7 +734,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   controller: weightTextCtrl,
                   textAlign: TextAlign.center,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: textPrimary),
+                  style: MiqdarType.numberLg.copyWith(fontSize: 28, height: 34 / 28, color: textPrimary),
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
@@ -756,7 +755,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   },
                 ),
               ),
-              StepSquareButton(
+              StepRoundButton(
                 icon: MiqdarIcons.add,
                 onTap: () => _setWeight(weight + 10, source: PortionSource.manual),
               ),
@@ -770,9 +769,8 @@ class _ScanScreenState extends State<ScanScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 38),
+                      minimumSize: const Size(0, 40),
                       padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: () => _setWeight(preset, source: PortionSource.manual),
                     child: Text(
@@ -836,10 +834,10 @@ class _ScanScreenState extends State<ScanScreen> {
       height: 236,
       decoration: BoxDecoration(
         color: Colors.black,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(24),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -877,7 +875,6 @@ class _ScanScreenState extends State<ScanScreen> {
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.65),
                         borderRadius: BorderRadius.circular(99),
-                        border: Border.all(color: Colors.white24),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -944,8 +941,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.black.withValues(alpha: 0.65),
                         foregroundColor: Colors.white,
-                        minimumSize: const Size(0, 38),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(0, 40),
                       ),
                       onPressed: () => _showImageSourceSheet(context, s),
                       icon: const Icon(MiqdarIcons.swapHoriz, size: 17),
@@ -1003,15 +999,14 @@ class _ScanScreenState extends State<ScanScreen> {
       guidance = s.tr('Ready to capture', 'جاهز للالتقاط');
     }
 
-    return SurfaceCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (controller.plateLostToRestart) ...[
             SurfaceCard(
               color: c.accentSoft,
-              padding: const EdgeInsets.all(12),
+              borderRadius: 16,
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1022,7 +1017,15 @@ class _ScanScreenState extends State<ScanScreen> {
                     ),
                     style: MiqdarType.body.copyWith(color: c.ink),
                   ),
-                  TextButton(onPressed: controller.dismissPlateLost, child: Text(s.tr('Got It', 'حسناً'))),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: c.ink,
+                      padding: EdgeInsets.zero,
+                      textStyle: MiqdarType.bodyStrong.copyWith(decoration: TextDecoration.underline),
+                    ),
+                    onPressed: controller.dismissPlateLost,
+                    child: Text(s.tr('Got It', 'حسناً')),
+                  ),
                 ],
               ),
             ),
@@ -1067,25 +1070,24 @@ class _ScanScreenState extends State<ScanScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           if (!scale.online)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Icon(MiqdarIcons.linkOff, size: 64, color: c.inkMuted),
-            )
+            Icon(MiqdarIcons.linkOff, size: 64, color: c.inkMuted)
           else
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Row(
                 textDirection: TextDirection.ltr,
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(grams.toStringAsFixed(0), style: MiqdarType.weightLive.copyWith(color: c.ink)),
+                  LockedNumber(grams.toStringAsFixed(0), style: MiqdarType.weightLive.copyWith(color: c.ink)),
                   const SizedBox(width: 4),
-                  Text(
-                    s.unitG,
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600).copyWith(color: c.inkMuted),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      s.unitG,
+                      style: MiqdarType.numberLg.copyWith(fontSize: 28, height: 34 / 28, letterSpacing: 0, color: c.inkMuted),
+                    ),
                   ),
                 ],
               ),
@@ -1098,7 +1100,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 ? MiqdarType.bodyStrong.copyWith(color: c.primary)
                 : MiqdarType.body.copyWith(color: c.inkMuted),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           if (plateOpen && scale.online) ...[
             _plateSteps(controller, s, plate),
             const SizedBox(height: 12),
@@ -1106,13 +1108,13 @@ class _ScanScreenState extends State<ScanScreen> {
               primary: true,
               onPressed: plateActive ? () => _plateAction(controller, s, 'finish') : null,
               icon: controller.plateBusy || working
-                  ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.3))
+                  ? SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.3, color: c.onAction))
                   : const Icon(MiqdarIcons.check, size: 22),
               label: s.tr('Finish', 'إنهاء'),
             ),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               onPressed: plateActive ? () => _plateAction(controller, s, 'add') : null,
               icon: const Icon(MiqdarIcons.add),
               label: Text(s.tr('Add Next Food', 'إضافة الطعام التالي')),
@@ -1136,16 +1138,16 @@ class _ScanScreenState extends State<ScanScreen> {
               primary: !hasPhoto,
               onPressed: canCapture ? _captureFromScaleCamera : null,
               icon: working
-                  ? const SizedBox.square(
+                  ? SizedBox.square(
                       dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.3),
+                      child: CircularProgressIndicator(strokeWidth: 2.3, color: c.onAction),
                     )
                   : const Icon(MiqdarIcons.photoCamera, fill: 1, size: 22),
               label: s.tr('Capture', 'التقاط'),
             ),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               onPressed: canCapture && !controller.plateBusy ? () => _plateAction(controller, s, 'add') : null,
               icon: const Icon(MiqdarIcons.add),
               label: Text(s.tr('Add Next Food', 'إضافة الطعام التالي')),
@@ -1173,7 +1175,6 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
           ],
         ],
-      ),
     );
   }
 
@@ -1228,16 +1229,16 @@ class _ScanScreenState extends State<ScanScreen> {
       children: [
         for (final step in plate.steps)
           Padding(
-            padding: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.only(bottom: 12),
             child: Row(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   child: SizedBox.square(
-                    dimension: 44,
+                    dimension: 64,
                     child: switch (controller.platePhoto(step)) {
                       final photo? => Image.memory(photo, fit: BoxFit.cover),
-                      null => ColoredBox(color: c.surfaceSunken, child: Icon(MiqdarIcons.restaurant, color: c.inkMuted)),
+                      null => ColoredBox(color: c.surface, child: Icon(MiqdarIcons.restaurant, color: c.inkMuted)),
                     },
                   ),
                 ),
@@ -1245,10 +1246,10 @@ class _ScanScreenState extends State<ScanScreen> {
                 Expanded(
                   child: Text(
                     s.tr('Food ${step.index + 1}', 'الطعام ${step.index + 1}'),
-                    style: MiqdarType.body.copyWith(color: c.ink),
+                    style: MiqdarType.titleCard.copyWith(fontSize: 16, color: c.ink),
                   ),
                 ),
-                Text('${step.grams.toStringAsFixed(0)} ${s.unitG}', style: MiqdarType.bodyStrong.copyWith(color: c.ink)),
+                Text('${step.grams.toStringAsFixed(0)} ${s.unitG}', style: MiqdarType.titleCard.copyWith(color: c.ink)),
               ],
             ),
           ),
@@ -1287,10 +1288,10 @@ class _ScanScreenState extends State<ScanScreen> {
           controller: searchCtrl,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
-            labelText: s.tr(
-              'Search in English or Arabic (e.g., Kabsa, كبسة, تمر, Jareesh)',
-              'ابحث بالعربية أو الإنجليزية (مثال: كبسة، تمر، جريش، سليق)',
-            ),
+            hintText: s.tr('Search in English or Arabic', 'ابحث بالعربية أو الإنجليزية'),
+            border: const MiqdarFieldBorder(radius: 999),
+            enabledBorder: const MiqdarFieldBorder(radius: 999),
+            focusedBorder: MiqdarFieldBorder(radius: 999, borderSide: BorderSide(color: context.mq.focus, width: 2)),
             prefixIcon: const Icon(MiqdarIcons.search),
             suffixIcon: searchCtrl.text.isEmpty
                 ? null
@@ -1306,6 +1307,7 @@ class _ScanScreenState extends State<ScanScreen> {
         const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          clipBehavior: Clip.none,
           child: Row(
             children: categories.map((cat) {
               final selected = selectedCategory == cat;
@@ -1323,15 +1325,13 @@ class _ScanScreenState extends State<ScanScreen> {
             }).toList(),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 24),
         if (searchCtrl.text.isEmpty && selectedCategory == 'All' && controller.recentFoods.isNotEmpty) ...[
-          Text(s.tr('Recent', 'الأخيرة'), style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink)),
-          const SizedBox(height: 8),
+          MiqdarSectionHeader(title: s.tr('Recent', 'الأخيرة')),
           for (final meal in controller.recentFoods)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: SurfaceCard(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.only(bottom: 12),
+              child: InkWell(
                 onTap: () async {
                   final navigator = Navigator.of(context);
                   final draft = await controller.prepareRelog(meal);
@@ -1339,8 +1339,8 @@ class _ScanScreenState extends State<ScanScreen> {
                 },
                 child: Row(
                   children: [
-                    Icon(MiqdarIcons.replay, size: 20, color: context.mq.primary),
-                    const SizedBox(width: 10),
+                    Icon(MiqdarIcons.replay, size: 24, weight: 300, color: context.mq.ink),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1349,7 +1349,7 @@ class _ScanScreenState extends State<ScanScreen> {
                             meal.displayName(s.isAr),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
+                            style: MiqdarType.titleCard.copyWith(fontSize: 16, color: context.mq.ink),
                           ),
                           Text(
                             meal.portionSource.label(s.isAr),
@@ -1359,99 +1359,85 @@ class _ScanScreenState extends State<ScanScreen> {
                       ),
                     ),
                     Text(
-                      '${meal.weightG.toStringAsFixed(0)} ${s.unitG} • ${meal.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
+                      '${meal.weightG.toStringAsFixed(0)} ${s.unitG} · ${meal.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
                       style: MiqdarType.caption.copyWith(color: context.mq.inkMuted),
                     ),
                   ],
                 ),
               ),
             ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 28),
+          MiqdarSectionHeader(title: s.tr('All foods', 'كل الأطعمة')),
         ],
         if (results.isEmpty)
-          SurfaceCard(
-            child: Column(
-              children: [
-                Icon(MiqdarIcons.searchOff, size: 36, color: context.mq.inkMuted),
-                const SizedBox(height: 8),
-                Text(
-                  s.tr(
-                    'No matching food found in catalog.',
-                    'لم يتم العثور على طعام مطابق في الدليل.',
-                  ),
-                  style: TextStyle(fontWeight: FontWeight.w600, color: context.mq.ink),
-                ),
-                const SizedBox(height: 10),
-                FilledButton.tonalIcon(
-                  onPressed: () => setState(() {
-                    customNameEnCtrl.text = searchCtrl.text;
-                    modeIndex = 2;
-                  }),
-                  icon: const Icon(MiqdarIcons.add),
-                  label: Text(s.tr('Enter It by Hand', 'أدخله يدوياً')),
-                ),
-              ],
+          EmptyStateCard(
+            icon: MiqdarIcons.searchOff,
+            title: s.tr('No matching food found in catalog.', 'لم يتم العثور على طعام مطابق في الدليل.'),
+            action: FilledButton.tonalIcon(
+              onPressed: () => setState(() {
+                customNameEnCtrl.text = searchCtrl.text;
+                modeIndex = 2;
+              }),
+              icon: const Icon(MiqdarIcons.add),
+              label: Text(s.tr('Enter It by Hand', 'أدخله يدوياً')),
             ),
           )
         else
           ...results.map(
             (food) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: SurfaceCard(
-                padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.only(bottom: 4),
+              child: InkWell(
                 onTap: () => _showFoodPortionSheet(context, controller, food),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: context.mq.surfaceSunken,
-                        borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    food.displayName(s.isAr),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: MiqdarType.titleCard.copyWith(fontSize: 16, color: context.mq.ink),
+                                  ),
+                                ),
+                                if (food.verificationStatus == 'verified_official_record') ...[
+                                  const SizedBox(width: 6),
+                                  Icon(MiqdarIcons.verified, size: 16, color: context.mq.primary),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${food.secondaryName(s.isAr)} · ${food.preparation}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: MiqdarType.body.copyWith(fontSize: 13, height: 18 / 13, color: context.mq.inkMuted),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Icon(
-                        food.verificationStatus == 'verified_official_record'
-                            ? MiqdarIcons.verified
-                            : MiqdarIcons.restaurant,
-                        size: 26,
-                        color: food.verificationStatus == 'verified_official_record'
-                            ? context.mq.primary
-                            : context.mq.ink,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            food.displayName(s.isAr),
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: context.mq.ink),
+                            '${food.per100g.calories.toStringAsFixed(0)} ${s.unitKcal}',
+                            style: MiqdarType.titleCard.copyWith(fontSize: 15, color: context.mq.ink),
                           ),
                           Text(
-                            '${food.secondaryName(s.isAr)} • ${food.preparation}',
-                            style: const TextStyle(fontSize: 12),
+                            s.tr('per 100 g', 'لكل 100 غ'),
+                            style: MiqdarType.caption.copyWith(color: context.mq.inkMuted),
                           ),
                         ],
                       ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${food.per100g.calories.toStringAsFixed(0)} ${s.unitKcal}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: context.mq.primary,
-                          ),
-                        ),
-                        Text(
-                          s.tr('per 100 g', 'لكل 100 غ'),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1500,7 +1486,7 @@ class _ScanScreenState extends State<ScanScreen> {
                               style: Theme.of(ctx).textTheme.titleLarge,
                             ),
                             Text(
-                              '${food.categoryLabel(s.isAr)} • ${food.preparation}',
+                              '${food.categoryLabel(s.isAr)} · ${food.preparation}',
                               style: const TextStyle(fontSize: 13),
                             ),
                           ],
@@ -1580,9 +1566,9 @@ class _ScanScreenState extends State<ScanScreen> {
                   ),
                   const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: context.mq.surfaceSunken,
+                      color: context.mq.surface,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
@@ -1655,7 +1641,7 @@ class _ScanScreenState extends State<ScanScreen> {
               'Enter a food by hand',
               'أدخل طعاماً يدوياً',
             ),
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
+            style: MiqdarType.titleCard.copyWith(color: context.mq.ink),
           ),
           const SizedBox(height: 6),
           Text(
@@ -1666,26 +1652,18 @@ class _ScanScreenState extends State<ScanScreen> {
             style: const TextStyle(fontSize: 13),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: customNameEnCtrl,
-                  decoration: InputDecoration(
-                    labelText: s.tr('Food name *', 'اسم الطعام بالإنجليزية *'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: customNameArCtrl,
-                  decoration: InputDecoration(
-                    labelText: s.tr('Arabic name (optional)', 'اسم الطعام بالعربية (اختياري)'),
-                  ),
-                ),
-              ),
-            ],
+          TextField(
+            controller: customNameEnCtrl,
+            decoration: InputDecoration(
+              labelText: s.tr('Food name *', 'اسم الطعام بالإنجليزية *'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: customNameArCtrl,
+            decoration: InputDecoration(
+              labelText: s.tr('Arabic name (optional)', 'اسم الطعام بالعربية (اختياري)'),
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1859,9 +1837,12 @@ class _ScaleActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.mq;
     final style = FilledButton.styleFrom(
-      minimumSize: const Size.fromHeight(58),
+      minimumSize: const Size.fromHeight(56),
       textStyle: MiqdarType.button.copyWith(fontSize: 17),
+      disabledBackgroundColor: primary ? c.action.withValues(alpha: 0.4) : null,
+      disabledForegroundColor: primary ? c.onAction : null,
     );
     final text = Text(label);
     return primary
@@ -1886,29 +1867,27 @@ class _PhotoSourceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.mq;
-    return SurfaceCard(
-      padding: const EdgeInsets.all(12),
+    return InkWell(
       onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(16)),
-            child: Icon(icon, color: c.ink),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: MiqdarType.bodyStrong.copyWith(color: c.ink)),
-                Text(subtitle, style: MiqdarType.caption.copyWith(color: c.inkMuted)),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 26, weight: 300, color: c.ink),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: MiqdarType.titleCard.copyWith(color: c.ink)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: MiqdarType.body.copyWith(fontSize: 13, height: 18 / 13, color: c.inkMuted)),
+                ],
+              ),
             ),
-          ),
-          Icon(MiqdarIcons.chevronRight, color: c.inkMuted),
-        ],
+            Icon(MiqdarIcons.chevronRight, size: 22, color: c.inkMuted),
+          ],
+        ),
       ),
     );
   }
@@ -1922,16 +1901,9 @@ class _PreviewStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
         children: [
-          Text(label, style: const TextStyle(fontSize: 12)),
+          Text(label, style: MiqdarType.caption.copyWith(color: context.mq.inkMuted)),
           const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-              color: context.mq.primary,
-            ),
-          ),
+          Text(value, style: MiqdarType.bodyStrong.copyWith(fontSize: 14, color: context.mq.ink)),
         ],
       );
 }
@@ -1953,10 +1925,10 @@ class _RecognitionErrorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = S.of(context);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: context.mq.dangerSoft,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2018,7 +1990,6 @@ class _RecognitionErrorCard extends StatelessWidget {
   }
 }
 
-/// Review & Recognition Result Screen — Natural Cal AI / Lifesum-style Meal Breakdown.
 class _MacroTile extends StatelessWidget {
   const _MacroTile({required this.label, required this.grams, required this.color, this.missing = false});
 
@@ -2181,7 +2152,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                 : AssetImage(_guessAssetForFood(result.nameEn)) as ImageProvider));
 
     final alternatives = result.candidates.where((c) => c.foodId != result.foodId && c.inDatabase).toList();
-    final kcalColor = context.mq.nCalories;
+    final kcalColor = context.mq.ink;
 
     void openPhoto() {
       showDialog<void>(
@@ -2216,15 +2187,15 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
       required VoidCallback? onPressed,
       Widget? leading,
     }) =>
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
+        FilledButton.tonalIcon(
+          style: FilledButton.styleFrom(
             minimumSize: const Size(0, 40),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            textStyle: MiqdarType.bodyStrong,
           ),
           onPressed: onPressed,
-          icon: leading ?? Icon(icon, size: 17),
-          label: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          icon: leading ?? Icon(icon, size: 18),
+          label: Text(label),
         );
 
     return Scaffold(
@@ -2246,7 +2217,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
           child: FilledButton.icon(
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
             onPressed: result.plateNeedsNames ? null : () async {
               final messenger = ScaffoldMessenger.of(context);
               final navigator = Navigator.of(context);
@@ -2299,7 +2270,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                 GestureDetector(
                   onTap: openPhoto,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
                     child: AspectRatio(
                       aspectRatio: 16 / 10,
                       child: Stack(
@@ -2357,17 +2328,12 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                       : s.isAr && result.nameAr.isNotEmpty
                           ? result.nameAr
                           : result.nameEn,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.4,
-                    color: textPrimary,
-                  ),
+                  style: MiqdarType.titleSection.copyWith(fontSize: 26, height: 32 / 26, color: textPrimary),
                 ),
                 if (!result.isPlate && (s.isAr ? result.nameEn : result.nameAr).isNotEmpty)
                   Text(
                     s.isAr ? result.nameEn : result.nameAr,
-                    style: TextStyle(fontSize: 14, color: textSecondary, fontWeight: FontWeight.w600),
+                    style: MiqdarType.body.copyWith(color: textSecondary),
                   ),
                 const SizedBox(height: 8),
                 Row(
@@ -2393,9 +2359,18 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                     const Spacer(),
                     Text(
                       '${result.totalWeightG.toStringAsFixed(0)} ${s.unitG}',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textSecondary),
+                      style: MiqdarType.titleCard.copyWith(color: textSecondary),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                // Where these numbers came from is never hidden.
+                AiVerificationBadge(
+                  verificationStatus: result.verificationStatus,
+                  provider: result.provider,
+                  model: result.model,
+                  isMock: result.isMock,
+                  portionSource: result.portionSource,
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -2417,7 +2392,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                           'احتُسب ${(result.edibleFraction * 100).round()}% من الوزن كجزء صالح للأكل',
                         ),
                       if (result.aiNote.isNotEmpty) result.aiNote,
-                    ].join(' • '),
+                    ].join(' · '),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
@@ -2513,7 +2488,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          StepSquareButton(
+                          StepRoundButton(
                             label: '-10 ${s.unitG}',
                             onTap: () => _rescalePrimaryWeight(controller, result.weightG - 10),
                           ),
@@ -2537,7 +2512,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          StepSquareButton(
+                          StepRoundButton(
                             label: '+10 ${s.unitG}',
                             onTap: () => _rescalePrimaryWeight(controller, result.weightG + 10),
                           ),
@@ -2573,7 +2548,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                               style: TextStyle(fontWeight: FontWeight.w600, color: context.mq.ink),
                             ),
                             subtitle: Text(
-                              '${item.weightG.toStringAsFixed(0)} ${s.unitG} • ${item.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
+                              '${item.weightG.toStringAsFixed(0)} ${s.unitG} · ${item.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
                             ),
                             trailing: IconButton(
                               tooltip: s.tr('Remove', 'إزالة'),
@@ -2605,17 +2580,9 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                           s.tr('All nutrients', 'كل العناصر الغذائية'),
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: context.mq.ink),
                         ),
-                        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         children: [
                           NutrientGrid2x4(values: totalNutrients, goals: controller.goals),
-                          const SizedBox(height: 12),
-                          AiVerificationBadge(
-                            verificationStatus: result.verificationStatus,
-                            provider: result.provider,
-                            model: result.model,
-                            isMock: result.isMock,
-                            portionSource: result.portionSource,
-                          ),
                         ],
                       ),
                       const Divider(height: 1),
@@ -2627,10 +2594,10 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: context.mq.ink),
                         ),
                         subtitle: Text(
-                          '${s.mealTypeLabel(selectedMealType)} • ${s.date(consumedAt, 'EEE, h:mm a')}',
+                          '${s.mealTypeLabel(selectedMealType)} · ${s.date(consumedAt, 'EEE, h:mm a')}',
                           style: TextStyle(fontSize: 13, color: textSecondary),
                         ),
-                        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         expandedCrossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Wrap(
@@ -2647,11 +2614,11 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              Icon(MiqdarIcons.schedule, size: 18, color: context.mq.primary),
+                              Icon(MiqdarIcons.schedule, size: 18, color: context.mq.inkMuted),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  s.date(consumedAt, 'EEE, d MMM yyyy • h:mm a'),
+                                  s.date(consumedAt, 'EEE, d MMM yyyy · h:mm a'),
                                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.mq.ink),
                                 ),
                               ),
@@ -2708,11 +2675,11 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
   Widget _plateFoodsCard(BuildContext context, MiqdarController controller, RecognitionResult result, S s) {
     final c = context.mq;
     return SurfaceCard(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(s.tr('On this plate', 'في هذا الطبق'), style: MiqdarType.bodyStrong.copyWith(color: c.ink)),
+          Text(s.tr('On this plate', 'في هذا الطبق'), style: MiqdarType.titleCard.copyWith(color: c.ink)),
           if (result.plateNeedsNames) ...[
             const SizedBox(height: 4),
             Text(
@@ -2730,9 +2697,9 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                 child: Row(
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       child: SizedBox.square(
-                        dimension: 44,
+                        dimension: 48,
                         child: switch (controller.plateItemPhotos[item.id]) {
                           final photo? => Image.memory(photo, fit: BoxFit.cover),
                           null => ColoredBox(color: c.surfaceSunken, child: Icon(MiqdarIcons.restaurant, color: c.inkMuted)),
@@ -2752,7 +2719,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                             [
                               '${item.weightG.toStringAsFixed(0)} ${s.unitG}',
                               if (item.portionSource == PortionSource.manual) item.portionSource.label(s.isAr),
-                            ].join(' • '),
+                            ].join(' · '),
                             style: MiqdarType.caption.copyWith(color: c.inkMuted),
                           ),
                         ],
@@ -3007,7 +2974,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                             style: TextStyle(fontWeight: FontWeight.w600, color: context.mq.ink),
                           ),
                           subtitle: Text(
-                            '${item.secondaryName(s.isAr)} • ${item.per100g.calories.toStringAsFixed(0)} ${s.unitKcal} • ${s.tr('per 100 g', 'لكل 100 غ')}',
+                            '${item.secondaryName(s.isAr)} · ${item.per100g.calories.toStringAsFixed(0)} ${s.unitKcal} · ${s.tr('per 100 g', 'لكل 100 غ')}',
                           ),
                           trailing: const Icon(MiqdarIcons.chevronRight),
                           onTap: () async {

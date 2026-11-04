@@ -239,7 +239,7 @@ class _DescribeMealSheetState extends State<_DescribeMealSheet> {
             ],
             const SizedBox(height: 14),
             FilledButton(
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
               onPressed: _working ? null : _estimate,
               child: _working
                   ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.4))

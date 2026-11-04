@@ -6,23 +6,6 @@ import '../theme.dart';
 import 'screens.dart';
 import 'widgets/charts_and_gauges.dart';
 
-/// The name, set in type until the app has a logo.
-class _BrandMark extends StatelessWidget {
-  const _BrandMark({required this.size});
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.mq;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: c.hero, borderRadius: BorderRadius.circular(size * 0.3)),
-      child: Icon(MiqdarIcons.scale, color: c.onHero, size: size / 2),
-    );
-  }
-}
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -79,8 +62,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const _BrandMark(size: 72),
-                const SizedBox(height: 20),
+                // The name, set in type until the app has a logo.
                 Text('Miqdar • مقدار', style: MiqdarType.titleScreen.copyWith(color: c.ink)),
                 const SizedBox(height: 8),
                 Text(
@@ -159,16 +141,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 children: [
                   Row(
                     children: [
-                      const _BrandMark(size: 34),
-                      const SizedBox(width: 10),
                       Expanded(
-                        child: Text('Miqdar • مقدار', style: MiqdarType.titleCard.copyWith(color: c.ink)),
+                        child: Text('Miqdar • مقدار', style: MiqdarType.titleSection.copyWith(color: c.ink)),
                       ),
                       TextButton(
                         style: TextButton.styleFrom(
                           foregroundColor: c.ink,
-                          backgroundColor: c.surfaceSunken,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          backgroundColor: c.surface,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           shape: const StadiumBorder(),
                         ),
                         onPressed: controller.toggleLocale,
@@ -190,7 +170,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   // Real food photography with sample numbers on top
                   Expanded(
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(22),
+                      borderRadius: BorderRadius.circular(24),
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -233,7 +213,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                                   decoration: BoxDecoration(
-                                    color: c.surface,
+                                    color: c.bg,
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Row(
@@ -242,7 +222,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                       NutrientDot(color: c.primary, size: 8),
                                       const SizedBox(width: 7),
                                       Text(
-                                        '${dish.grams} ${s.unitG} • ${s.tr("Smart Scale", "الميزان الذكي")}',
+                                        '${dish.grams} ${s.unitG} · ${s.tr("Smart Scale", "الميزان الذكي")}',
                                         style: MiqdarType.label.copyWith(color: c.ink),
                                       ),
                                     ],
@@ -265,7 +245,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                           margin: const EdgeInsets.symmetric(horizontal: 2),
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                           decoration: BoxDecoration(
-                                            color: active ? c.surface : Colors.transparent,
+                                            color: active ? c.bg : Colors.transparent,
                                             borderRadius: BorderRadius.circular(999),
                                           ),
                                           child: Text(
@@ -287,16 +267,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             ),
                           ),
 
-                          Center(
-                            child: IgnorePointer(
-                              child: SizedBox(
-                                width: 140,
-                                height: 100,
-                                child: CustomPaint(painter: _MinimalFocusPainter()),
-                              ),
-                            ),
-                          ),
-
                           Positioned(
                             left: 12,
                             right: 12,
@@ -304,8 +274,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: c.surface,
-                                borderRadius: BorderRadius.circular(22),
+                                color: c.bg,
+                                borderRadius: BorderRadius.circular(16),
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -326,15 +296,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                                     style: MiqdarType.titleCard.copyWith(color: c.ink),
                                                   ),
                                                 ),
-                                                const SizedBox(width: 6),
-                                                Icon(MiqdarIcons.autoAwesome, size: 16, color: c.primary),
                                               ],
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
                                               s.tr(
-                                                'Sample meal • ${dish.grams} g',
-                                                'وجبة نموذجية • ${dish.grams} غ',
+                                                'Sample meal · ${dish.grams} g',
+                                                'وجبة نموذجية · ${dish.grams} غ',
                                               ),
                                               style: MiqdarType.caption.copyWith(color: c.inkMuted),
                                             ),
@@ -342,7 +310,20 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      MiqdarPill(text: '${dish.kcal} ${s.unitKcal}'),
+                                      Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: '${dish.kcal}',
+                                              style: MiqdarType.numberLg.copyWith(fontSize: 24, height: 28 / 24, color: c.ink),
+                                            ),
+                                            TextSpan(
+                                              text: ' ${s.unitKcal}',
+                                              style: MiqdarType.label.copyWith(color: c.inkMuted),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   const SizedBox(height: 12),
@@ -388,7 +369,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       'Know what’s on your plate, down to the gram.',
                       'اعرف القيمة الغذائية لطبقك، بدقة الغرام.',
                     ),
-                    style: MiqdarType.titleScreen.copyWith(fontSize: 26, height: 32 / 26, color: c.ink),
+                    style: MiqdarType.titleScreen.copyWith(color: c.ink),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -396,12 +377,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       'Put your food on the Miqdar scale. It weighs and photographs it, and Gemini estimates the calories and nutrients.',
                       'ضع طعامك على ميزان مقدار. يزنه ويصوّره، ويقدّر Gemini السعرات والعناصر الغذائية.',
                     ),
-                    style: MiqdarType.body.copyWith(color: c.inkMuted),
+                    style: MiqdarType.reading.copyWith(fontSize: 16, height: 26 / 16, color: c.inkMuted),
                   ),
                   const SizedBox(height: 20),
 
                   FilledButton(
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
                     onPressed: () {
                       controller.signIn(email: '');
                       Navigator.of(context).pushReplacement(
@@ -412,18 +393,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ),
                       );
                     },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(s.tr('Get Started', 'ابدأ الآن'), style: MiqdarType.button.copyWith(fontSize: 17)),
-                        const SizedBox(width: 8),
-                        const Icon(MiqdarIcons.arrowForward, size: 20),
-                      ],
-                    ),
+                    child: Text(s.tr('Get Started', 'ابدأ الآن'), style: MiqdarType.button.copyWith(fontSize: 17)),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton(
-                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                     onPressed: () {
                       controller.signIn(email: '', displayName: 'Demo', isDemo: true);
                       Navigator.of(context).pushReplacement(
@@ -442,66 +416,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 }
 
-class _MinimalFocusPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.72)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
-      ..strokeCap = StrokeCap.round;
-
-    const len = 18.0;
-    const r = 12.0;
-
-    // Top-left
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, len)
-        ..lineTo(0, r)
-        ..quadraticBezierTo(0, 0, r, 0)
-        ..lineTo(len, 0),
-      paint,
-    );
-    // Top-right
-    canvas.drawPath(
-      Path()
-        ..moveTo(size.width - len, 0)
-        ..lineTo(size.width - r, 0)
-        ..quadraticBezierTo(size.width, 0, size.width, r)
-        ..lineTo(size.width, len),
-      paint,
-    );
-    // Bottom-left
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, size.height - len)
-        ..lineTo(0, size.height - r)
-        ..quadraticBezierTo(0, size.height, r, size.height)
-        ..lineTo(len, size.height),
-      paint,
-    );
-    // Bottom-right
-    canvas.drawPath(
-      Path()
-        ..moveTo(size.width - len, size.height)
-        ..lineTo(size.width - r, size.height)
-        ..quadraticBezierTo(size.width, size.height, size.width, size.height - r)
-        ..lineTo(size.width, size.height - len),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
+/// One nutrient as plain type under its dot and name.
 class _NaturalMacroPill extends StatelessWidget {
-  const _NaturalMacroPill({
-    required this.dotColor,
-    required this.label,
-    required this.value,
-  });
+  const _NaturalMacroPill({required this.dotColor, required this.label, required this.value});
 
   final Color dotColor;
   final String label;
@@ -510,22 +427,25 @@ class _NaturalMacroPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.mq;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
-      decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          NutrientDot(color: dotColor, size: 7),
-          const SizedBox(width: 5),
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text('$value $label', maxLines: 1, style: MiqdarType.label.copyWith(color: c.ink)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value, style: MiqdarType.bodyStrong.copyWith(color: c.ink)),
+        Row(
+          children: [
+            NutrientDot(color: dotColor, size: 7),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: MiqdarType.caption.copyWith(color: c.inkMuted),
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 }

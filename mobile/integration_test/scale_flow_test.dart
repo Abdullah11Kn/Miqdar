@@ -61,12 +61,12 @@ void main() {
       await tester.pumpAndSettle();
     }
     if (find.text('Skip').evaluate().isNotEmpty) await tester.tap(find.text('Skip').first);
-    await pumpUntil(() => find.byType(MainShell).evaluate().isNotEmpty);
+    await pumpUntil(() => find.byType(MainShell).evaluate().length == 1);
 
     // The scale connects and reports its true state.
     await pumpUntil(() => controller.scaleDevice.online && controller.scaleDevice.liveWeightG == 0);
     expect(controller.scaleDevice.simulated, isTrue);
-    await tester.tap(find.text('Add Meal').last);
+    await tester.tap(find.byKey(const ValueKey('addMealButton')));
     await hold(2);
 
     // The live weight follows the plate before any capture happens.

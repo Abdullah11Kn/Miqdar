@@ -16,7 +16,8 @@ f = TTFont(src_font)
 print('axes', [a.axisTag for a in f['fvar'].axes])
 opts = subset.Options(); opts.layout_features = []; opts.name_IDs = ['*']; opts.notdef_outline = True; opts.glyph_names = False
 s = subset.Subsetter(opts); s.populate(unicodes=[int(cp[n], 16) for n in names]); s.subset(f)
-f = instancer.instantiateVariableFont(f, {"wght": 500, "opsz": 24, "GRAD": 0})
+# Keeps FILL and wght: 400 is the default, 300 is for list rows.
+f = instancer.instantiateVariableFont(f, {"wght": (300, 400), "opsz": 24, "GRAD": 0})
 for n in f['name'].names:
     if n.nameID in (1, 4, 16): n.string = 'Miqdar Symbols'
 f.save(out_font)
@@ -24,8 +25,8 @@ mirror = {'chevron_right', 'chevron_left', 'arrow_forward', 'logout'}
 def camel(n):
     p = n.split('_'); return p[0] + ''.join(x.capitalize() for x in p[1:])
 lines = ["import 'package:flutter/widgets.dart';", "",
- "/// Material Symbols Rounded, weight 500, cut down to the icons the app uses.",
- "/// Pass `fill: 1` to an Icon for the filled form (selected tabs, the calorie flame).",
+ "/// Material Symbols Rounded, weights 300 to 400, cut down to the icons the app uses.",
+ "/// Pass `fill: 1` to an Icon for the filled form (the current tab, the camera, Add Meal).",
  "/// To add one, add its name to the font build and regenerate this file; see assets/fonts/README.md.",
  "abstract final class MiqdarIcons {", "  static const _font = 'MiqdarSymbols';", ""]
 for n in names:

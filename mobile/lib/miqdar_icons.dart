@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-/// Material Symbols Rounded, weight 500, cut down to the icons the app uses.
-/// Pass `fill: 1` to an Icon for the filled form (selected tabs, the calorie flame).
+/// Material Symbols Rounded, weights 300 to 400, cut down to the icons the app uses.
+/// Pass `fill: 1` to an Icon for the filled form (the current tab, the camera, Add Meal).
 /// To add one, add its name to the font build and regenerate this file; see assets/fonts/README.md.
 abstract final class MiqdarIcons {
   static const _font = 'MiqdarSymbols';

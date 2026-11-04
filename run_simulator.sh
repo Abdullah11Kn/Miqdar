@@ -26,6 +26,9 @@ trap 'rm -f "$defines"' EXIT
 chmod 600 "$defines"
 printf '{"GEMINI_API_KEY":"%s","MIQDAR_API_URL":"%s"}\n' "$gemini_key" "$scale_url" > "$defines"
 
+# Thmanyah's licence keeps the fonts out of git
+[[ -f "$project_dir/mobile/assets/fonts/thmanyah/thmanyah-sans-Regular.otf" ]] || "$project_dir/mobile/assets/fonts/install_thmanyah.sh"
+
 xcrun simctl boot "$device" 2>/dev/null || true
 open -a Simulator
 cd "$project_dir/mobile"

@@ -43,7 +43,8 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 
 - **Branch:** `feature/scale-live-flow` holds all current work, and the Pi is on it. `main` is well behind and
   `origin/usb` is an older copy. Do not merge to `main` until Abdullah says so.
-- **App:** follows the Miqdar design system (`docs/DESIGN.md`), in English and Arabic, light and dark. There are no accounts, by decision.
+- **App:** follows the black and white version of the Miqdar design system (`docs/DESIGN.md`), set in Thmanyah, in English and Arabic, light and dark. There are no accounts, by decision. A fresh clone needs `mobile/assets/fonts/install_thmanyah.sh` before it builds.
+- **Unfinished work in the working tree, from an earlier session, not committed:** `run_iphone.sh`, `mobile/integration_test/zz_tour_test.dart`, the local network keys in `mobile/ios/Runner/Info.plist`, and the Profile tab's Arabic name in `strings.dart`. Do not assume they are on GitHub.
 - **Real scale, new app, verified 2026-11-02:** connects at `foodscale.local`, shows the true reading (0 g, sensor ok),
   Zero works, and an empty-plate capture is refused.
 - **Still not verified on the real scale:**
@@ -83,10 +84,11 @@ mobile/lib/
   models/body_profile.dart  Body profile and the goal calculation
   theme.dart              All colors (context.mq) and text styles (MiqdarType)
   miqdar_icons.dart       Icons from mobile/assets/fonts, generated; see the README there
+mobile/assets/fonts/thmanyah/  The text fonts. Not in git, by licence; install_thmanyah.sh beside it puts them there
   l10n/strings.dart       English and Arabic text, s.tr(en, ar), s.date(...)
   ui/                     Screens; ui/widgets/charts_and_gauges.dart for shared widgets
 mobile/test/              Unit tests
-mobile/integration_test/  scale_flow_test and mixed_plate_flow_test: end-to-end flows on a simulator
+mobile/integration_test/  scale_flow_test, mixed_plate_flow_test and scale_bar_capture_test: end-to-end flows on a simulator
 backend/                  Python service and tests (old path, /recommendations, goals)
 database/                 Food database, seeds and build scripts
 evaluation/               Benchmark tools and test_recognition.py. The 400-sample data is placeholder
@@ -119,6 +121,7 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - Commit and push finished work to the feature branch. Never to `main` without asking.
 - Never credit any AI tool or agent on GitHub: no `Co-Authored-By` trailers, no "generated with" lines, and no such wording in commits, issues, PRs or labels. Abdullah's rule, and it overrides any tool default.
 - Do not use a password you found in the documents. If something needs one, leave it and ask.
+- Never commit, upload or cut down the Thmanyah font files. Their licence allows embedding them in the built app, but forbids hosting and changing them, and this repository is public.
 
 **Protecting his data**
 - Run integration tests on a throwaway simulator (`xcrun simctl create`), never on his iPhone 16 Pro simulator.
@@ -181,6 +184,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the root, created only when
 - 2026-11-04: new feature plan, in issue #1. Priority is daily use, with the most effort on what will be demonstrated. Build one at a time: body profile and goal; mixed plates; logging away from the scale (phone camera, describe by text or voice, as a secondary option); quick re-logging from Search; body weight log; meal reminders.
 - 2026-11-04: the profile is required for every user, but skippable in test builds while he tests. Rice with chicken added as one plate is one meal. Adding the next food uses a button on both screens, not automatic detection. Short wobbles of the weight are accepted.
 - 2026-11-04: features that do not use the scale need no hardware testing. He will come back to agents when he is ready for a real-meal accuracy test.
+- 2026-11-05: he asked for the black and white version of his design system to be implemented as the app's UI and UX, in the Thmanyah fonts. It replaces the deep green look of 2026-11-04.
 
 ## Open decisions
 
@@ -191,6 +195,7 @@ Waiting for Abdullah. Do not settle these alone.
    the devices (Wi-Fi and Pi login), or make the repository private. Going private also needs login on the Pi for `git pull`.
 2. **Enable Gemini billing.** On 2026-11-04 he chose to stay on the free plan for now and pay later if other people will test the app.
 3. **Merge to `main`.** Only when he says.
+4. **The Profile tab's Arabic name.** The design system says حسابي ("my account"). An uncommitted edit says ملفي, because there are no accounts. Committed code is still حسابي.
 
 Settled 2026-11-02: boot start and tunnel off (done); Change Food and Add Side stay, because they are the way to log food
 when Gemini is down; USB-C is dropped in favor of Wi-Fi.
@@ -213,6 +218,14 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 - Tested: on the real scale: code at 3139f8a, no local changes, calibration unchanged, sensor ok, no throttling, tunnel not running. `/scale/live` has the plate and boot fields, and Add Next Food on an empty plate is refused with `EMPTY_SCALE`, leaving no plate open. It also reached the Pi on a second Wi-Fi network, at 192.168.1.164.
 - Not tested / risks: no food has been on the plate. Boot start is still unproven: the Pi booted at 00:07 and the scale started at 00:21, which was the other session's manual start, and `/tmp/miqdar_start.log` does not exist yet. The empty plate reads about 1.5 g, so it should be zeroed before weighing.
 - Next: Abdullah power-cycles the Pi, then the food tests.
+
+### 2026-11-05: Applied the black and white design system, in Thmanyah
+- Decided: Abdullah asked for his design system artifact to become the app's UI and UX, with the Thmanyah fonts. He had put the zips in `mobile/assets/fonts`.
+- Changed: new tokens and type in `theme.dart`; white and black grounds, ink pill main action, every button a pill. A floating scale bar with its own Capture sits over a capsule of four tabs and a round green Add Meal, replacing the five-tab bar, the green Home card and the capture strip. The bar hides on Add Meal. Bare rows for meals, settings, Goals, Privacy and Search. Profile header without the gradient. The source label on Review is no longer hidden in a collapsed section. Danger buttons are text. The icon font now keeps weights 300 to 400. `LockedNumber` holds live digits to one width, because Thmanyah's digits are proportional with no tabular feature. `FilterChip` became `ChoiceChip` on Meal Ideas, because it ignored the card's fill. New `scale_bar_capture_test`. `docs/DESIGN.md` rewritten, `docs/APP_SCREENS.md` corrected where screens moved.
+- Careful: the licence inside the font files forbids hosting and changing them, and the repository is public, so the fonts are ignored by git and are not subset. Abdullah did not rule on this; it follows the licence text. Also included from the earlier session, because it sits inside the restyled Search list: the weight source line on Recent rows.
+- Tested: `flutter analyze`; 97 unit tests; 42 of 42 Python tests; on a throwaway simulator with the simulated scale and real Gemini: `scale_bar_capture_test`, `scale_flow_test` (Saleeg, 240 g, 336 kcal), `mixed_plate_flow_test`. A temporary tour with a fake scale ran all four language and theme modes with no layout errors; most English light and Arabic dark screens looked at, a sample of the other two. His simulator rebuilt, Home confirmed by screenshot, goals kept, scale connected at 0 g.
+- Not tested / risks: real food on the real scale, still the top test. Not looked at after the change: Failure sheet, Analyzing, Edit Meal, Choose Meal Photo, food portion sheet, plate item sheet, body weight sheet, Export, Notices with content, the wide sidebar, Android. The tests used Gemini's free daily quota, about three requests. `zz_tour_test.dart` from the earlier session was not updated and taps text that no longer exists. Tests showed two main screens overlap for a moment after onboarding; the count settles at one, and the tests now require that.
+- Next: Abdullah to judge the look on his simulator and settle open decision 4. If this app is ever built elsewhere, that Mac needs the zips from font.thmanyah.com.
 
 ### 2026-11-05: Updated the Pi; boot start not proven (commit 3139f8a)
 - Decided: Abdullah asked for the Pi to be controlled and updated, and the real-scale steps done.

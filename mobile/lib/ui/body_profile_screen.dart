@@ -197,7 +197,7 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                   child: FilledButton(
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
                     onPressed: () => _calculate(controller),
                     child: Text(s.tr('Calculate My Goal', 'احسب هدفي')),
                   ),
@@ -430,7 +430,7 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
           ),
           const SizedBox(height: 20),
           FilledButton(
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
             onPressed: _saving
                 ? null
                 // A new user has no goals yet, so the default target must not stand in for one.
@@ -463,7 +463,7 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
               const SizedBox(height: 4),
               Text(
                 '${goals.calories.toStringAsFixed(0)} ${s.tr('kcal a day', 'سعرة في اليوم')}',
-                style: MiqdarType.numberLg.copyWith(color: c.primary),
+                style: MiqdarType.numberLg.copyWith(color: c.ink),
               ),
               const SizedBox(height: 16),
               _goalRow(s.tr('Protein', 'البروتين'), goals.protein, c.nProtein, s),
@@ -495,7 +495,7 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
         ),
         const SizedBox(height: 20),
         FilledButton(
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           onPressed: _saving ? null : () => _finish(controller, goals),
           child: Text(s.tr('Use These Goals', 'استخدم هذه الأهداف')),
         ),

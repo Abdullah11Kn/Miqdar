@@ -22,29 +22,26 @@ class ProfileScreen extends StatelessWidget {
     final account = controller.account;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+      padding: EdgeInsets.fromLTRB(0, 8, 0, MediaQuery.paddingOf(context).bottom + 24),
       children: [
-        Text(
-          s.navProfile,
-          style: Theme.of(context).textTheme.headlineSmall,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(s.navProfile, style: Theme.of(context).textTheme.headlineSmall),
         ),
-        const SizedBox(height: 18),
 
+        // The name's first letter, the name and where the diary lives. A hairline closes it.
         Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            gradient: context.mq.heroGradient,
-            borderRadius: BorderRadius.circular(22),
-          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 24),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: context.mq.border))),
           child: Row(
             children: [
               CircleAvatar(
-                radius: 30,
-                backgroundColor: context.mq.onHero,
-                foregroundColor: context.mq.hero,
+                radius: 36,
+                backgroundColor: context.mq.primary,
+                foregroundColor: context.mq.onPrimary,
                 child: Text(
                   account.localizedName(s.isAr).characters.first.toUpperCase(),
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: context.mq.ink),
+                  style: MiqdarType.titleCard.copyWith(fontSize: 30, height: 36 / 30, color: context.mq.onPrimary),
                 ),
               ),
               const SizedBox(width: 16),
@@ -54,175 +51,135 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     Text(
                       account.localizedName(s.isAr),
-                      style: MiqdarType.titleSection.copyWith(color: context.mq.onHero),
+                      style: MiqdarType.titleSection.copyWith(fontSize: 28, height: 34 / 28, color: context.mq.ink),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       account.isDemo
                           ? s.tr('Demo with sample data', 'عرض تجريبي ببيانات نموذجية')
                           : s.tr('Your diary stays on this phone', 'سجلك محفوظ على هذا الهاتف'),
-                      style: MiqdarType.body.copyWith(fontSize: 14, color: context.mq.onHeroMuted),
+                      style: MiqdarType.body.copyWith(fontSize: 14, color: context.mq.inkMuted),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                style: IconButton.styleFrom(foregroundColor: context.mq.onHero),
+              RoundIconButton(
+                plain: true,
                 tooltip: s.tr('Change your name', 'تغيير الاسم'),
                 onPressed: () => _showEditNameSheet(context, controller),
-                icon: const Icon(MiqdarIcons.edit),
+                icon: MiqdarIcons.edit,
               ),
             ],
           ),
         ),
-        const SizedBox(height: 22),
 
-        Text(
-          s.tr('Appearance', 'المظهر'),
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
-        ),
-        const SizedBox(height: 10),
-        SurfaceCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Icon(MiqdarIcons.language, color: context.mq.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      s.tr('Language', 'اللغة'),
-                      style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 180,
-                    child: MiqdarSegmented<String>(
-                      options: const [
-                        (value: 'en', label: 'English', icon: null),
-                        (value: 'ar', label: 'العربية', icon: null),
-                      ],
-                      value: controller.locale.languageCode,
-                      onChanged: (code) => controller.setLocale(Locale(code)),
-                    ),
-                  ),
-                ],
+        MiqdarListGroup(
+          title: s.tr('Appearance', 'المظهر'),
+          children: [
+            MiqdarSettingsRow(
+              icon: MiqdarIcons.language,
+              title: s.tr('Language', 'اللغة'),
+              value: s.isAr ? 'العربية' : 'English',
+              onTap: controller.toggleLocale,
+            ),
+            MiqdarSettingsRow(
+              icon: isDark ? MiqdarIcons.darkMode : MiqdarIcons.lightMode,
+              title: s.tr('Dark Mode', 'المظهر الداكن'),
+              toggle: isDark,
+              onTap: controller.toggleThemeMode,
+            ),
+            if (MediaQuery.sizeOf(context).width >= 780)
+              MiqdarSettingsRow(
+                icon: MiqdarIcons.devices,
+                title: s.tr('Phone-sized layout', 'عرض بحجم الهاتف'),
+                toggle: controller.forceMobileFrameOnDesktop,
+                onTap: controller.toggleViewportFrame,
               ),
-              const Divider(height: 24),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                secondary: Icon(
-                  isDark ? MiqdarIcons.darkMode : MiqdarIcons.lightMode,
-                  color: context.mq.primary,
-                ),
-                title: Text(
-                  s.tr('Dark Mode', 'المظهر الداكن'),
-                  style: TextStyle(fontWeight: FontWeight.w600, color: context.mq.ink),
-                ),
-                value: isDark,
-                onChanged: (_) => controller.toggleThemeMode(),
-              ),
-              if (MediaQuery.sizeOf(context).width >= 780) ...[
-                const Divider(height: 24),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  secondary: Icon(MiqdarIcons.devices, color: context.mq.primary),
-                  title: Text(
-                    s.tr('Phone-sized layout', 'عرض بحجم الهاتف'),
-                    style: TextStyle(fontWeight: FontWeight.w600, color: context.mq.ink),
-                  ),
-                  value: controller.forceMobileFrameOnDesktop,
-                  onChanged: (_) => controller.toggleViewportFrame(),
-                ),
-              ],
-            ],
-          ),
+          ],
         ),
-        const SizedBox(height: 22),
 
-        Text(
-          s.tr('Settings', 'الإعدادات'),
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
+        MiqdarListGroup(
+          title: s.tr('Settings', 'الإعدادات'),
+          last: !account.isDemo,
+          children: [
+            if (!controller.account.isDemo)
+              MiqdarSettingsRow(
+                icon: MiqdarIcons.person,
+                title: s.tr('Body Profile', 'بياناتك الجسدية'),
+                subtitle: controller.bodyProfile == null
+                    ? s.tr('Not filled in yet', 'لم تُملأ بعد')
+                    : s.tr(
+                        '${controller.bodyProfile!.heightCm.toStringAsFixed(0)} cm, ${controller.bodyProfile!.weightKg.toStringAsFixed(0)} kg',
+                        '${controller.bodyProfile!.heightCm.toStringAsFixed(0)} سم، ${controller.bodyProfile!.weightKg.toStringAsFixed(0)} كغ',
+                      ),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const BodyProfileScreen(editing: true)),
+                ),
+              ),
+            MiqdarSettingsRow(
+              icon: MiqdarIcons.trackChanges,
+              title: s.tr('Daily Goals', 'الأهداف اليومية'),
+              subtitle: controller.goals.trackingOnly
+                  ? s.tr('Tracking without goals', 'تتبع بدون أهداف')
+                  : s.tr(
+                      '${controller.goals.calories.toStringAsFixed(0)} kcal a day',
+                      '${controller.goals.calories.toStringAsFixed(0)} سعرة في اليوم',
+                    ),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const GoalsScreen()),
+              ),
+            ),
+            MiqdarSettingsRow(
+              icon: MiqdarIcons.restaurantMenu,
+              title: s.tr('Food Preferences', 'تفضيلات الطعام'),
+              subtitle: s.tr('Allergies, foods to avoid, meal ideas', 'الحساسية، أطعمة تتجنبها، أفكار للوجبات'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MealSuggestionsScreen(showPreferences: true)),
+              ),
+            ),
+            if (!controller.account.isDemo)
+              MiqdarSettingsRow(
+                icon: MiqdarIcons.notifications,
+                title: s.tr('Meal Reminders', 'تذكير الوجبات'),
+                value: controller.reminderSettings.enabled ? s.tr('On', 'مفعّل') : s.tr('Off', 'متوقف'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const RemindersScreen()),
+                ),
+              ),
+            MiqdarSettingsRow(
+              icon: MiqdarIcons.scale,
+              title: s.navDevices,
+              value: controller.scaleDevice.online ? s.tr('Connected', 'متصل') : s.tr('Not connected', 'غير متصل'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
+              ),
+            ),
+            MiqdarSettingsRow(
+              icon: MiqdarIcons.shield,
+              title: s.tr('Privacy & Data', 'الخصوصية والبيانات'),
+              subtitle: s.tr('Where your data goes, export, delete', 'أين تذهب بياناتك، التصدير، الحذف'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PrivacyAndDataScreen()),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 10),
-        if (!controller.account.isDemo)
-          _ProfileNavRow(
-            icon: MiqdarIcons.person,
-            title: s.tr('Body Profile', 'بياناتك الجسدية'),
-            subtitle: controller.bodyProfile == null
-                ? s.tr('Not filled in yet', 'لم تُملأ بعد')
-                : s.tr(
-                    '${controller.bodyProfile!.heightCm.toStringAsFixed(0)} cm, ${controller.bodyProfile!.weightKg.toStringAsFixed(0)} kg',
-                    '${controller.bodyProfile!.heightCm.toStringAsFixed(0)} سم، ${controller.bodyProfile!.weightKg.toStringAsFixed(0)} كغ',
-                  ),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const BodyProfileScreen(editing: true)),
+        if (account.isDemo)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                await controller.exitDemo();
+                navigator.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                  (_) => false,
+                );
+              },
+              icon: const Icon(MiqdarIcons.logout),
+              label: Text(s.tr('Exit Demo', 'الخروج من العرض التجريبي')),
             ),
           ),
-        _ProfileNavRow(
-          icon: MiqdarIcons.trackChanges,
-          title: s.tr('Daily Goals', 'الأهداف اليومية'),
-          subtitle: controller.goals.trackingOnly
-              ? s.tr('Tracking without goals', 'تتبع بدون أهداف')
-              : s.tr(
-                  '${controller.goals.calories.toStringAsFixed(0)} kcal a day',
-                  '${controller.goals.calories.toStringAsFixed(0)} سعرة في اليوم',
-                ),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const GoalsScreen()),
-          ),
-        ),
-        _ProfileNavRow(
-          icon: MiqdarIcons.restaurantMenu,
-          title: s.tr('Food Preferences', 'تفضيلات الطعام'),
-          subtitle: s.tr('Allergies, foods to avoid, meal ideas', 'الحساسية، أطعمة تتجنبها، أفكار للوجبات'),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const MealSuggestionsScreen(showPreferences: true)),
-          ),
-        ),
-        if (!controller.account.isDemo)
-          _ProfileNavRow(
-            icon: MiqdarIcons.notifications,
-            title: s.tr('Meal Reminders', 'تذكير الوجبات'),
-            subtitle: controller.reminderSettings.enabled ? s.tr('On', 'مفعّل') : s.tr('Off', 'متوقف'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const RemindersScreen()),
-            ),
-          ),
-        _ProfileNavRow(
-          icon: MiqdarIcons.scale,
-          title: s.navDevices,
-          subtitle: controller.scaleDevice.online
-              ? s.tr('Connected', 'متصل')
-              : s.tr('Not connected', 'غير متصل'),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
-          ),
-        ),
-        _ProfileNavRow(
-          icon: MiqdarIcons.shield,
-          title: s.tr('Privacy & Data', 'الخصوصية والبيانات'),
-          subtitle: s.tr('Where your data goes, export, delete', 'أين تذهب بياناتك، التصدير، الحذف'),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const PrivacyAndDataScreen()),
-          ),
-        ),
-        if (account.isDemo) ...[
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final navigator = Navigator.of(context);
-              await controller.exitDemo();
-              navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                (_) => false,
-              );
-            },
-            icon: const Icon(MiqdarIcons.logout),
-            label: Text(s.tr('Exit Demo', 'الخروج من العرض التجريبي')),
-          ),
-        ],
       ],
     );
   }
@@ -273,54 +230,6 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ProfileNavRow extends StatelessWidget {
-  const _ProfileNavRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: SurfaceCard(
-          padding: const EdgeInsets.all(16),
-          onTap: onTap,
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: context.mq.surfaceSunken,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(icon, size: 26, color: context.mq.ink),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: MiqdarType.titleCard.copyWith(fontSize: 16, color: context.mq.ink)),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: MiqdarType.label.copyWith(fontWeight: FontWeight.w400, color: context.mq.inkMuted)),
-                  ],
-                ),
-              ),
-              Icon(MiqdarIcons.chevronRight, color: context.mq.inkMuted),
-            ],
-          ),
-        ),
-      );
 }
 
 /// Meal ideas, and the preferences that shape them.
@@ -430,7 +339,7 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
                       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
                       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-                      leading: Icon(MiqdarIcons.tune, color: context.mq.primary),
+                      leading: Icon(MiqdarIcons.tune, color: context.mq.ink),
                       title: Text(
                         s.tr('Your preferences', 'تفضيلاتك'),
                         style: TextStyle(fontWeight: FontWeight.w600, color: context.mq.ink),
@@ -445,12 +354,12 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            ...conditionLabels.entries.map((entry) => FilterChip(
+                            ...conditionLabels.entries.map((entry) => ChoiceChip(
                                   label: Text(entry.value),
                                   selected: profile.conditions.contains(entry.key),
                                   onSelected: (selected) => _toggleCondition(entry.key, selected),
                                 )),
-                            ...preferenceLabels.entries.map((entry) => FilterChip(
+                            ...preferenceLabels.entries.map((entry) => ChoiceChip(
                                   label: Text(entry.value),
                                   selected: profile.dietaryPreferences.contains(entry.key),
                                   onSelected: (selected) => _togglePreference(entry.key, selected),
@@ -648,7 +557,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                   onTap: () => showScaleAddressDialog(context, controller),
                   child: Row(
                     children: [
-                      Icon(MiqdarIcons.link, color: context.mq.primary),
+                      Icon(MiqdarIcons.link, color: context.mq.ink),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -687,7 +596,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(MiqdarIcons.photoCamera, color: context.mq.primary),
+                        Icon(MiqdarIcons.photoCamera, color: context.mq.ink),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -746,15 +655,10 @@ class PrivacyAndDataScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                SurfaceCard(
-                  child: Column(
+                Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        s.tr('Where your data goes', 'أين تذهب بياناتك'),
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
-                      ),
-                      const SizedBox(height: 14),
+                      MiqdarSectionHeader(title: s.tr('Where your data goes', 'أين تذهب بياناتك')),
                       _PrivacyRow(
                         icon: MiqdarIcons.phoneIphone,
                         title: s.tr('This phone', 'هذا الهاتف'),
@@ -781,21 +685,17 @@ class PrivacyAndDataScreen extends StatelessWidget {
                         isLast: true,
                       ),
                     ],
-                  ),
                 ),
-                const SizedBox(height: 14),
-                OutlinedButton.icon(
+                const SizedBox(height: 32),
+                FilledButton.tonalIcon(
                   onPressed: () => showExportSheet(context, days: 365),
                   icon: const Icon(MiqdarIcons.download),
                   label: Text(s.tr('Export My Meals', 'تصدير وجباتي')),
                 ),
                 if (!controller.account.isDemo) ...[
                   const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: context.mq.danger,
-                      side: BorderSide(color: context.mq.danger.withValues(alpha: 0.4)),
-                    ),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(foregroundColor: context.mq.danger, minimumSize: const Size.fromHeight(48)),
                     onPressed: () => _confirmDeleteAll(context, controller),
                     icon: const Icon(MiqdarIcons.deleteForever),
                     label: Text(s.tr('Delete All My Data', 'حذف جميع بياناتي')),
@@ -810,7 +710,7 @@ class PrivacyAndDataScreen extends StatelessWidget {
                       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
                       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                      leading: Icon(MiqdarIcons.build, color: context.mq.primary),
+                      leading: Icon(MiqdarIcons.build, color: context.mq.ink),
                       title: Text(
                         s.tr('Troubleshooting', 'استكشاف الأخطاء'),
                         style: TextStyle(fontWeight: FontWeight.w600, color: context.mq.ink),
@@ -863,8 +763,8 @@ class PrivacyAndDataScreen extends StatelessWidget {
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(s.tr('Cancel', 'إلغاء')),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: context.mq.danger),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: context.mq.danger),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(s.tr('Delete Everything', 'حذف كل شيء')),
           ),
@@ -905,19 +805,19 @@ class _PrivacyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+        padding: EdgeInsets.only(bottom: isLast ? 0 : 24),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 20, color: context.mq.primary),
-            const SizedBox(width: 12),
+            Icon(icon, size: 26, weight: 300, color: context.mq.ink),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: context.mq.ink)),
-                  const SizedBox(height: 2),
-                  Text(body, style: const TextStyle(fontSize: 13, height: 1.45)),
+                  Text(title, style: MiqdarType.titleCard.copyWith(color: context.mq.ink)),
+                  const SizedBox(height: 4),
+                  Text(body, style: MiqdarType.reading.copyWith(color: context.mq.ink)),
                 ],
               ),
             ),

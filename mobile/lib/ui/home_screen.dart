@@ -42,7 +42,12 @@ class HomeScreen extends StatelessWidget {
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 780;
         return ListView(
-          padding: EdgeInsets.fromLTRB(isWide ? 28 : 20, 18, isWide ? 28 : 20, 32),
+          padding: EdgeInsets.fromLTRB(
+            isWide ? 28 : 20,
+            8,
+            isWide ? 28 : 20,
+            MediaQuery.paddingOf(context).bottom + 24,
+          ),
           children: [
             // Demo Workspace Banner
             if (controller.account.isDemo)
@@ -64,31 +69,16 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
 
-            // Header Row: Greeting + Quick Controls
+            // Greeting and the bell
             Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        controller.account.hasPersonalName
-                            ? _greeting(s)
-                            : _greeting(s).replaceAll(RegExp(r'[,،]\s*$'), ''),
-                        style: controller.account.hasPersonalName
-                            ? MiqdarType.body.copyWith(color: context.mq.inkMuted)
-                            : Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      if (controller.account.hasPersonalName) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          controller.account.localizedName(s.isAr),
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    _greeting(s).replaceAll(RegExp(r'[,،]\s*$'), ''),
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ),
+                const SizedBox(width: 12),
                 RoundIconButton(
                   tooltip: s.navNotices,
                   count: controller.unreadAlertsCount,
@@ -104,59 +94,65 @@ class HomeScreen extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
 
-            // Day picker
+            // The date line doubles as the day picker
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                IconButton(
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: context.mq.inkMuted,
+                        padding: EdgeInsets.zero,
+                      ),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) controller.setSelectedDate(picked);
+                      },
+                      child: Text(
+                        isToday
+                            ? '${s.tr('Today', 'اليوم')} · ${s.date(selectedDate, 'EEE, d MMM')}'
+                            : s.date(selectedDate, 'EEE, d MMM'),
+                      ),
+                    ),
+                  ),
+                ),
+                RoundIconButton(
+                  plain: true,
                   tooltip: s.tr('Previous day', 'اليوم السابق'),
                   onPressed: () => controller.setSelectedDate(
                     selectedDate.subtract(const Duration(days: 1)),
                   ),
-                  icon: const Icon(MiqdarIcons.chevronLeft),
+                  icon: MiqdarIcons.chevronLeft,
                 ),
-                TextButton(
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) controller.setSelectedDate(picked);
-                  },
-                  child: Text(
-                    isToday ? s.tr('Today', 'اليوم') : s.date(selectedDate, 'EEE, d MMM'),
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                IconButton(
+                RoundIconButton(
+                  plain: true,
                   tooltip: s.tr('Next day', 'اليوم التالي'),
                   onPressed: isToday
                       ? null
                       : () => controller.setSelectedDate(
                             selectedDate.add(const Duration(days: 1)),
                           ),
-                  icon: const Icon(MiqdarIcons.chevronRight),
+                  icon: MiqdarIcons.chevronRight,
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
             // Resume Draft Banner if an unsaved recognition draft exists (NAV-06, PRD-06)
             if (controller.lastRecognition != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 18),
                 child: SurfaceCard(
-                  color: context.mq.primarySoft,
-                  borderColor: context.mq.primarySoft,
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      Icon(MiqdarIcons.editNote, color: context.mq.ink, size: 28),
-                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,8 +162,8 @@ class HomeScreen extends StatelessWidget {
                               style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
                             ),
                             Text(
-                              '${controller.lastRecognition!.displayName(s.isAr)} • ${controller.lastRecognition!.totalWeightG.toStringAsFixed(0)} ${s.unitG}',
-                              style: MiqdarType.caption.copyWith(fontSize: 13, height: 18 / 13, color: context.mq.ink),
+                              '${controller.lastRecognition!.displayName(s.isAr)} · ${controller.lastRecognition!.totalWeightG.toStringAsFixed(0)} ${s.unitG}',
+                              style: MiqdarType.body.copyWith(fontSize: 13, height: 18 / 13, color: context.mq.inkMuted),
                             ),
                           ],
                         ),
@@ -175,7 +171,7 @@ class HomeScreen extends StatelessWidget {
                       const SizedBox(width: 8),
                       FilledButton(
                         style: FilledButton.styleFrom(
-                            minimumSize: const Size(0, 44), padding: const EdgeInsets.symmetric(horizontal: 16)),
+                            minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 16)),
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => RecognitionResultScreen(result: controller.lastRecognition!),
@@ -200,77 +196,50 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(width: 18),
                   Expanded(
                     flex: 5,
-                    child: _QuickCaptureHeroCard(onScan: onScan),
+                    child: _ScaleCard(onScan: onScan),
                   ),
                 ],
               )
             else ...[
               _DailySummaryCard(totals: totals, goals: goals),
-              const SizedBox(height: 16),
-              _QuickCaptureHeroCard(onScan: onScan),
             ],
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
 
             // Selected Day's Meals & Recent History
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isToday ? s.recentMealsTitle : '${s.tr("Meals on", "وجبات يوم")} ${s.date(selectedDate, 'd MMM')}',
-                  style: MiqdarType.titleSection.copyWith(color: context.mq.ink),
-                ),
-                TextButton(
-                  onPressed: () {
-                    if (onOpenTab != null) {
-                      onOpenTab!(2); // Diary tab
-                    } else {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => Scaffold(
-                            appBar: AppBar(title: Text(s.navDiary)),
-                            body: const SafeArea(child: HistoryScreen()),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: Text(s.tr('See diary', 'عرض السجل')),
-                ),
-              ],
+            MiqdarSectionHeader(
+              title: isToday ? s.recentMealsTitle : '${s.tr("Meals on", "وجبات يوم")} ${s.date(selectedDate, 'd MMM')}',
+              moreLabel: s.tr('See diary', 'عرض السجل'),
+              onMore: () {
+                if (onOpenTab != null) {
+                  onOpenTab!(2); // Diary tab
+                } else {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(title: Text(s.navDiary)),
+                        body: const SafeArea(child: HistoryScreen()),
+                      ),
+                    ),
+                  );
+                }
+              },
             ),
-            const SizedBox(height: 8),
             if (dayMeals.isEmpty)
               EmptyStateCard(icon: MiqdarIcons.restaurant, title: s.noMealsToday)
             else
               ...dayMeals.map((meal) => MealRowCard(meal: meal)),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
 
             // Meal Ideas
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(MiqdarIcons.autoAwesome, color: context.mq.primary, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      s.mealIdeasTitle,
-                      style: MiqdarType.titleSection.copyWith(color: context.mq.ink),
-                    ),
-                  ],
-                ),
-                TextButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const MealSuggestionsScreen()),
-                  ),
-                  icon: const Icon(MiqdarIcons.tune, size: 16),
-                  label: Text(s.seeAll),
-                ),
-              ],
+            MiqdarSectionHeader(
+              title: s.mealIdeasTitle,
+              moreLabel: s.seeAll,
+              onMore: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MealSuggestionsScreen()),
+              ),
             ),
-            const SizedBox(height: 8),
             if (controller.recommendationsBusy && controller.mealSuggestions.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
@@ -283,8 +252,6 @@ class HomeScreen extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(MiqdarIcons.restaurantMenu, color: context.mq.primary),
-                    const SizedBox(width: 14),
                     Expanded(
                       child: Text(
                         s.tr(
@@ -293,7 +260,8 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Icon(MiqdarIcons.chevronRight),
+                    const SizedBox(width: 12),
+                    Icon(MiqdarIcons.chevronRight, color: context.mq.inkMuted),
                   ],
                 ),
               )
@@ -318,7 +286,7 @@ class HomeScreen extends StatelessWidget {
             else
               ...controller.mealSuggestions.take(2).map(
                     (suggestion) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: SuggestionCardWidget(
                         suggestion: suggestion,
                         compact: true,
@@ -353,16 +321,15 @@ class _DailySummaryCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(s.dailyIntakeTitle, style: MiqdarType.titleCard.copyWith(color: c.ink)),
-              TextButton.icon(
+              TextButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const GoalsScreen()),
                 ),
-                icon: const Icon(MiqdarIcons.tune, size: 18),
-                label: Text(s.tr('Goals', 'الأهداف')),
+                child: Text(s.tr('Goals', 'الأهداف')),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             children: [
               RadialCalorieMeter(
@@ -370,7 +337,7 @@ class _DailySummaryCard extends StatelessWidget {
                 target: goals.calories,
                 trackingOnly: goals.trackingOnly,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 20),
               Expanded(
                 child: Column(
                   children: [
@@ -493,7 +460,7 @@ class _MacroProgressLine extends StatelessWidget {
               children: [
                 NutrientDot(color: color),
                 const SizedBox(width: 6),
-                Text(label, style: MiqdarType.label.copyWith(fontSize: 14, color: c.ink)),
+                Text(label, style: MiqdarType.label.copyWith(color: c.ink)),
                 const SizedBox(width: 8),
                 Text.rich(
                   TextSpan(
@@ -504,7 +471,7 @@ class _MacroProgressLine extends StatelessWidget {
                       ),
                       TextSpan(
                         text: hasGoal ? ' / ${target.toStringAsFixed(0)} $unit' : ' $unit',
-                        style: MiqdarType.label.copyWith(fontWeight: FontWeight.w500, color: c.inkMuted),
+                        style: MiqdarType.label.copyWith(color: c.inkMuted),
                       ),
                     ],
                   ),
@@ -515,10 +482,10 @@ class _MacroProgressLine extends StatelessWidget {
           if (hasGoal) ...[
             const SizedBox(height: 6),
             ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
                 value: ratio,
-                minHeight: 8,
+                minHeight: 6,
                 backgroundColor: c.surfaceSunken,
                 color: isOver ? c.accent : color,
               ),
@@ -530,8 +497,9 @@ class _MacroProgressLine extends StatelessWidget {
   }
 }
 
-class _QuickCaptureHeroCard extends StatelessWidget {
-  const _QuickCaptureHeroCard({required this.onScan});
+/// The scale in the wide layout, where there is no floating bar over the content.
+class _ScaleCard extends StatelessWidget {
+  const _ScaleCard({required this.onScan});
   final VoidCallback onScan;
 
   @override
@@ -542,55 +510,39 @@ class _QuickCaptureHeroCard extends StatelessWidget {
     final scale = controller.scaleDevice;
     final state = scale.visualState;
     final hasWeight = state == ScaleVisualState.connected || state == ScaleVisualState.simulated;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: c.heroGradient,
-        borderRadius: BorderRadius.circular(22),
-      ),
+    return SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Icon(MiqdarIcons.scale, color: hasWeight ? c.onHero : c.accentOnHero, size: 26),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  switch (state) {
-                    ScaleVisualState.disconnected => s.tr('Scale not connected', 'الميزان غير متصل'),
-                    ScaleVisualState.fault => s.tr('Weight sensor not responding', 'حساس الوزن لا يستجيب'),
-                    _ => s.tr(
-                        'On the scale: ${scale.effectiveWeightG.toStringAsFixed(0)} g',
-                        'على الميزان: ${scale.effectiveWeightG.toStringAsFixed(0)} غ',
-                      ),
-                  },
-                  style: MiqdarType.titleCard.copyWith(color: c.onHero),
-                ),
-              ),
+              Expanded(child: ScaleStatusLabel(state: state)),
               if (!hasWeight)
                 TextButton(
-                  style: TextButton.styleFrom(foregroundColor: c.onHero),
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
                   ),
-                  child: Text(
-                    s.tr('Connect', 'اتصال'),
-                    style: TextStyle(decoration: TextDecoration.underline, decorationColor: context.mq.onHero),
-                  ),
+                  child: Text(s.tr('Connect', 'اتصال')),
                 ),
             ],
           ),
-          if (state == ScaleVisualState.simulated) ...[
-            const SizedBox(height: 4),
-            Text(
-              s.tr('Simulated scale, not real food', 'ميزان محاكاة، ليس طعاماً حقيقياً'),
-              style: MiqdarType.body.copyWith(fontSize: 14, color: c.onHeroMuted),
+          if (hasWeight) ...[
+            const SizedBox(height: 16),
+            Row(
+              textDirection: TextDirection.ltr,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(scale.effectiveWeightG.toStringAsFixed(0), style: MiqdarType.numberXl.copyWith(color: c.ink)),
+                Text(
+                  ' ${s.unitG}',
+                  style: MiqdarType.titleCard.copyWith(fontSize: 20, color: c.inkMuted),
+                ),
+              ],
             ),
           ],
           const SizedBox(height: 16),
           FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: c.onHero, foregroundColor: c.hero),
             onPressed: onScan,
             icon: const Icon(MiqdarIcons.add),
             label: Text(s.startCapture),
@@ -631,7 +583,7 @@ class SuggestionCardWidget extends StatelessWidget {
                   children: [
                     Text(
                       suggestion.displayName(s.isAr),
-                      style: MiqdarType.titleSection.copyWith(fontSize: 19, height: 24 / 19, color: c.ink),
+                      style: MiqdarType.titleCard.copyWith(fontSize: 19, height: 24 / 19, color: c.ink),
                     ),
                     if (suggestion.nameAr.isNotEmpty && !s.isAr)
                       Text(suggestion.nameAr, style: MiqdarType.body.copyWith(color: c.inkMuted)),
@@ -646,12 +598,7 @@ class SuggestionCardWidget extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              border: Border.symmetric(horizontal: BorderSide(color: c.border)),
-            ),
-            child: Row(
+          Row(
               children: [
                 Expanded(
                   child: _IdeaStat(
@@ -678,7 +625,6 @@ class SuggestionCardWidget extends StatelessWidget {
                     ),
                   ),
               ],
-            ),
           ),
           if (!s.isAr || hasArabicText(suggestion.why.join())) ...[
             const SizedBox(height: 16),
@@ -692,9 +638,12 @@ class SuggestionCardWidget extends StatelessWidget {
           const SizedBox(height: 16),
           Align(
             alignment: AlignmentDirectional.centerEnd,
-            child: FilledButton.tonalIcon(
+            child: FilledButton.icon(
               style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 44), padding: const EdgeInsets.symmetric(horizontal: 16)),
+                minimumSize: const Size(0, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                textStyle: MiqdarType.bodyStrong,
+              ),
               onPressed: () async {
                 // PRD-01: Suggestion opens an editable meal draft, never logs automatically!
                 final catalogItem = MiqdarFoodCatalog.findByIdOrLabel(suggestion.foodId) ??
@@ -753,12 +702,12 @@ class _IdeaStat extends StatelessWidget {
               children: [
                 TextSpan(
                   text: value,
-                  style: TextStyle(fontSize: 24, height: 28 / 24, fontWeight: FontWeight.w700, color: c.ink),
+                  style: MiqdarType.numberLg.copyWith(fontSize: 24, height: 28 / 24, letterSpacing: -0.3, color: c.ink),
                 ),
                 if (unit != null)
                   TextSpan(
                     text: ' $unit',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.inkMuted),
+                    style: MiqdarType.label.copyWith(fontSize: 14, color: c.inkMuted),
                   ),
               ],
             ),
@@ -770,7 +719,7 @@ class _IdeaStat extends StatelessWidget {
             NutrientDot(color: color, size: 8),
             const SizedBox(width: 6),
             Flexible(
-                child: Text(label, style: MiqdarType.label.copyWith(fontWeight: FontWeight.w500, color: c.inkMuted))),
+                child: Text(label, style: MiqdarType.body.copyWith(fontSize: 13, height: 18 / 13, color: c.inkMuted))),
           ],
         ),
       ],
@@ -822,6 +771,7 @@ class _MealPhotoState extends State<MealPhoto> {
       );
 }
 
+/// One saved meal, directly on `bg` with no box. The food photo is the color.
 class MealRowCard extends StatelessWidget {
   const MealRowCard({super.key, required this.meal});
   final MealEntry meal;
@@ -831,28 +781,27 @@ class MealRowCard extends StatelessWidget {
     final s = S.of(context);
     final c = context.mq;
     final name = meal.displayName(s.isAr);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: SurfaceCard(
-        padding: const EdgeInsets.all(12),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => MealDetailScreen(meal: meal)),
-        ),
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => MealDetailScreen(meal: meal)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
               child: SizedBox.square(
-                dimension: 52,
+                dimension: 64,
                 child: MealPhoto(
                   mealId: meal.id,
-                  builder: (bytes) => Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 160),
+                  builder: (bytes) => Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 200),
                   fallback: ColoredBox(
-                    color: c.surfaceSunken,
+                    color: c.surface,
                     child: Center(
                       child: Text(
                         name.isEmpty ? '?' : name.characters.first.toUpperCase(),
-                        style: MiqdarType.titleSection.copyWith(color: c.ink),
+                        style: MiqdarType.titleCard.copyWith(fontSize: 22, color: c.inkMuted),
                       ),
                     ),
                   ),
@@ -870,10 +819,10 @@ class MealRowCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: MiqdarType.titleCard.copyWith(fontSize: 16, color: c.ink),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
-                    '${s.mealTypeLabel(meal.mealType)} • ${s.date(meal.eatenAt.toLocal(), 'h:mm a')} • ${meal.weightG.toStringAsFixed(0)} ${s.unitG}',
-                    style: MiqdarType.caption.copyWith(color: c.inkMuted),
+                    '${s.mealTypeLabel(meal.mealType)} · ${s.date(meal.eatenAt.toLocal(), 'h:mm a')} · ${meal.weightG.toStringAsFixed(0)} ${s.unitG}',
+                    style: MiqdarType.body.copyWith(fontSize: 13, height: 18 / 13, color: c.inkMuted),
                   ),
                 ],
               ),
@@ -884,14 +833,13 @@ class MealRowCard extends StatelessWidget {
                 children: [
                   TextSpan(
                     text: meal.nutrients.calories.toStringAsFixed(0),
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    style: MiqdarType.titleCard.copyWith(color: c.ink),
                   ),
                   TextSpan(
                     text: ' ${s.unitKcal}',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    style: MiqdarType.caption.copyWith(fontWeight: FontWeight.w700, color: c.inkMuted),
                   ),
                 ],
-                style: TextStyle(color: c.primary),
               ),
             ),
           ],

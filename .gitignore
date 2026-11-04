@@ -52,6 +52,9 @@ build/
 database/reference_images/_downloads/
 database/reference_images/rights.csv
 
+# Thmanyah's licence forbids hosting the font files; see mobile/assets/fonts/install_thmanyah.sh
+mobile/assets/fonts/thmanyah/
+
 # Archives and workspace configs
 *.zip
 *.code-workspace

@@ -1,8 +1,11 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import '../app.dart';
 import '../app_controller.dart';
 import '../l10n/strings.dart';
+import '../services/api_service.dart';
 import '../theme.dart';
 import 'describe_meal_sheet.dart';
 import 'diary_and_detail_screen.dart';
@@ -10,6 +13,7 @@ import 'home_screen.dart';
 import 'insights_and_goals_screen.dart';
 import 'profile_and_device_screen.dart';
 import 'scan_and_add_screen.dart';
+import 'widgets/charts_and_gauges.dart';
 
 export 'auth_screens.dart';
 export 'body_profile_screen.dart';
@@ -21,9 +25,8 @@ export 'profile_and_device_screen.dart';
 export 'reminders_screen.dart';
 export 'scan_and_add_screen.dart';
 
-/// Responsive Main Application Shell (Section 4.1 & DES-04):
-/// - Compact screens (< 720 px): Bottom NavigationBar with Home, Diary, Add Meal, Insights, Profile.
-/// - Medium/Wide screens (>= 720 px): Sleek NavigationRail / Sidebar + multi-column content area.
+/// The app's frame. On a phone, the scale bar and the tab capsule float over the content.
+/// From 780 px wide, a sidebar takes their place.
 class MainShell extends StatefulWidget {
   const MainShell({super.key, this.initialIndex = 0});
   final int initialIndex;
@@ -124,16 +127,15 @@ class _MainShellState extends State<MainShell> {
               child: Row(
                 children: [
                   Container(
-                    width: 248,
+                    width: 268,
                     decoration: BoxDecoration(
-                      color: c.surface,
                       border: BorderDirectional(end: BorderSide(color: c.border)),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(s.appNameDual, style: MiqdarType.titleCard.copyWith(color: c.ink)),
+                        Text(s.appNameDual, style: MiqdarType.titleSection.copyWith(color: c.ink)),
                         const SizedBox(height: 20),
                         FilledButton.icon(
                           onPressed: () => setState(() => index = 1),
@@ -146,12 +148,6 @@ class _MainShellState extends State<MainShell> {
                           label: s.navHome,
                           selected: index == 0,
                           onTap: () => setState(() => index = 0),
-                        ),
-                        _SidebarItem(
-                          icon: MiqdarIcons.addAPhoto,
-                          label: s.navAdd,
-                          selected: index == 1,
-                          onTap: () => setState(() => index = 1),
                         ),
                         _SidebarItem(
                           icon: MiqdarIcons.calendarMonth,
@@ -172,38 +168,7 @@ class _MainShellState extends State<MainShell> {
                           onTap: () => setState(() => index = 4),
                         ),
                         const Spacer(),
-                        const Divider(),
-                        ListTile(
-                          dense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                          leading: Badge(
-                            isLabelVisible: controller.unreadAlertsCount > 0,
-                            label: Text('${controller.unreadAlertsCount}'),
-                            child: const Icon(MiqdarIcons.notifications),
-                          ),
-                          title: Text(s.navNotices, style: MiqdarType.label.copyWith(color: c.ink)),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => Scaffold(
-                                appBar: AppBar(title: Text(s.navNotices)),
-                                body: const SafeArea(child: AlertsScreen()),
-                              ),
-                            ),
-                          ),
-                        ),
-                        ListTile(
-                          dense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                          leading: const Icon(MiqdarIcons.scale),
-                          title: Text(s.navDevices, style: MiqdarType.label.copyWith(color: c.ink)),
-                          subtitle: Text(
-                            '${controller.scaleDevice.effectiveWeightG.toStringAsFixed(0)} ${s.unitG}',
-                            style: MiqdarType.caption.copyWith(color: c.inkMuted),
-                          ),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
-                          ),
-                        ),
+                        _ScaleBar(onOpenAddMeal: () => setState(() => index = 1)),
                       ],
                     ),
                   ),
@@ -211,12 +176,7 @@ class _MainShellState extends State<MainShell> {
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1120),
-                        child: Column(
-                          children: [
-                            if (controller.scaleWorking) const _CaptureProgressStrip(),
-                            Expanded(child: IndexedStack(index: index, children: pages)),
-                          ],
-                        ),
+                        child: IndexedStack(index: index, children: pages),
                       ),
                     ),
                   ),
@@ -226,26 +186,17 @@ class _MainShellState extends State<MainShell> {
           );
         }
 
-        // Compact Mobile Layout (< 780 px)
+        // extendBody lets content scroll under the bars, and adds their height to the
+        // bottom padding each tab reads to keep its last row clear of them.
         return Scaffold(
+          extendBody: true,
           body: SafeArea(
-            child: Column(
-              children: [
-                if (controller.scaleWorking) const _CaptureProgressStrip(),
-                Expanded(child: IndexedStack(index: index, children: pages)),
-              ],
-            ),
+            bottom: false,
+            child: IndexedStack(index: index, children: pages),
           ),
-          bottomNavigationBar: _MiqdarBottomNav(
+          bottomNavigationBar: _FloatingBars(
             selectedIndex: index,
             onSelected: (value) => setState(() => index = value),
-            items: [
-              (icon: MiqdarIcons.home, label: s.navHome),
-              (icon: MiqdarIcons.addAPhoto, label: s.navAdd),
-              (icon: MiqdarIcons.calendarMonth, label: s.navDiary),
-              (icon: MiqdarIcons.insights, label: s.navInsights),
-              (icon: MiqdarIcons.person, label: s.navProfile),
-            ],
           ),
         );
       },
@@ -274,7 +225,7 @@ class _ScaleAnalyzingScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(24),
                     child: AspectRatio(
                       aspectRatio: 4 / 3,
                       child: Image.memory(capture.imageBytes, fit: BoxFit.cover),
@@ -286,13 +237,13 @@ class _ScaleAnalyzingScreen extends StatelessWidget {
                   Text(
                     s.tr('Gemini is analyzing your food…', 'Gemini يحلل طعامك…'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: context.mq.ink),
+                    style: MiqdarType.titleCard.copyWith(color: context.mq.ink),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     '${capture.weightG.toStringAsFixed(0)} ${s.unitG}',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: context.mq.ink),
+                    style: MiqdarType.bodyStrong.copyWith(color: context.mq.inkMuted),
                   ),
                 ],
               ),
@@ -300,46 +251,6 @@ class _ScaleAnalyzingScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Tells the user the scale is working, on whichever tab they happen to be.
-class _CaptureProgressStrip extends StatelessWidget {
-  const _CaptureProgressStrip();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = S.of(context);
-    final controller = MiqdarScope.of(context);
-    final grams = controller.scaleDevice.effectiveWeightG;
-    return Column(
-      children: [
-        const LinearProgressIndicator(minHeight: 2),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Icon(MiqdarIcons.scale, size: 16, color: context.mq.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  controller.analyzingScalePhoto
-                      ? s.tr(
-                          'Gemini is analyzing your food (${grams.toStringAsFixed(0)} g)…',
-                          'Gemini يحلل طعامك (${grams.toStringAsFixed(0)} غ)…',
-                        )
-                      : s.tr(
-                          'Scale is photographing your food (${grams.toStringAsFixed(0)} g)…',
-                          'الميزان يصوّر طعامك (${grams.toStringAsFixed(0)} غ)…',
-                        ),
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.mq.ink),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -373,12 +284,12 @@ class _CaptureFailureSheet extends StatelessWidget {
           children: [
             Text(
               error.localizedTitle(controller.isAr),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: context.mq.ink),
+              style: MiqdarType.titleSection.copyWith(color: context.mq.ink),
             ),
             const SizedBox(height: 12),
             if (image != null) ...[
               ClipRRect(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 child: Image.memory(image, height: 200, fit: BoxFit.cover),
               ),
               const SizedBox(height: 12),
@@ -431,55 +342,161 @@ class _CaptureFailureSheet extends StatelessWidget {
   }
 }
 
-/// The five tabs. Add Meal, the second one, sits in its own outlined circle.
-class _MiqdarBottomNav extends StatelessWidget {
-  const _MiqdarBottomNav({required this.selectedIndex, required this.onSelected, required this.items});
+/// What floats at the bottom of the phone layout, over content that fades out beneath it.
+class _FloatingBars extends StatelessWidget {
+  const _FloatingBars({required this.selectedIndex, required this.onSelected});
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
-  final List<({IconData icon, String label})> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final c = context.mq;
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  stops: const [0.55, 1],
+                  colors: [c.bg, c.bg.withValues(alpha: 0)],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(20, 30, 20, bottomInset > 12 ? bottomInset : 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Add Meal already has the weight and Capture, as its whole screen.
+              if (selectedIndex != 1) ...[
+                _ScaleBar(onOpenAddMeal: () => onSelected(1)),
+                const SizedBox(height: 12),
+              ],
+              Row(
+                children: [
+                  Expanded(
+                    child: _TabCapsule(
+                      selectedIndex: selectedIndex,
+                      onSelected: onSelected,
+                      items: [
+                        (index: 0, icon: MiqdarIcons.home, label: s.navHome),
+                        (index: 2, icon: MiqdarIcons.calendarMonth, label: s.navDiary),
+                        (index: 3, icon: MiqdarIcons.insights, label: s.navInsights),
+                        (index: 4, icon: MiqdarIcons.person, label: s.navProfile),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Tooltip(
+                    message: s.navAdd,
+                    child: Semantics(
+                      button: true,
+                      label: s.navAdd,
+                      excludeSemantics: true,
+                      child: Container(
+                        decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: c.floatShadow),
+                        child: Material(
+                          key: const ValueKey('addMealButton'),
+                          color: c.primary,
+                          shape: const CircleBorder(),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () => onSelected(1),
+                            child: SizedBox.square(
+                              dimension: 64,
+                              child: Icon(MiqdarIcons.addAPhoto, fill: 1, size: 26, color: c.onPrimary),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Glass for what floats: `surfaceFloat` over a 20 px blur.
+class _FloatingGlass extends StatelessWidget {
+  const _FloatingGlass({required this.radius, required this.child});
+
+  final double radius;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final c = context.mq;
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border(top: BorderSide(color: c.border)),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(radius), boxShadow: c.floatShadow),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Material(color: c.surfaceFloat, child: child),
+        ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
-          child: Row(
-            children: [
-              for (final (i, item) in items.indexed)
-                Expanded(
-                  child: Semantics(
-                    button: true,
-                    selected: i == selectedIndex,
+    );
+  }
+}
+
+class _TabCapsule extends StatelessWidget {
+  const _TabCapsule({required this.selectedIndex, required this.onSelected, required this.items});
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+  final List<({int index, IconData icon, String label})> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mq;
+    return _FloatingGlass(
+      radius: 32,
+      child: Container(
+        height: 64,
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          children: [
+            for (final item in items)
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  selected: item.index == selectedIndex,
+                  child: Material(
+                    color: item.index == selectedIndex ? c.surfaceSunken : Colors.transparent,
+                    shape: const StadiumBorder(),
+                    clipBehavior: Clip.antiAlias,
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () => onSelected(i),
+                      onTap: () => onSelected(item.index),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          SizedBox(
-                            height: 34,
-                            child: OverflowBox(
-                              maxHeight: 44,
-                              child: _NavIcon(icon: item.icon, selected: i == selectedIndex, isAdd: i == 1),
-                            ),
+                          Icon(
+                            item.icon,
+                            fill: item.index == selectedIndex ? 1 : 0,
+                            color: item.index == selectedIndex ? c.ink : c.inkMuted,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
                               item.label,
                               maxLines: 1,
                               style: MiqdarType.caption.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: i == selectedIndex ? c.ink : c.inkMuted,
+                                fontWeight: FontWeight.w700,
+                                color: item.index == selectedIndex ? c.ink : c.inkMuted,
                               ),
                             ),
                           ),
@@ -488,39 +505,215 @@ class _MiqdarBottomNav extends StatelessWidget {
                     ),
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _NavIcon extends StatelessWidget {
-  const _NavIcon({required this.icon, required this.selected, required this.isAdd});
+/// The scale on every tab, the way a music app shows what is playing: weight, one line of
+/// status and a round Capture button. A plate in progress finishes on Add Meal.
+class _ScaleBar extends StatelessWidget {
+  const _ScaleBar({required this.onOpenAddMeal});
 
-  final IconData icon;
-  final bool selected;
-  final bool isAdd;
+  final VoidCallback onOpenAddMeal;
+
+  Future<void> _capture(BuildContext context, MiqdarController controller) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await controller.captureFromScale();
+    } on RecognitionException catch (error) {
+      // The scale published this failure with its photo; MainShell is already showing it.
+      if (error.eventId != null) return;
+      messenger.showSnackBar(SnackBar(behavior: SnackBarBehavior.floating, content: Text(error.message)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
     final c = context.mq;
-    return Container(
-      width: isAdd ? 44 : 60,
-      height: isAdd ? 44 : 34,
-      decoration: BoxDecoration(
-        color: selected ? c.primary : (isAdd ? c.surfaceSunken : Colors.transparent),
-        borderRadius: BorderRadius.circular(999),
-        border: isAdd && !selected ? Border.all(color: c.borderStrong, width: 1.5) : null,
-      ),
-      child: Icon(
-        icon,
-        fill: selected ? 1 : 0,
-        color: selected ? c.onPrimary : (isAdd ? c.ink : c.inkMuted),
+    final controller = MiqdarScope.of(context);
+    final scale = controller.scaleDevice;
+    final state = scale.visualState;
+    final hasWeight = state == ScaleVisualState.connected || state == ScaleVisualState.simulated;
+    final grams = scale.effectiveWeightG < 0 ? 0.0 : scale.effectiveWeightG;
+    final working = controller.scaleWorking;
+    final plate = controller.scalePlate;
+    final plateOpen = plate != null && plate.isOpen;
+    final canCapture = hasWeight && !working && (grams >= 5 || scale.simulated);
+
+    final String status;
+    var statusColor = c.inkMuted;
+    var liveDot = false;
+    if (working) {
+      status = controller.analyzingScalePhoto
+          ? s.tr('Gemini is analyzing your food…', 'Gemini يحلل طعامك…')
+          : s.tr('Taking the photo. Keep your hands off the plate.', 'جارٍ التقاط الصورة. أبعد يدك عن الطبق.');
+    } else if (state == ScaleVisualState.disconnected || state == ScaleVisualState.fault) {
+      status = s.tr('Tap to connect', 'اضغط للاتصال');
+      statusColor = c.accentInk;
+    } else if (state == ScaleVisualState.simulated) {
+      status = s.tr('Simulated scale, not real food', 'ميزان محاكاة، ليس طعاماً حقيقياً');
+      statusColor = c.accentInk;
+    } else if (plateOpen) {
+      status = s.tr('Add the next food, or Finish.', 'أضف الطعام التالي، أو اضغط إنهاء.');
+      liveDot = true;
+    } else if (grams < 5) {
+      status = s.tr('Put your food on the plate', 'ضع طعامك على الطبق');
+      liveDot = true;
+    } else {
+      status = scale.isStable ? s.tr('Ready to capture', 'جاهز للالتقاط') : s.tr('On the scale', 'على الميزان');
+      liveDot = true;
+    }
+
+    final Widget title = hasWeight
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            textDirection: ui.TextDirection.ltr,
+            children: [
+              LockedNumber(grams.toStringAsFixed(0), style: MiqdarType.titleCard.copyWith(fontSize: 16, color: c.ink)),
+              const SizedBox(width: 4),
+              Text(s.unitG, style: MiqdarType.titleCard.copyWith(fontSize: 16, color: c.ink)),
+            ],
+          )
+        : Text(
+            state == ScaleVisualState.fault
+                ? s.tr('Weight sensor not responding', 'حساس الوزن لا يستجيب')
+                : s.tr('Scale not connected', 'الميزان غير متصل'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: MiqdarType.titleCard.copyWith(fontSize: 16, color: c.ink),
+          );
+
+    void connect() => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const DeviceSettingsScreen()),
+        );
+
+    return _FloatingGlass(
+      radius: 16,
+      child: InkWell(
+        onTap: hasWeight ? onOpenAddMeal : connect,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(10, 10, 12, 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(10)),
+                    child: Icon(MiqdarIcons.scale, color: c.ink),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Align(alignment: AlignmentDirectional.centerStart, child: title),
+                        Row(
+                          children: [
+                            if (liveDot) ...[
+                              NutrientDot(color: c.primary, size: 7),
+                              const SizedBox(width: 6),
+                            ],
+                            Expanded(
+                              child: Text(
+                                status,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: MiqdarType.body.copyWith(fontSize: 13, height: 18 / 13, color: statusColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  if (!hasWeight)
+                    _BarButton(
+                      tooltip: s.tr('Connect', 'اتصال'),
+                      background: c.surfaceSunken,
+                      foreground: c.ink,
+                      onPressed: connect,
+                      child: const Icon(MiqdarIcons.link),
+                    )
+                  else if (plateOpen)
+                    _BarButton(
+                      tooltip: s.navAdd,
+                      background: c.action,
+                      foreground: c.onAction,
+                      onPressed: onOpenAddMeal,
+                      child: const Icon(MiqdarIcons.add),
+                    )
+                  else
+                    _BarButton(
+                      tooltip: s.tr('Capture', 'التقاط'),
+                      background: c.action,
+                      foreground: c.onAction,
+                      onPressed: canCapture ? () => _capture(context, controller) : null,
+                      child: working
+                          ? SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: c.onAction),
+                            )
+                          : const Icon(MiqdarIcons.photoCamera, fill: 1),
+                    ),
+                ],
+              ),
+            ),
+            if (working)
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: LinearProgressIndicator(minHeight: 3),
+              ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _BarButton extends StatelessWidget {
+  const _BarButton({
+    required this.tooltip,
+    required this.background,
+    required this.foreground,
+    required this.onPressed,
+    required this.child,
+  });
+
+  final String tooltip;
+  final Color background;
+  final Color foreground;
+  final VoidCallback? onPressed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: tooltip,
+        child: Opacity(
+          opacity: onPressed == null ? 0.4 : 1,
+          child: Material(
+            color: background,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: SizedBox.square(
+                dimension: 44,
+                child: IconTheme.merge(data: IconThemeData(color: foreground), child: Center(child: child)),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _SidebarItem extends StatelessWidget {
@@ -542,21 +735,21 @@ class _SidebarItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Material(
-        color: selected ? c.primary : Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        color: selected ? c.surfaceSunken : Colors.transparent,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                Icon(icon, fill: selected ? 1 : 0, color: selected ? c.onPrimary : c.inkMuted),
+                Icon(icon, fill: selected ? 1 : 0, color: selected ? c.ink : c.inkMuted),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     label,
-                    style: MiqdarType.bodyStrong.copyWith(color: selected ? c.onPrimary : c.ink),
+                    style: MiqdarType.bodyStrong.copyWith(color: selected ? c.ink : c.inkMuted),
                   ),
                 ),
               ],

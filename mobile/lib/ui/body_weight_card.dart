@@ -74,7 +74,7 @@ class _BodyWeightCardState extends State<BodyWeightCard> {
               ),
               const SizedBox(height: 8),
               FilledButton(
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
+                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
                 onPressed: () {
                   final kg = double.tryParse(normalizeDigits(field.text).trim());
                   if (kg == null || kg < 20 || kg > 300) {
@@ -125,7 +125,7 @@ class _BodyWeightCardState extends State<BodyWeightCard> {
       children: [
         Row(
           children: [
-            Expanded(child: Text(s.tr('Body weight', 'وزن الجسم'), style: MiqdarType.titleCard.copyWith(color: c.ink))),
+            Expanded(child: Text(s.tr('Body weight', 'وزن الجسم'), style: MiqdarType.titleSection.copyWith(color: c.ink))),
             TextButton.icon(
               onPressed: () => _edit(controller, s),
               icon: const Icon(MiqdarIcons.add, size: 18),

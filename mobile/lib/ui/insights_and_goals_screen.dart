@@ -57,19 +57,14 @@ class _TrendsScreenState extends State<TrendsScreen> {
     final goals = controller.goals;
 
     final content = ListView(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.paddingOf(context).bottom + 24),
       children: [
         Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    s.navInsights,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                ],
+              child: Text(
+                s.navInsights,
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
             ),
             RoundIconButton(
@@ -91,7 +86,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
           value: periodDays,
           onChanged: (days) => setState(() => periodDays = days),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         if (periodMeals.isEmpty)
           EmptyStateCard(
@@ -133,35 +128,23 @@ class _TrendsScreenState extends State<TrendsScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 40),
 
         // Daily Calorie Trend Curve vs Daily Target (TREND-01)
-        Text(
-          s.tr('Calories by day', 'السعرات حسب اليوم'),
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
-        ),
-        const SizedBox(height: 10),
+        MiqdarSectionHeader(title: s.tr('Calories by day', 'السعرات حسب اليوم')),
         WeeklyTrendChart(
           dailyPoints: dailyPoints,
           target: goals.calories,
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 40),
 
         // Macronutrient Energy Distribution Donut Chart
-        Text(
-          s.tr('Where your calories come from', 'مصدر سعراتك'),
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
-        ),
-        const SizedBox(height: 10),
+        MiqdarSectionHeader(title: s.tr('Where your calories come from', 'مصدر سعراتك')),
         MacroDonutChart(values: periodTotals),
-        const SizedBox(height: 22),
+        const SizedBox(height: 40),
 
         // Daily average per nutrient; tap one to see which meals contributed most
-        Text(
-          s.tr('Daily averages', 'المتوسطات اليومية'),
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
-        ),
-        const SizedBox(height: 10),
+        MiqdarSectionHeader(title: s.tr('Daily averages', 'المتوسطات اليومية')),
         ...[
           (s.calories, dailyAvg.calories, goals.calories, s.unitKcal, context.mq.nCalories, (MealEntry m) => m.nutrients.calories),
           (s.protein, dailyAvg.protein, goals.protein, s.unitG, context.mq.nProtein, (MealEntry m) => m.nutrients.protein),
@@ -183,7 +166,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
         ),
         ],
         if (!controller.account.isDemo) ...[
-          const SizedBox(height: 22),
+          const SizedBox(height: 40),
           const BodyWeightCard(),
         ],
       ],
@@ -233,7 +216,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                '${s.tr("Average per day", "المتوسط اليومي")}: ${dailyAvg.toStringAsFixed(1)} $unit • ${s.tr("Goal", "الهدف")}: ${target.toStringAsFixed(0)} $unit',
+                '${s.tr("Average per day", "المتوسط اليومي")}: ${dailyAvg.toStringAsFixed(1)} $unit · ${s.tr("Goal", "الهدف")}: ${target.toStringAsFixed(0)} $unit',
                 style: TextStyle(fontWeight: FontWeight.w700, color: context.mq.ink),
               ),
               const SizedBox(height: 14),
@@ -251,14 +234,11 @@ class _TrendsScreenState extends State<TrendsScreen> {
                     style: TextStyle(fontWeight: FontWeight.w600, color: context.mq.ink),
                   ),
                   subtitle: Text(
-                    '${s.date(m.eatenAt.toLocal(), 'd MMM')} • ${m.weightG.toStringAsFixed(0)} ${s.unitG}',
+                    '${s.date(m.eatenAt.toLocal(), 'd MMM')} · ${m.weightG.toStringAsFixed(0)} ${s.unitG}',
                   ),
                   trailing: Text(
                     '${selector(m).toStringAsFixed(1)} $unit',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: context.mq.primary,
-                    ),
+                    style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
                   ),
                 ),
               ),
@@ -302,8 +282,8 @@ void showExportSheet(BuildContext context, {required int days}) {
             height: 150,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: context.mq.surfaceSunken,
-              borderRadius: BorderRadius.circular(14),
+              color: context.mq.surface,
+              borderRadius: BorderRadius.circular(16),
             ),
             child: SingleChildScrollView(
               child: Directionality(
@@ -416,11 +396,10 @@ class _NutrientTrendBar extends StatelessWidget {
     final c = context.mq;
     final percent = target > 0 ? (value / target * 100).round() : null;
     final amount = value.toStringAsFixed(value >= 100 ? 0 : 1);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: SurfaceCard(
-        padding: const EdgeInsets.all(16),
-        onTap: onTap,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -442,11 +421,11 @@ class _NutrientTrendBar extends StatelessWidget {
             if (percent != null) ...[
               const SizedBox(height: 8),
               ClipRRect(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(3),
                 child: LinearProgressIndicator(
                   value: (percent / 100).clamp(0.0, 1.0),
-                  minHeight: 8,
-                  backgroundColor: c.surfaceSunken,
+                  minHeight: 6,
+                  backgroundColor: c.surface,
                   color: percent > 100 ? c.accent : color,
                 ),
               ),
@@ -475,8 +454,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
   NutritionGoals? draft;
 
   Widget _heading(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
-        child: Text(text, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: context.mq.ink)),
+        padding: const EdgeInsets.fromLTRB(0, 16, 0, 12),
+        child: Text(text, style: MiqdarType.titleSection.copyWith(color: context.mq.ink)),
       );
 
   Future<void> _save(MiqdarController controller, S s) async {
@@ -505,7 +484,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
           child: FilledButton(
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
             onPressed: () => _save(controller, s),
             child: Text(s.tr('Save Goals', 'حفظ الأهداف')),
           ),
@@ -519,21 +498,18 @@ class _GoalsScreenState extends State<GoalsScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               children: [
-                SurfaceCard(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      s.tr('Just track, no goals', 'تتبع فقط بدون أهداف'),
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: context.mq.ink),
-                    ),
-                    subtitle: Text(
-                      s.tr('Hides goals and turns off notices', 'يخفي الأهداف ويوقف التنبيهات'),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    value: draft!.trackingOnly,
-                    onChanged: (v) => setState(() => draft = draft!.copyWith(trackingOnly: v)),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    s.tr('Just track, no goals', 'تتبع فقط بدون أهداف'),
+                    style: MiqdarType.titleCard.copyWith(color: context.mq.ink),
                   ),
+                  subtitle: Text(
+                    s.tr('Hides goals and turns off notices', 'يخفي الأهداف ويوقف التنبيهات'),
+                    style: MiqdarType.body.copyWith(fontSize: 13, height: 18 / 13, color: context.mq.inkMuted),
+                  ),
+                  value: draft!.trackingOnly,
+                  onChanged: (v) => setState(() => draft = draft!.copyWith(trackingOnly: v)),
                 ),
                 if (!draft!.trackingOnly) ...[
                   _heading(s.tr('Eat about this much', 'تناول هذا المقدار تقريباً')),
@@ -680,52 +656,43 @@ class _GoalNumericEditorCardState extends State<_GoalNumericEditorCard> {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: SurfaceCard(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: context.mq.ink),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(widget.label, style: MiqdarType.titleCard.copyWith(fontSize: 16, color: context.mq.ink)),
+            ),
+            StepRoundButton(
+              tooltip: '-${widget.step.toStringAsFixed(0)}',
+              onTap: () => _step(-widget.step),
+              icon: MiqdarIcons.remove,
+            ),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 112,
+              child: TextField(
+                controller: _ctrl,
+                textAlign: TextAlign.center,
+                keyboardType: TextInputType.number,
+                style: MiqdarType.titleCard.copyWith(color: context.mq.ink),
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  suffixText: widget.unit,
                 ),
+                onChanged: _typed,
+                onSubmitted: (_) => _finishTyping(),
+                onTapOutside: (_) {
+                  if (FocusScope.of(context).hasFocus) _finishTyping();
+                },
               ),
-              StepSquareButton(
-                tooltip: '-${widget.step.toStringAsFixed(0)}',
-                onTap: () => _step(-widget.step),
-                icon: MiqdarIcons.remove,
-              ),
-              const SizedBox(width: 6),
-              SizedBox(
-                width: 112,
-                child: TextField(
-                  controller: _ctrl,
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: context.mq.ink,
-                  ),
-                  decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    suffixText: widget.unit,
-                  ),
-                  onChanged: _typed,
-                  onSubmitted: (_) => _finishTyping(),
-                  onTapOutside: (_) {
-                    if (FocusScope.of(context).hasFocus) _finishTyping();
-                  },
-                ),
-              ),
-              const SizedBox(width: 6),
-              StepSquareButton(
-                tooltip: '+${widget.step.toStringAsFixed(0)}',
-                onTap: () => _step(widget.step),
-                icon: MiqdarIcons.add,
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 6),
+            StepRoundButton(
+              tooltip: '+${widget.step.toStringAsFixed(0)}',
+              onTap: () => _step(widget.step),
+              icon: MiqdarIcons.add,
+            ),
+          ],
         ),
       );
 }

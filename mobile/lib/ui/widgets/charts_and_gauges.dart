@@ -13,9 +13,8 @@ class SurfaceCard extends StatelessWidget {
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(20),
-    this.borderRadius = 22,
+    this.borderRadius = 24,
     this.color,
-    this.borderColor,
     this.onTap,
   });
 
@@ -23,37 +22,27 @@ class SurfaceCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final double borderRadius;
   final Color? color;
-  final Color? borderColor;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.mq;
-
-    final card = Container(
-      padding: padding,
-      decoration: BoxDecoration(
+    final radius = BorderRadius.circular(borderRadius);
+    return Theme(
+      data: miqdarCardTheme(Theme.of(context), c),
+      child: Material(
         color: color ?? c.surface,
-        borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: borderColor ?? c.border),
-        boxShadow: c.cardShadow,
-      ),
-      child: Material(type: MaterialType.transparency, child: child),
-    );
-
-    if (onTap == null) return card;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(borderRadius),
-        onTap: onTap,
-        child: card,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: onTap == null
+            ? Padding(padding: padding, child: child)
+            : InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
       ),
     );
   }
 }
 
-/// A list or chart with nothing in it: says what will appear and how.
+/// A list or chart with nothing in it: says what will appear and how. It sits on `bg`, with no box.
 class EmptyStateCard extends StatelessWidget {
   const EmptyStateCard({super.key, required this.icon, required this.title, this.text, this.action});
 
@@ -65,24 +54,24 @@ class EmptyStateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.mq;
-    return SurfaceCard(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
       child: SizedBox(
         width: double.infinity,
         child: Column(
           children: [
-            Icon(icon, size: 40, color: c.inkMuted),
+            Icon(icon, size: 40, weight: 300, color: c.inkMuted),
             const SizedBox(height: 8),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: MiqdarType.titleCard.copyWith(color: c.ink),
+              style: MiqdarType.titleSection.copyWith(fontSize: 20, height: 26 / 20, color: c.ink),
             ),
             if (text != null) ...[
               const SizedBox(height: 8),
               Text(text!, textAlign: TextAlign.center, style: MiqdarType.body.copyWith(color: c.inkMuted)),
             ],
-            if (action != null) ...[const SizedBox(height: 16), action!],
+            if (action != null) ...[const SizedBox(height: 20), action!],
           ],
         ),
       ),
@@ -91,7 +80,7 @@ class EmptyStateCard extends StatelessWidget {
 }
 
 class NutrientDot extends StatelessWidget {
-  const NutrientDot({super.key, required this.color, this.size = 10});
+  const NutrientDot({super.key, required this.color, this.size = 8});
 
   final Color color;
   final double size;
@@ -104,9 +93,9 @@ class NutrientDot extends StatelessWidget {
       );
 }
 
-enum PillTone { neutral, accent, danger, info }
+enum PillTone { neutral, live, accent, danger, info }
 
-/// A small label for amounts and states. Never tappable.
+/// A small label for states. Never tappable. Use few: numbers read better as type.
 class MiqdarPill extends StatelessWidget {
   const MiqdarPill({super.key, required this.text, this.tone = PillTone.neutral, this.icon});
 
@@ -118,7 +107,8 @@ class MiqdarPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.mq;
     final (bg, fg) = switch (tone) {
-      PillTone.neutral => (c.surfaceSunken, c.ink),
+      PillTone.neutral => (Theme.of(context).colorScheme.secondaryContainer, c.ink),
+      PillTone.live => (c.primary, c.onPrimary),
       PillTone.accent => (c.accentSoft, c.accentInk),
       PillTone.danger => (c.dangerSoft, c.danger),
       PillTone.info => (c.infoSoft, c.info),
@@ -152,7 +142,10 @@ class MiqdarSegmented<T> extends StatelessWidget {
     final c = context.mq;
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
       child: Row(
         children: [
           for (final (index, option) in options.indexed) ...[
@@ -165,14 +158,11 @@ class MiqdarSegmented<T> extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   onTap: () => onChanged(option.value),
                   child: Container(
-                    constraints: const BoxConstraints(minHeight: 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    constraints: const BoxConstraints(minHeight: 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: option.value == value ? c.surface : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: option.value == value && !c.isDark
-                          ? const [BoxShadow(color: Color(0x1F1B2921), blurRadius: 3, offset: Offset(0, 1))]
-                          : null,
+                      color: option.value == value ? c.action : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
                     ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -183,7 +173,7 @@ class MiqdarSegmented<T> extends StatelessWidget {
                             Icon(
                               option.icon,
                               size: 20,
-                              color: option.value == value ? c.primary : c.inkMuted,
+                              color: option.value == value ? c.onAction : c.inkMuted,
                             ),
                             const SizedBox(width: 6),
                           ],
@@ -192,7 +182,7 @@ class MiqdarSegmented<T> extends StatelessWidget {
                             maxLines: 1,
                             softWrap: false,
                             style: MiqdarType.bodyStrong.copyWith(
-                              color: option.value == value ? c.ink : c.inkMuted,
+                              color: option.value == value ? c.onAction : c.inkMuted,
                             ),
                           ),
                         ],
@@ -210,20 +200,29 @@ class MiqdarSegmented<T> extends StatelessWidget {
 }
 
 /// A round 40 px button with one icon and an optional unread count.
+/// `plain` drops the fill for icons that sit in rows.
 class RoundIconButton extends StatelessWidget {
-  const RoundIconButton({super.key, required this.icon, required this.tooltip, this.onPressed, this.count = 0});
+  const RoundIconButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    this.onPressed,
+    this.count = 0,
+    this.plain = false,
+  });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback? onPressed;
   final int count;
+  final bool plain;
 
   @override
   Widget build(BuildContext context) {
     final c = context.mq;
     return Badge(
       isLabelVisible: count > 0,
-      label: Text('$count'),
+      label: Text('$count', style: MiqdarType.caption.copyWith(fontSize: 11, fontWeight: FontWeight.w700)),
       child: IconButton(
         tooltip: tooltip,
         onPressed: onPressed,
@@ -231,19 +230,18 @@ class RoundIconButton extends StatelessWidget {
           fixedSize: const Size(40, 40),
           minimumSize: const Size(40, 40),
           padding: EdgeInsets.zero,
-          backgroundColor: c.surface,
+          backgroundColor: plain ? Colors.transparent : Theme.of(context).colorScheme.secondaryContainer,
           foregroundColor: c.ink,
-          side: BorderSide(color: c.borderStrong, width: 1.5),
         ),
-        icon: Icon(icon, size: 22),
+        icon: Icon(icon, size: 24),
       ),
     );
   }
 }
 
-/// The square − and + buttons beside a number.
-class StepSquareButton extends StatelessWidget {
-  const StepSquareButton({super.key, this.icon, this.label, required this.onTap, this.tooltip})
+/// The round − and + buttons beside a number.
+class StepRoundButton extends StatelessWidget {
+  const StepRoundButton({super.key, this.icon, this.label, required this.onTap, this.tooltip})
       : assert(icon != null || label != null);
 
   final IconData? icon;
@@ -256,24 +254,193 @@ class StepSquareButton extends StatelessWidget {
     final c = context.mq;
     final button = Material(
       color: c.surfaceSunken,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: c.border),
-      ),
+      shape: const StadiumBorder(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-          padding: EdgeInsets.symmetric(horizontal: label == null ? 0 : 10),
+          padding: EdgeInsets.symmetric(horizontal: label == null ? 0 : 12),
           alignment: Alignment.center,
           child: label != null
               ? Text(label!, textDirection: ui.TextDirection.ltr, style: MiqdarType.label.copyWith(color: c.ink))
-              : Icon(icon, size: 20, color: c.ink),
+              : Icon(icon, size: 22, color: onTap == null ? c.inkMuted : c.ink),
         ),
       ),
     );
     return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+  }
+}
+
+/// A number that updates live. Thmanyah's digits are proportional, so each sits in a fixed
+/// cell, wide enough for the widest digit, and the number does not jitter as it changes.
+class LockedNumber extends StatelessWidget {
+  const LockedNumber(this.text, {super.key, required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = style.fontSize ?? 15;
+    return Semantics(
+      label: text,
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        textDirection: ui.TextDirection.ltr,
+        children: [
+          for (final char in text.characters)
+            SizedBox(
+              width: (RegExp(r'[0-9]').hasMatch(char) ? 0.66 : 0.34) * size,
+              child: Text(
+                char,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.visible,
+                style: style.copyWith(letterSpacing: 0),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A section title on `bg`, with a chevron at the far end instead of a "See all" button.
+class MiqdarSectionHeader extends StatelessWidget {
+  const MiqdarSectionHeader({super.key, required this.title, this.onMore, this.moreLabel});
+
+  final String title;
+  final VoidCallback? onMore;
+  final String? moreLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mq;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Expanded(child: Text(title, style: MiqdarType.titleSection.copyWith(color: c.ink))),
+          if (onMore != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: 12),
+              child: Transform.translate(
+                offset: Offset(Directionality.of(context) == ui.TextDirection.rtl ? -8 : 8, 0),
+                child: IconButton(
+                  tooltip: moreLabel,
+                  onPressed: onMore,
+                  style: IconButton.styleFrom(fixedSize: const Size(40, 40), minimumSize: const Size(40, 40)),
+                  icon: Icon(MiqdarIcons.chevronRight, color: c.ink),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A group of rows on `bg` with an optional small header. A full-bleed hairline closes it.
+/// Children bring their own 20 px margins, so the parent list has no side padding.
+class MiqdarListGroup extends StatelessWidget {
+  const MiqdarListGroup({super.key, this.title, required this.children, this.last = false});
+
+  final String? title;
+  final List<Widget> children;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mq;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        border: last ? null : Border(bottom: BorderSide(color: c.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (title != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+              child: Text(title!, style: MiqdarType.bodyStrong.copyWith(fontSize: 14, color: c.inkMuted)),
+            ),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+/// A full-width list row: a light outline icon, a title, then a value and chevron or a switch.
+class MiqdarSettingsRow extends StatelessWidget {
+  const MiqdarSettingsRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.value,
+    this.toggle,
+    this.danger = false,
+    this.muted = false,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final String? value;
+
+  /// A value here shows a switch instead of a chevron.
+  final bool? toggle;
+  final bool danger;
+  final bool muted;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.mq;
+    final fg = danger ? c.danger : (muted ? c.inkMuted : c.ink);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 26, weight: 300, color: fg),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: MiqdarType.titleCard.copyWith(color: fg)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(subtitle!, style: MiqdarType.body.copyWith(fontSize: 13, height: 18 / 13, color: c.inkMuted)),
+                  ],
+                ],
+              ),
+            ),
+            if (toggle != null)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 12),
+                child: Switch(value: toggle!, onChanged: onTap == null ? null : (_) => onTap!()),
+              )
+            else ...[
+              if (value != null)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 12, end: 4),
+                  child: Text(value!, style: MiqdarType.body.copyWith(color: c.inkMuted)),
+                ),
+              Icon(MiqdarIcons.chevronRight, size: 22, color: c.inkMuted),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -308,8 +475,8 @@ class ScaleStatusLabel extends StatelessWidget {
           shortConnected ? s.tr('Connected', 'متصل') : s.tr('Scale connected', 'الميزان متصل'),
         ),
       ScaleVisualState.disconnected => (
+          c.accent,
           c.inkMuted,
-          c.ink,
           shortConnected ? s.tr('Not connected', 'غير متصل') : s.tr('Scale not connected', 'الميزان غير متصل'),
         ),
       ScaleVisualState.fault => (
@@ -326,7 +493,7 @@ class ScaleStatusLabel extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NutrientDot(color: dot, size: 9),
+        NutrientDot(color: dot),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
@@ -365,8 +532,11 @@ class NutrientTile extends StatelessWidget {
     final c = context.mq;
     final s = S.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(16)),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -388,16 +558,9 @@ class NutrientTile extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: AlignmentDirectional.centerStart,
             child: value == null
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(MiqdarIcons.help, size: 18, color: c.accentInk),
-                      const SizedBox(width: 4),
-                      Text(
-                        s.tr('Unknown', 'غير متوفر'),
-                        style: MiqdarType.bodyStrong.copyWith(height: 26 / 15, color: c.accentInk),
-                      ),
-                    ],
+                ? Text(
+                    s.tr('Unknown', 'غير متوفر'),
+                    style: MiqdarType.bodyStrong.copyWith(height: 26 / 15, color: c.accentInk),
                   )
                 : Text.rich(
                     TextSpan(
@@ -409,10 +572,10 @@ class NutrientTile extends StatelessWidget {
                         if (unit != null)
                           TextSpan(
                             text: ' $unit',
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                            style: MiqdarType.label.copyWith(color: c.inkMuted),
                           ),
                       ],
-                      style: TextStyle(color: c.ink, fontFeatures: const [FontFeature.tabularFigures()]),
+                      style: MiqdarType.body.copyWith(color: c.ink),
                     ),
                   ),
           ),
@@ -428,7 +591,7 @@ class NutrientTile extends StatelessWidget {
   }
 }
 
-/// The Home calorie ring. It fills clockwise in English and counter-clockwise in Arabic.
+/// The Home calorie ring: no ticks, no flame. It fills clockwise in English and counter-clockwise in Arabic.
 class RadialCalorieMeter extends StatelessWidget {
   const RadialCalorieMeter({
     super.key,
@@ -464,24 +627,16 @@ class RadialCalorieMeter extends StatelessWidget {
             progress: animatedRatio,
             progressColor: isOver ? c.accent : c.nCalories,
             trackColor: c.surfaceSunken,
-            tickColor: c.borderStrong.withValues(alpha: 0.55),
             clockwise: !s.isAr,
           ),
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.all(26),
+              padding: const EdgeInsets.all(20),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      MiqdarIcons.localFireDepartment,
-                      fill: 1,
-                      size: 20,
-                      color: isOver ? c.accentInk : c.primary,
-                    ),
-                    const SizedBox(height: 2),
                     Text(
                       consumed.toStringAsFixed(0),
                       textDirection: ui.TextDirection.ltr,
@@ -491,15 +646,15 @@ class RadialCalorieMeter extends StatelessWidget {
                       trackingOnly || target <= 0
                           ? s.unitKcal
                           : '/ ${target.toStringAsFixed(0)} ${s.unitKcal}',
-                      style: MiqdarType.label.copyWith(fontWeight: FontWeight.w500, color: c.inkMuted),
+                      style: MiqdarType.label.copyWith(color: c.inkMuted),
                     ),
                     if (!trackingOnly && target > 0) ...[
                       const SizedBox(height: 6),
-                      MiqdarPill(
-                        tone: isOver ? PillTone.accent : PillTone.neutral,
-                        text: isOver
+                      Text(
+                        isOver
                             ? '+${diff.toStringAsFixed(0)} ${s.tr("above", "فوق الهدف")}'
                             : '${diff.toStringAsFixed(0)} ${s.tr("left", "متبقٍ")}',
+                        style: MiqdarType.label.copyWith(color: isOver ? c.accentInk : c.ink),
                       ),
                     ],
                   ],
@@ -518,19 +673,17 @@ class _RadialCaloriePainter extends CustomPainter {
     required this.progress,
     required this.progressColor,
     required this.trackColor,
-    required this.tickColor,
     required this.clockwise,
   });
 
   final double progress;
   final Color progressColor;
   final Color trackColor;
-  final Color tickColor;
   final bool clockwise;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const strokeWidth = 14.0;
+    const strokeWidth = 12.0;
     final center = size.center(Offset.zero);
     final radius = math.min(size.width, size.height) / 2 - strokeWidth / 2;
     final rect = Rect.fromCircle(center: center, radius: radius);
@@ -543,17 +696,6 @@ class _RadialCaloriePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth,
     );
-
-    final tickPaint = Paint()
-      ..color = tickColor
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    for (var i = 0; i < 24; i++) {
-      final angle = (math.pi * 2 * i) / 24;
-      final direction = Offset(math.cos(angle), math.sin(angle));
-      final outer = radius - strokeWidth / 2 - 5;
-      canvas.drawLine(center + direction * outer, center + direction * (outer - (i % 6 == 0 ? 7 : 4)), tickPaint);
-    }
 
     if (progress <= 0.001) return;
     final sweep = math.pi * 2 * progress.clamp(0.0, 1.0) * (clockwise ? 1 : -1);
@@ -575,7 +717,6 @@ class _RadialCaloriePainter extends CustomPainter {
       oldDelegate.progress != progress ||
       oldDelegate.progressColor != progressColor ||
       oldDelegate.trackColor != trackColor ||
-      oldDelegate.tickColor != tickColor ||
       oldDelegate.clockwise != clockwise;
 }
 
@@ -672,7 +813,7 @@ class _MacroDonutChartState extends State<MacroDonutChart> {
                                     fit: BoxFit.scaleDown,
                                     alignment: AlignmentDirectional.centerStart,
                                     child: Text(
-                                      '${seg.$3.toStringAsFixed(1)} ${s.unitG} • ${seg.$4.toStringAsFixed(0)} ${s.unitKcal}',
+                                      '${seg.$3.toStringAsFixed(1)} ${s.unitG} · ${seg.$4.toStringAsFixed(0)} ${s.unitKcal}',
                                       style: MiqdarType.caption.copyWith(color: c.inkMuted),
                                     ),
                                   ),
@@ -905,7 +1046,7 @@ class _WeeklyTrendPainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text: '$labelVal',
-          style: TextStyle(fontSize: 11, color: tokens.inkMuted),
+          style: MiqdarType.caption.copyWith(fontSize: 11, color: tokens.inkMuted),
         ),
         textDirection: ui.TextDirection.ltr,
       )..layout();
@@ -944,7 +1085,7 @@ class _WeeklyTrendPainter extends CustomPainter {
         final tp = TextPainter(
           text: TextSpan(
             text: label,
-            style: TextStyle(
+            style: MiqdarType.caption.copyWith(
               fontSize: 11,
               fontWeight: selectedIndex == i ? FontWeight.w700 : FontWeight.w500,
               color: selectedIndex == i ? tokens.ink : tokens.inkMuted,
@@ -1080,7 +1221,7 @@ class AiVerificationBadge extends StatelessWidget {
       icon = MiqdarIcons.science;
       title = s.offlineDemoRecord;
     } else if (isVerified) {
-      (bg, fg, iconColor) = (c.surfaceSunken, c.ink, c.primary);
+      (bg, fg, iconColor) = (c.surface, c.ink, c.primary);
       icon = MiqdarIcons.verified;
       title = s.verifiedOfficialRecord;
     } else if (verificationStatus == aiEstimateStatus) {
@@ -1092,36 +1233,29 @@ class AiVerificationBadge extends StatelessWidget {
       icon = MiqdarIcons.editNote;
       title = s.userEnteredRecord;
     } else {
-      (bg, fg, iconColor) = (c.surfaceSunken, c.ink, c.ink);
+      (bg, fg, iconColor) = (c.surface, c.ink, c.primary);
       icon = MiqdarIcons.menuBook;
       title = s.referenceSeedRecord;
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
+          Row(
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, color: iconColor, size: 20),
-                  const SizedBox(width: 8),
-                  Flexible(child: Text(title, style: MiqdarType.bodyStrong.copyWith(fontSize: 14, color: fg))),
-                ],
-              ),
-              if (portionSource != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(999)),
-                  child: Text(portionSource!.label(s.isAr), style: MiqdarType.label.copyWith(color: c.ink)),
+              Icon(icon, color: iconColor, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title, style: MiqdarType.bodyStrong.copyWith(fontSize: 14, color: fg))),
+              if (portionSource != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  portionSource!.label(s.isAr),
+                  style: MiqdarType.label.copyWith(color: bg == c.surface ? c.inkMuted : fg),
                 ),
+              ],
             ],
           ),
           if (provider != null || model != null) ...[
@@ -1179,7 +1313,7 @@ class NutrientNoticeCard extends StatelessWidget {
                 Text(
                   isPreview
                       ? s.tr('If you save this meal', 'إذا حفظت هذه الوجبة')
-                      : '${s.nutrientLabel(alert.nutrientKey)} • ${s.tr("Above your goal", "أعلى من هدفك")}',
+                      : '${s.nutrientLabel(alert.nutrientKey)} · ${s.tr("Above your goal", "أعلى من هدفك")}',
                   style: MiqdarType.bodyStrong.copyWith(color: c.ink),
                 ),
                 const SizedBox(height: 2),
@@ -1193,6 +1327,7 @@ class NutrientNoticeCard extends StatelessWidget {
                       foregroundColor: c.ink,
                       padding: EdgeInsets.zero,
                       minimumSize: const Size(40, 32),
+                      textStyle: MiqdarType.bodyStrong.copyWith(decoration: TextDecoration.underline),
                     ),
                     onPressed: onAcknowledge,
                     child: Text(s.tr('Got it', 'حسناً')),

@@ -45,3 +45,22 @@ flutter:
     - family: MiqdarSymbols
       fonts:
         - asset: assets/fonts/MiqdarSymbols.ttf
+    # Not in git, by licence. Run assets/fonts/install_thmanyah.sh once on each Mac.
+    - family: Thmanyah Sans
+      fonts:
+        - asset: assets/fonts/thmanyah/thmanyah-sans-Regular.otf
+          weight: 400
+        - asset: assets/fonts/thmanyah/thmanyah-sans-Medium.otf
+          weight: 500
+        - asset: assets/fonts/thmanyah/thmanyah-sans-Bold.otf
+          weight: 700
+    - family: Thmanyah Serif Display
+      fonts:
+        - asset: assets/fonts/thmanyah/thmanyah-serif-display-Bold.otf
+          weight: 700
+    - family: Thmanyah Serif Text
+      fonts:
+        - asset: assets/fonts/thmanyah/thmanyah-serif-text-Regular.otf
+          weight: 400
+        - asset: assets/fonts/thmanyah/thmanyah-serif-text-Bold.otf
+          weight: 700
