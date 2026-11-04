@@ -14,6 +14,7 @@ import 'models/nutrition.dart';
 import 'services/alert_service.dart';
 import 'services/api_service.dart';
 import 'services/gemini_service.dart';
+import 'services/reminder_service.dart';
 
 /// A capture the scale could not finish, with the photo when one was taken.
 class ScaleCaptureFailure {
@@ -55,8 +56,10 @@ class MiqdarController extends ChangeNotifier {
     required this.localDatabase,
     required this.apiService,
     required this.alertService,
-  });
+    ReminderScheduler? reminderScheduler,
+  }) : reminderScheduler = reminderScheduler ?? LocalNotificationReminders();
 
+  final ReminderScheduler reminderScheduler;
   final LocalDatabase localDatabase;
   final ApiService apiService;
   final AlertService alertService;
@@ -82,6 +85,7 @@ class MiqdarController extends ChangeNotifier {
     locale = value;
     apiService.gemini.noteInArabic = isAr;
     _remember('locale', locale.languageCode);
+    if (reminderSettings.enabled) unawaited(_applyReminders().catchError((Object _) {}));
     notifyListeners();
     unawaited(refreshRecommendations());
   }
@@ -191,6 +195,13 @@ class MiqdarController extends ChangeNotifier {
     onboarded = false;
     bodyProfile = null;
     bodyProfileSkipped = false;
+    weightEntries = [];
+    goalBasisWeightKg = null;
+    if (reminderSettings.enabled) {
+      reminderSettings = const ReminderSettings();
+      unawaited(_applyReminders().catchError((Object _) {}));
+    }
+    reminderSettings = const ReminderSettings();
     meals = [];
     alerts = [];
     goals = await localDatabase.loadGoals();
@@ -219,6 +230,9 @@ class MiqdarController extends ChangeNotifier {
     onboarded = await localDatabase.getSetting('onboarded') == '1';
     bodyProfileSkipped = await localDatabase.getSetting('body_profile_skipped') == '1';
     bodyProfile = await localDatabase.loadBodyProfile();
+    weightEntries = await localDatabase.loadBodyWeights();
+    goalBasisWeightKg = double.tryParse(await localDatabase.getSetting('goal_weight_kg') ?? '');
+    reminderSettings = ReminderSettings.decode(await localDatabase.getSetting('reminders'));
     _lastSeenCaptureEventId = await localDatabase.getSetting('last_capture_event');
     final name = await localDatabase.getSetting('account_name');
     if (name != null && name.isNotEmpty) {
@@ -310,6 +324,7 @@ class MiqdarController extends ChangeNotifier {
     alerts = await localDatabase.loadAlerts();
     scaleDevice = scaleDevice.copyWith(lastSeen: DateTime.now());
     notifyListeners();
+    if (reminderSettings.enabled) unawaited(_applyReminders().catchError((Object _) {}));
     unawaited(_initializeNetworkFeatures());
     _startLiveScaleSyncTimer();
   }
@@ -719,6 +734,135 @@ class MiqdarController extends ChangeNotifier {
     notifyListeners();
     return applied;
   }
+
+  /// Recent foods for Search, newest first, one row per name. Repeating one uses its saved
+  /// values and sends nothing to Gemini.
+  List<MealEntry> get recentFoods {
+    final seen = <String>{};
+    final sorted = [...meals]..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
+    return sorted.where((meal) => seen.add(meal.nameEn.toLowerCase())).take(5).toList();
+  }
+
+  /// A saved meal back on Review with its own values, so the portion can change before saving.
+  Future<RecognitionResult> prepareRelog(MealEntry meal) {
+    if (meal.items.length > 1) return prepareMealAgain(meal);
+    return prepareCatalogDraft(
+      food: MiqdarFoodCatalog.findByIdOrLabel(meal.foodId) ??
+          FoodCatalogItem(
+            foodId: meal.foodId,
+            nameEn: meal.nameEn,
+            nameAr: meal.nameAr,
+            category: 'Logged',
+            preparation: 'Copied snapshot',
+            verificationStatus: meal.verificationStatus,
+            sourceId: 'DIARY_REPEAT',
+            per100g: meal.resolvedBasisPer100g,
+          ),
+      weightG: meal.weightG,
+      portionSource: PortionSource.manual,
+    );
+  }
+
+  // Body weight log
+
+  List<BodyWeightEntry> weightEntries = [];
+
+  /// The body weight the current goals were calculated from.
+  double? goalBasisWeightKg;
+
+  static const goalUpdateAfterKg = 2.0;
+
+  Future<void> saveWeightEntry({String? id, required DateTime measuredOn, required double weightKg}) async {
+    if (account.isDemo) return;
+    await localDatabase.saveBodyWeight(BodyWeightEntry(
+      id: id ?? 'weight-${DateTime.now().microsecondsSinceEpoch}',
+      measuredOn: measuredOn,
+      weightKg: weightKg,
+    ));
+    await _reloadWeights();
+  }
+
+  Future<void> deleteWeightEntry(String id) async {
+    await localDatabase.deleteBodyWeight(id);
+    await _reloadWeights();
+  }
+
+  /// The newest entry is the current weight in the profile.
+  Future<void> _reloadWeights() async {
+    weightEntries = await localDatabase.loadBodyWeights();
+    final profile = bodyProfile;
+    if (profile != null && weightEntries.isNotEmpty && weightEntries.last.weightKg != profile.weightKg) {
+      bodyProfile = profile.withWeight(weightEntries.last.weightKg);
+      await localDatabase.saveBodyProfile(bodyProfile!);
+    }
+    notifyListeners();
+  }
+
+  /// New goals to offer once weight has moved far enough. Goals change only if accepted.
+  NutritionGoals? get goalUpdateOffer {
+    final profile = bodyProfile;
+    final basis = goalBasisWeightKg;
+    if (profile == null || basis == null || goals.trackingOnly || weightEntries.isEmpty) return null;
+    if ((weightEntries.last.weightKg - basis).abs() < goalUpdateAfterKg) return null;
+    final now = DateTime.now();
+    if (profile.problems(now).isNotEmpty) return null;
+    return suggestGoals(profile, goals, now).goals;
+  }
+
+  Future<void> rememberGoalWeight(double kg) async {
+    goalBasisWeightKg = kg;
+    await localDatabase.saveSetting('goal_weight_kg', '$kg');
+    notifyListeners();
+  }
+
+  Future<void> acceptGoalUpdate() async {
+    final offer = goalUpdateOffer;
+    if (offer == null) return;
+    await updateGoals(offer);
+    await rememberGoalWeight(weightEntries.last.weightKg);
+  }
+
+  /// Not asked again until weight moves as far again.
+  Future<void> declineGoalUpdate() async {
+    if (weightEntries.isNotEmpty) await rememberGoalWeight(weightEntries.last.weightKg);
+  }
+
+  // Meal reminders
+
+  ReminderSettings reminderSettings = const ReminderSettings();
+
+  /// False if the user refused permission, in which case reminders stay off.
+  Future<bool> updateReminders(ReminderSettings value) async {
+    var settings = value;
+    var allowed = true;
+    if (value.enabled && !reminderSettings.enabled) {
+      allowed = await reminderScheduler.requestPermission();
+      if (!allowed) settings = value.copyWith(enabled: false);
+    }
+    reminderSettings = settings;
+    await localDatabase.saveSetting('reminders', settings.encode());
+    await _applyReminders();
+    notifyListeners();
+    return allowed;
+  }
+
+  Future<void> _applyReminders() => reminderScheduler.replaceAll([
+        if (reminderSettings.enabled)
+          for (var i = 0; i < reminderSettings.meals.length; i++)
+            if (reminderSettings.meals[i].on)
+              DailyReminder(
+                id: i + 1,
+                body: _reminderText(reminderSettings.meals[i].meal),
+                hour: reminderSettings.meals[i].hour,
+                minute: reminderSettings.meals[i].minute,
+              ),
+      ]);
+
+  String _reminderText(String meal) => switch (meal) {
+        'Breakfast' => isAr ? 'حان وقت تسجيل فطورك' : 'Time to log your breakfast',
+        'Lunch' => isAr ? 'حان وقت تسجيل غدائك' : 'Time to log your lunch',
+        _ => isAr ? 'حان وقت تسجيل عشائك' : 'Time to log your dinner',
+      };
 
   /// Log Again for a meal of several foods keeps all of them.
   Future<RecognitionResult> prepareMealAgain(MealEntry meal) async {

@@ -132,7 +132,10 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
   Future<void> _finish(MiqdarController controller, NutritionGoals? goals) async {
     setState(() => _saving = true);
     await controller.saveBodyProfile(_profile!);
-    if (goals != null) await controller.updateGoals(goals);
+    if (goals != null) {
+      await controller.updateGoals(goals);
+      await controller.rememberGoalWeight(_profile!.weightKg);
+    }
     if (mounted) _leave();
   }
 

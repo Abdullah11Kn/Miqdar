@@ -51,6 +51,18 @@ class BodyProfile {
 
   int ageOn(DateTime now) => now.year - birthYear;
 
+  BodyProfile withWeight(double kg) => BodyProfile(
+        sex: sex,
+        birthYear: birthYear,
+        heightCm: heightCm,
+        weightKg: kg,
+        activity: activity,
+        goal: goal,
+        targetWeightKg: targetWeightKg,
+        weeklyPaceKg: weeklyPaceKg,
+        pregnantOrBreastfeeding: pregnantOrBreastfeeding,
+      );
+
   /// What must be corrected before a goal can be calculated. Empty means valid.
   List<BodyProfileProblem> problems(DateTime now) {
     final age = ageOn(now);
@@ -154,3 +166,24 @@ GoalSuggestion suggestGoals(BodyProfile profile, NutritionGoals base, DateTime n
 }
 
 double _roundTo(double value, int step) => (value / step).round() * step.toDouble();
+
+/// A body weight the user typed in. The kitchen scale cannot weigh a person.
+class BodyWeightEntry {
+  const BodyWeightEntry({required this.id, required this.measuredOn, required this.weightKg});
+
+  final String id;
+  final DateTime measuredOn;
+  final double weightKg;
+
+  Map<String, Object?> toRow() => {
+        'id': id,
+        'measured_on': measuredOn.toIso8601String(),
+        'weight_kg': weightKg,
+      };
+
+  factory BodyWeightEntry.fromRow(Map<String, Object?> row) => BodyWeightEntry(
+        id: row['id'] as String,
+        measuredOn: DateTime.parse(row['measured_on'] as String),
+        weightKg: (row['weight_kg'] as num).toDouble(),
+      );
+}

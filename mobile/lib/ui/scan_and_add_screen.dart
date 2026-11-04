@@ -1287,6 +1287,41 @@ class _ScanScreenState extends State<ScanScreen> {
           ),
         ),
         const SizedBox(height: 14),
+        if (searchCtrl.text.isEmpty && selectedCategory == 'All' && controller.recentFoods.isNotEmpty) ...[
+          Text(s.tr('Recent', 'الأخيرة'), style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink)),
+          const SizedBox(height: 8),
+          for (final meal in controller.recentFoods)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SurfaceCard(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+                  final draft = await controller.prepareRelog(meal);
+                  navigator.push(MaterialPageRoute(builder: (_) => RecognitionResultScreen(result: draft)));
+                },
+                child: Row(
+                  children: [
+                    Icon(MiqdarIcons.replay, size: 20, color: context.mq.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        meal.displayName(s.isAr),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
+                      ),
+                    ),
+                    Text(
+                      '${meal.weightG.toStringAsFixed(0)} ${s.unitG} • ${meal.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
+                      style: MiqdarType.caption.copyWith(color: context.mq.inkMuted),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 6),
+        ],
         if (results.isEmpty)
           SurfaceCard(
             child: Column(

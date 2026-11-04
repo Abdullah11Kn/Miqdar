@@ -160,7 +160,7 @@ class LocalDatabase {
       final root = await getDatabasesPath();
       _database = await openDatabase(
         p.join(root, 'miqdar_mobile.db'),
-        version: 5,
+        version: 6,
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE goals(
@@ -187,12 +187,14 @@ class LocalDatabase {
           await _addRestartSafeColumns(db);
           await _createBodyProfileTable(db);
           await _createMealItemsTable(db);
+          await _createBodyWeightsTable(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) await _createHealthProfileTable(db);
           if (oldVersion < 3) await _addRestartSafeColumns(db);
           if (oldVersion < 4) await _createBodyProfileTable(db);
           if (oldVersion < 5) await _createMealItemsTable(db);
+          if (oldVersion < 6) await _createBodyWeightsTable(db);
         },
       );
       await _seedGoals();
@@ -282,6 +284,14 @@ class LocalDatabase {
       verification_status TEXT NOT NULL,
       preparation TEXT NOT NULL,
       basis_json TEXT NOT NULL
+    )
+  ''');
+
+  static Future<void> _createBodyWeightsTable(Database db) => db.execute('''
+    CREATE TABLE IF NOT EXISTS body_weights(
+      id TEXT PRIMARY KEY,
+      measured_on TEXT NOT NULL,
+      weight_kg REAL NOT NULL
     )
   ''');
 
@@ -684,6 +694,7 @@ class LocalDatabase {
     _memPhotos.clear();
     _memSettings.clear();
     _memBodyProfile = null;
+    _memWeights.clear();
     if (_useInMemory) return;
     await db.delete('meals');
     await db.delete('alerts');
@@ -691,6 +702,7 @@ class LocalDatabase {
     await db.delete('health_profile');
     await db.delete('body_profile');
     await db.delete('meal_items');
+    await db.delete('body_weights');
     await db.execute('DROP TABLE IF EXISTS settings');
     await _seedGoals();
     await _seedHealthProfile();
@@ -707,6 +719,31 @@ class LocalDatabase {
 
   final Map<String, String> _memSettings = {};
   BodyProfile? _memBodyProfile;
+  final Map<String, BodyWeightEntry> _memWeights = {};
+
+  Future<void> saveBodyWeight(BodyWeightEntry entry) async {
+    _memWeights[entry.id] = entry;
+    final database = _database;
+    if (database == null || _useInMemory) return;
+    await database.insert('body_weights', entry.toRow(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> deleteBodyWeight(String id) async {
+    _memWeights.remove(id);
+    final database = _database;
+    if (database == null || _useInMemory) return;
+    await database.delete('body_weights', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Oldest first.
+  Future<List<BodyWeightEntry>> loadBodyWeights() async {
+    final database = _database;
+    if (database == null || _useInMemory) {
+      return _memWeights.values.toList()..sort((a, b) => a.measuredOn.compareTo(b.measuredOn));
+    }
+    final rows = await database.query('body_weights', orderBy: 'measured_on');
+    return rows.map(BodyWeightEntry.fromRow).toList();
+  }
 
   Future<void> saveBodyProfile(BodyProfile profile) async {
     _memBodyProfile = profile;

@@ -7,6 +7,7 @@ import '../app_controller.dart';
 import '../l10n/strings.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
+import 'body_weight_card.dart';
 import 'widgets/charts_and_gauges.dart';
 
 class TrendsScreen extends StatefulWidget {
@@ -180,6 +181,10 @@ class _TrendsScreenState extends State<TrendsScreen> {
             onTap: () => _showNutrientDrillDown(context, n.$1, n.$4, n.$2, n.$3, periodMeals, n.$6),
           ),
         ),
+        ],
+        if (!controller.account.isDemo) ...[
+          const SizedBox(height: 22),
+          const BodyWeightCard(),
         ],
       ],
     );

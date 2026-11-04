@@ -181,6 +181,15 @@ class ProfileScreen extends StatelessWidget {
             MaterialPageRoute(builder: (_) => const MealSuggestionsScreen(showPreferences: true)),
           ),
         ),
+        if (!controller.account.isDemo)
+          _ProfileNavRow(
+            icon: MiqdarIcons.notifications,
+            title: s.tr('Meal Reminders', 'تذكير الوجبات'),
+            subtitle: controller.reminderSettings.enabled ? s.tr('On', 'مفعّل') : s.tr('Off', 'متوقف'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const RemindersScreen()),
+            ),
+          ),
         _ProfileNavRow(
           icon: MiqdarIcons.scale,
           title: s.navDevices,

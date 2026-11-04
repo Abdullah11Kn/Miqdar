@@ -18,6 +18,7 @@ export 'diary_and_detail_screen.dart';
 export 'home_screen.dart';
 export 'insights_and_goals_screen.dart';
 export 'profile_and_device_screen.dart';
+export 'reminders_screen.dart';
 export 'scan_and_add_screen.dart';
 
 /// Responsive Main Application Shell (Section 4.1 & DES-04):

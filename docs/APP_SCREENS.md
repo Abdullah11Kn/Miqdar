@@ -233,9 +233,11 @@ an estimated portion; nothing is saved without review. The Failure sheet offers 
 1. **Search field,** English or Arabic, with a clear button.
 2. **Category chips,** scrolling sideways: All (38), Traditional Dish, Fruit, Protein, Grain, Legume, Vegetable, Dairy,
    Sandwich, Fast Food, Salad, and Custom if the user has made any.
-3. **Food rows:** icon tile (a verified mark for official records), name, second-language name and preparation, and
+3. **Recent,** when the search is empty and All is selected: up to five foods you logged, each with its weight and calories. Tapping one opens
+   Review Meal with its saved values, so the portion can change before saving. No Gemini request is sent.
+4. **Food rows:** icon tile (a verified mark for official records), name, second-language name and preparation, and
    calories per 100 g. Tapping one opens the Portion sheet.
-4. **No results:** a card with **Enter It by Hand**, which moves to Manual with the name filled in.
+5. **No results:** a card with **Enter It by Hand**, which moves to Manual with the name filled in.
 
 ### Manual mode
 
@@ -355,6 +357,10 @@ With data:
 7. **"Daily averages":** eight tappable cards, one per nutrient: colored dot, amount and goal, progress bar, "82% of your goal".
    Tapping opens the Nutrient sheet.
 
+8. **"Body weight"** (not in the demo, shown even with no meals), with an **Add** text button. A card shows the latest or chosen weight, a line chart once
+   there are two entries (tap to choose a point), and the newest five entries. Tapping an entry opens a sheet to correct or delete it. At 2 kg from the weight behind the
+   current goal, an orange card offers new goals with **Update Goal** and **Keep Current Goal**. The sheet says the weight is typed in from a bathroom scale.
+
 **Nutrient sheet:** nutrient name, average and goal, and "Meals with the most": the top five meals.
 
 **Export sheet:** "Export Meals", an explanation, a small scrolling box of text in CSV format, and **Copy**. It copies to the
@@ -372,6 +378,7 @@ clipboard; no file is created.
 4. **Settings,** tappable rows, each with an icon tile, title, subtitle and arrow:
    - **Body Profile,** "165 cm, 70 kg" or "Not filled in yet". Not shown in the demo.
    - **Daily Goals,** "2200 kcal a day" or "Tracking without goals".
+   - **Meal Reminders,** "On" or "Off". Not shown in the demo.
    - **Food Preferences,** "Allergies, foods to avoid, meal ideas".
    - **Scale,** "Connected" or "Not connected".
    - **Privacy & Data,** "Where your data goes, export, delete".
@@ -431,6 +438,11 @@ a red message if the address does not answer, then **Cancel** and **Connect** (o
 2. **Export My Meals** (outlined): opens the Export sheet for the last 365 days.
 3. **Delete All My Data** (red outline, not in the demo): a dialog with **Cancel** and **Delete Everything**, then back to Welcome.
 4. **Troubleshooting** (expandable): scale address, scale status, last AI model.
+
+### Meal Reminders
+
+A switch, "Remind me to log meals", off by default. Turning it on asks for notification permission. If refused, an orange card explains how to allow it in
+Settings and the switch stays off. When on: Breakfast (8:00), Lunch (13:00) and Dinner (19:00), each with a time button and its own switch.
 
 ### Notices
 

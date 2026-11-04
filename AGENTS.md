@@ -54,7 +54,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Not working:** USB-C networking (Mac → Pi gets no answers). Wi-Fi is used instead, and this is not being pursued.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
-- **Next work:** the plan is GitHub issue #1, split into tickets #2 to #13. Body profile (#2, #3) and the phone side of mixed plates (#6, #7) are built. #4 and #5 stay open until they run on the real scale. Work the rest in ticket order.
+- **Next work:** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
 - **Agent skills setup:** `/setup-matt-pocock-skills` was started but not finished, so `docs/agents/` does not exist. Tickets use the `ready-to-build` label, not the skills' default name.
 
 ## Where things live
@@ -77,8 +77,8 @@ run_simulator.sh          Mac: run the app with the key from .env, on the real s
 run_checks.sh             Rebuilds the database, then runs all tests
 mobile/lib/
   app_controller.dart     App state; capture flow; saving
-  services/               gemini_service (prompt, model order), api_service (scale), alert_service
-  data/                   local_database (SQLite v5, meal photos, meal_items), food_catalog
+  services/               gemini_service (prompt, model order), api_service (scale), alert_service, reminder_service
+  data/                   local_database (SQLite v6, meal photos, meal_items, body_weights), food_catalog
   models/nutrition.dart   Data models
   models/body_profile.dart  Body profile and the goal calculation
   theme.dart              All colors (context.mq) and text styles (MiqdarType)
@@ -184,6 +184,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-04: Quick re-logging, body weight log and meal reminders (tickets #11, #12, #13)
+- Changed: Search shows up to five recent foods, reusing saved values with no Gemini request. Insights has a body weight card with a chart and an entry list; entries update the profile weight, and at 2 kg from the weight behind the goal it offers new goals, which change only if accepted. Database v6 adds `body_weights`. Profile has Meal Reminders, off by default, with local notifications that ask permission only when turned on. Packages added: `flutter_local_notifications`, `timezone`, `flutter_timezone`.
+- Tested: `flutter analyze`; 82 unit tests; `scale_flow_test` and earlier `mixed_plate_flow_test` on a throwaway simulator; a temporary tour with recent foods, the weight card and the permission prompt looked at. 38 of 39 Python tests pass; `test_at_least_90_days_are_queryable` fails because its seeded data aged, which is not from this work and affects only the old server path.
+- Not tested / risks: no reminder has actually been delivered, so #13 stays open for a real iPhone. Android needs extra setup in its manifest for scheduled notifications, which was not done. Quick re-logging repeats a food at its old weight, labelled as entered by hand.
+- Next: Abdullah to try the app. Then real-scale tests for #4 and #5 and real-iPhone tests for #10 and #13.
 
 ### 2026-11-04: Logging away from the scale (tickets #8, #9, #10)
 - Changed: Take a Photo and No Time to Weigh? on Add Meal, and Describe It Instead on the Failure sheet. Gemini estimates food and amount, marked as estimated. Microphone button via `speech_to_text`, which only fills the field. Requests that estimate an amount get 20 s per model and 50 s in all, because a real one took 15 s under load. Added the `mic` icon by rebuilding the font.

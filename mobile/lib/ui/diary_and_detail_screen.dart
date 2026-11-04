@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 
 import '../app.dart';
 import '../app_controller.dart';
-import '../data/food_catalog.dart';
 import '../l10n/strings.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
@@ -165,35 +164,10 @@ class MealDetailScreen extends StatelessWidget {
   final MealEntry meal;
 
   Future<void> _logAgain(BuildContext context, MiqdarController controller, MealEntry currentMeal) async {
-    if (currentMeal.items.length > 1) {
-      final draft = await controller.prepareMealAgain(currentMeal);
-      if (!context.mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => RecognitionResultScreen(result: draft)),
-      );
-      return;
-    }
-    final catalogItem = MiqdarFoodCatalog.findByIdOrLabel(currentMeal.foodId) ??
-        FoodCatalogItem(
-          foodId: currentMeal.foodId,
-          nameEn: currentMeal.nameEn,
-          nameAr: currentMeal.nameAr,
-          category: 'Logged',
-          preparation: 'Copied snapshot',
-          verificationStatus: currentMeal.verificationStatus,
-          sourceId: 'DIARY_REPEAT',
-          per100g: currentMeal.resolvedBasisPer100g,
-        );
-    final draft = await controller.prepareCatalogDraft(
-      food: catalogItem,
-      weightG: currentMeal.weightG,
-      portionSource: PortionSource.manual,
-    );
+    final draft = await controller.prepareRelog(currentMeal);
     if (!context.mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => RecognitionResultScreen(result: draft),
-      ),
+      MaterialPageRoute(builder: (_) => RecognitionResultScreen(result: draft)),
     );
   }
 
