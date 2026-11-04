@@ -12,7 +12,7 @@ When a document disagrees with the code, the code is right.
 | [HARDWARE.md](HARDWARE.md) | Wiring, Raspberry Pi and calibration |
 | [DESIGN.md](DESIGN.md) | The design system: colors, type, components and rules |
 | [APP_SCREENS.md](APP_SCREENS.md) | Every screen and control as they are now |
-| [REPORT_3_INPUT.md](REPORT_3_INPUT.md) | Source material for Report 3: work from 12 October to 5 November 2026, excluding the new design |
+| [REPORT_3_INPUT.md](REPORT_3_INPUT.md) | Full technical record for Report 3: all work from 12 October to 5 November 2026, excluding the new design |
 | [agents/](agents/) | Where issues live, the label names and the domain document rules, for the skills that use them |
 
 Next to their own code: [database/README.md](../database/README.md), [mobile/README.md](../mobile/README.md),

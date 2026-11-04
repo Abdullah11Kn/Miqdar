@@ -46,11 +46,12 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **App:** follows the black and white version of the Miqdar design system (`docs/DESIGN.md`), set in Thmanyah, in English and Arabic, light and dark. There are no accounts, by decision. A fresh clone needs `mobile/assets/fonts/install_thmanyah.sh` before it builds.
 - **Real scale, new app, verified 2026-11-02:** connects at `foodscale.local`, shows the true reading (0 g, sensor ok),
   Zero works, and an empty-plate capture is refused.
+- **Real food on the real scale, 2026-11-05:** Abdullah captured real food with the current flow (a 34 g biscuit, 146 kcal, by his photos). The Pi's log shows 8 results, 3 to 17 s from photo to result. No accuracy was measured.
 - **Still not verified on the real scale:**
-  1. A real food capture with the new app: nobody was there to put food on the plate. This is the most important next test.
+  1. Formal accuracy and timing tests, and mixed plates on real food. These are the most important next tests.
   2. Starting at boot: on the 2026-11-05 00:04 boot the scale was not running 8 minutes later, cause unknown. The same autostart mechanism ran a test entry correctly. `start_all.sh` now logs to `/tmp/miqdar_start.log`. Power-cycle it and read that log; rebooting over SSH needs a password.
-- **Pi:** tunnel off by default and not running. The scale's Wi-Fi address works.
-- **Pi code:** at the new touchscreen design (aeae659) with Thmanyah installed, loaded at the next scale restart. `git pull` works there again since the history rewrite. The earlier calibration is backed up in `~/miqdar-backup/` on the Pi.
+- **Pi:** tunnel off by default, but someone started it with the Internet icon on 2026-11-05 at 02:36 and it was still running at the last check. The scale's Wi-Fi address works.
+- **Pi code:** pulled to the commit of the 2026-11-05 entry "Save and Cancel on the touchscreen", with Thmanyah installed. The scale must be restarted to load it, and the phone needs the matching app build for Save and Cancel. `git pull` works there again since the history rewrite. The earlier calibration is backed up in `~/miqdar-backup/` on the Pi.
 - **USB-C networking:** Abdullah remembers it working. On 2026-11-04 the Mac got no reply at 192.168.7.1 and no address from the Pi, even though the Pi's `miqdar-usb` connection reads as active. Use the `iphone A` hotspot, which works.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
@@ -185,6 +186,8 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the root, created only when
 - 2026-11-04: features that do not use the scale need no hardware testing. He will come back to agents when he is ready for a real-meal accuracy test.
 - 2026-11-05: he asked for the black and white version of his design system to be implemented as the app's UI and UX, in the Thmanyah fonts. It replaces the deep green look of 2026-11-04.
 
+- 2026-11-05: on the scale, a single food goes from Capture straight to one Analyzing screen with Cancel, then to a result with Save. No "Photo sent" screen and no Capture on the result. Add Next Food is a separate flow and keeps its own screens.
+
 ## Open decisions
 
 Waiting for Abdullah. Do not settle these alone.
@@ -202,6 +205,14 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-05: Save and Cancel on the touchscreen; full technical record for Report 3 (commits 692e811 and the next one)
+- Decided: from photos of his real capture, Abdullah said Capture on the waiting and result screens made no sense and "Photo sent" was useless, for a single food only. He then asked for the Report 3 file to be a full technical record, not a short summary, still leaving out the artifact's design.
+- Changed: a single food goes from Capture to one Analyzing screen, with Cancel once the phone has the photo, then to a result with Review on Phone and Save to Diary, then Saved. Save and Cancel are `save_request` and `cancel_request` in `/scale/live`, answered through new `POST /scale/capture/outcome`; the touchscreen says Saved only after the phone answers, and says so if it does not within 10 s. Added the simulation route `/scale/simulate/save` and `scale_save_test`. A failed save answers `failed`. Rewrote `docs/REPORT_3_INPUT.md`.
+- Careful: `mobile/build` is a link to `/tmp/miqdar_mobile_build`, so after the Mac restarts Flutter fails with `PathNotFoundException` until that folder is recreated (`mkdir -p`; `run_checks.sh` does it). The notes' "768 px" is only the old server path; the Pi sends 1280×960. The new Report 3 file was checked against the code.
+- Tested: 103 app tests; 50 of 50 Python tests; `flutter analyze`; on a throwaway simulator with the simulated scale and real Gemini: `scale_save_test` and `scale_flow_test` after the last change, `scale_bar_capture_test` and `mixed_plate_flow_test` before Cancel was added. The screens were captured from the real Pi display in a temporary window.
+- Not tested / risks: no one has tapped Save or Cancel on the physical touchscreen, or used them against the real scale. Cancel is tested only at unit level, because Gemini usually answers before a test could press it. Cancel cannot stop the settling and photo stage, so it appears once the phone has the photo. Undo on the phone after a save from the scale does not update the scale. The running scale was NOT restarted, because a phone was connected.
+- Next: Abdullah restarts the scale and tries Save and Cancel with food on the plate.
 
 ### 2026-11-05: Wrote the source material for Report 3
 - Decided: Abdullah asked for a file his colleague can give an AI, with a picture, to write Report 3. It covers the work since Report 2 and leaves out the design from his design system artifact, which is held for the next report.

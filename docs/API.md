@@ -70,6 +70,9 @@ The app reports what became of a capture's meal: `{"event_id", "outcome", "food"
 The diary is on the phone, so the phone saves it and answers with the route above. With no answer in 10 s the scale withdraws
 the request and says so.
 
+`cancel_request` in `GET /scale/live` is the `event_id` of a capture cancelled on the touchscreen, or null. The phone stops
+analyzing it, closes its screens and answers with `outcome: discarded`.
+
 ### `POST /scale/capture/result`
 The app reports `{"event_id", "food": {"name_en"}, "nutrients"}` so the touchscreen can show the calories. Results for
 an older capture are ignored. Returns `{"accepted": true}` or `false`.

@@ -82,6 +82,40 @@ void main() {
           h.requests.lastWhere((r) => r.url.path == '/scale/capture/outcome').body,
         ) as Map<String, dynamic>;
 
+    test('Cancel on the scale drops the draft, closes its screens and answers discarded', () async {
+      String? cancel;
+      final h = _Harness();
+      h.handler = (r) async => switch (r.url.path) {
+            '/scale/live' => _json({...live(null), 'cancel_request': cancel}),
+            '/scale/capture/latest' => _json({..._event('cap-1'), 'image_base64': _photo}),
+            _ => _json({'accepted': true}),
+          };
+      h.controller.signIn(email: '', displayName: 'Demo', isDemo: true);
+      await h.controller.syncScaleLive();
+      expect(h.controller.lastRecognition, isNotNull);
+      final before = h.controller.meals.length;
+
+      cancel = 'cap-1';
+      await h.controller.syncScaleLive();
+
+      expect(h.controller.lastRecognition, isNull);
+      expect(h.controller.closeScaleScreens, isTrue);
+      expect(h.controller.meals.length, before);
+      expect(outcome(h)['outcome'], 'discarded');
+    });
+
+    test('a capture cancelled before the phone saw it is never analyzed', () async {
+      final h = _Harness();
+      h.handler = (r) async => switch (r.url.path) {
+            '/scale/live' => _json({...live(null), 'cancel_request': 'cap-1'}),
+            _ => _json({'accepted': true}),
+          };
+      h.controller.signIn(email: '', displayName: 'Demo', isDemo: true);
+      await h.controller.syncScaleLive();
+      expect(h.count('/scale/capture/latest'), 0);
+      expect(h.controller.lastRecognition, isNull);
+    });
+
     test('saves once and answers saved, however many polls see the request', () async {
       String? request;
       final h = await withDraft(() => request);

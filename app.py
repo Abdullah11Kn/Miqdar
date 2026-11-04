@@ -231,6 +231,7 @@ class ScaleHardwareAdapter:
         self.latest_analysis: Optional[Dict[str, Any]] = None
         # The diary lives on the phone: Save on the touchscreen asks, and only the phone's answer counts.
         self.save_request: Optional[str] = None
+        self.cancel_request: Optional[str] = None
         self.meal_outcome: Optional[Dict[str, Any]] = None
         # A mixed plate in progress. Kept here so both screens show the same plate.
         self.plate: Optional[Dict[str, Any]] = None
@@ -497,6 +498,7 @@ class ScaleHardwareAdapter:
             }
             self.latest_capture_event = event
             self.save_request = None
+            self.cancel_request = None
             self.meal_outcome = None
         return event
 
@@ -546,6 +548,7 @@ class ScaleHardwareAdapter:
             "kcal": payload.get("kcal"),
         }
         self.save_request = None
+        self.cancel_request = None
         return True
 
     def record_capture_error(self, exc: RecognitionError, img_bytes: bytes, grams: float, source: str = "scale") -> Dict[str, Any]:
@@ -574,6 +577,7 @@ class ScaleHardwareAdapter:
             "auto_capture": self.auto_capture,
             "latest_capture": summary,
             "save_request": self.save_request,
+            "cancel_request": self.cancel_request,
             "plate": self.plate_summary(),
             "boot_id": self.boot_id,
         }
@@ -1309,9 +1313,15 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
             button(410, W - M, "Capture", "capture", "main", 24)
 
     elif screen == "analyzing":
-        title(180, "Analyzing…", 44)
-        text(W // 2, 240, f"{s.get('weight', 0):.0f} g", 24, C_MUTED, bold=True)
-        waiting_dots(300)
+        title(170, "Analyzing…", 44)
+        text(W // 2, 230, f"{s.get('weight', 0):.0f} g", 24, C_MUTED, bold=True)
+        if s.get("stalled"):
+            text(W // 2, 286, "No result yet. Check the app on your phone.", 17, C_ACCENT, bold=True)
+        else:
+            waiting_dots(280)
+        # Once the photo has gone to the phone there is something to cancel.
+        if s.get("waiting_phone"):
+            button(M, W - M, "Cancel", "cancel_analysis", size=24)
 
     elif screen == "result":
         name = str(s.get("food", "Unknown food"))
@@ -1360,16 +1370,6 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
         title(160, "Plate sent to the app")
         text(W // 2, 222, f"{foods} on the plate. Open the app to analyze.", 20, C_MUTED)
         button(M, W - M, "New Plate", "plate_cancel", size=24)
-
-    elif screen == "sent":
-        title(150, "Photo sent to the app")
-        text(W // 2, 212, f"{s.get('weight', 0):.0f} g. The phone is analyzing.", 20, C_MUTED)
-        if s.get("stalled"):
-            text(W // 2, 256, "No result yet. Check the app on your phone.", 17, C_ACCENT, bold=True)
-            button(M, W - M, "Back to Scale", "done", size=24)
-        else:
-            text(W // 2, 256, "Calories appear here when it finishes", 17, C_MUTED)
-            waiting_dots(310)
 
     elif screen == "error":
         title(110, "Could not analyze", 34)
@@ -1428,8 +1428,7 @@ class ScaleTouchscreenApp:
 
     One screen at a time, large text and large pill buttons:
       weigh     -> live weight (whole grams), Zero and Capture
-      analyzing -> shown while the photo and weight are being analysed
-      sent      -> waiting for the phone's result, with nothing to press
+      analyzing -> shown while the photo and weight are being analysed; Cancel once the phone has the photo
       result    -> food name, calories, carbs / protein / fat / sugar, Review on Phone and Save to Diary
       saved     -> the phone confirmed the save
       error     -> short message, Done and Try Again
@@ -1497,7 +1496,8 @@ class ScaleTouchscreenApp:
             return
         if self.hw.capture_state != "idle" or self._worker_active:
             if screen != "analyzing":
-                self.state.update(screen="analyzing", weight=self.hw.get_weight(), saving=False, save_note=None)
+                self.state.update(screen="analyzing", weight=self.hw.get_weight(), waiting_phone=False,
+                                  stalled=False, saving=False, save_note=None)
                 self._set_status("Analyzing", C_ACCENT)
             return
         plate = self.hw.plate_summary()
@@ -1515,22 +1515,24 @@ class ScaleTouchscreenApp:
             if event.get("status") == "ok":
                 self._show_results(event, event["weight_g"])
             elif event.get("status") == "photo":
-                self.state.update(screen="sent", weight=event["weight_g"], stalled=False)
+                # A single food goes straight on analyzing. A plate from Add Next Food has its own screen.
+                self.state.update(screen="analyzing", weight=event["weight_g"], waiting_phone=True, stalled=False)
                 self._sent_at = time.time()
-                self._set_status("Sent to app", C_PRIMARY)
             else:
                 self._show_error(event.get("message", "Capture failed"))
-        elif screen == "sent" and self.hw.latest_analysis and \
+        elif self.state.get("waiting_phone") and self.hw.latest_analysis and \
                 self.hw.latest_analysis["event_id"] != self._seen_analysis_id:
             self._seen_analysis_id = self.hw.latest_analysis["event_id"]
             self._show_results(self.hw.latest_analysis, self.hw.latest_analysis["weight_g"], estimate=True)
-        elif screen == "sent" and not self.state.get("stalled") and time.time() - self._sent_at > SENT_STALLED_S:
-            self.state["stalled"] = True            # the phone may be closed: offer a way back
-        elif screen == "analyzing":
+        elif self.state.get("waiting_phone") and not self.state.get("stalled") and \
+                time.time() - self._sent_at > SENT_STALLED_S:
+            self.state["stalled"] = True            # the phone may be closed: say so
+        elif screen == "analyzing" and not self.state.get("waiting_phone"):
             self.state.update(screen="weigh")       # auto-capture of a plate with no food on it
             self._set_status()
-        elif screen in ("result", "error", "sent", "saved") and self.hw.get_weight() < MIN_CAPTURE_WEIGHT_G:
-            self.state.update(screen="weigh")       # plate cleared: ready for the next meal
+        elif (screen in ("result", "error", "saved") or self.state.get("waiting_phone")) and \
+                self.hw.get_weight() < MIN_CAPTURE_WEIGHT_G:
+            self.state.update(screen="weigh", waiting_phone=False)  # plate cleared: ready for the next meal
             self._set_status()
         self._follow_save()
 
@@ -1539,8 +1541,9 @@ class ScaleTouchscreenApp:
         outcome = self.hw.meal_outcome
         if outcome and outcome["event_id"] != self._seen_outcome_id:
             self._seen_outcome_id = outcome["event_id"]
-            if self.state["screen"] not in ("result", "sent"):
+            if self.state["screen"] not in ("result", "analyzing"):
                 return
+            self.state["waiting_phone"] = False
             self.state.update(saving=False, save_note=None)
             if outcome["outcome"] == "saved":
                 kcal = outcome.get("kcal")
@@ -1564,7 +1567,7 @@ class ScaleTouchscreenApp:
             self._refresh_address()
         self._ticks += 1
         # Only the waiting screens animate; on the others the frame stays put and nothing redraws.
-        self.state["frame"] = (self._ticks // 3) % 3 if self.state["screen"] in ("analyzing", "sent") else 0
+        self.state["frame"] = (self._ticks // 3) % 3 if self.state["screen"] == "analyzing" else 0
         if self.state["screen"] == "weigh":
             try:
                 w = self.hw.get_weight()
@@ -1584,6 +1587,8 @@ class ScaleTouchscreenApp:
                     self.on_capture_button()
                 elif action == "save":
                     self.on_save_button()
+                elif action == "cancel_analysis":
+                    self.on_cancel_analysis()
                 elif action in ("done", "cancel_exit"):
                     self.state.update(screen="weigh")
                     self._set_status()
@@ -1657,6 +1662,15 @@ class ScaleTouchscreenApp:
         self._save_asked_at = time.time()
         self.state.update(saving=True, save_note=None)
 
+    def on_cancel_analysis(self) -> None:
+        """Stops this capture here and on the phone, which also closes its screens for it."""
+        latest = self.hw.latest_capture_event
+        if latest:
+            self.hw.cancel_request = latest["event_id"]
+            self._seen_analysis_id = self._seen_outcome_id = latest["event_id"]
+        self.state.update(screen="weigh", waiting_phone=False, stalled=False, hint="Cancelled")
+        self._set_status()
+
     def on_plate_button(self, action: str) -> None:
         if self._worker_active or self.hw.capture_state != "idle":
             return
@@ -1687,14 +1701,14 @@ class ScaleTouchscreenApp:
         n = result.get("nutrients", {})
         self.state.update(screen="result", food=food.get("name_en", "Unknown food"), weight=grams, estimate=estimate,
                           event_id=result.get("event_id"), saved_to_history=bool(result.get("saved_to_history")),
-                          saving=False, save_note=None,
+                          saving=False, save_note=None, waiting_phone=False, stalled=False,
                           kcal=n.get("calories_kcal"), carbs=n.get("carbohydrate_g"), protein=n.get("protein_g"),
                           fat=n.get("fat_g"), sugar=n.get("sugar_g"))
         self._set_status("Saved" if result.get("saved_to_history") else "Sent to app", C_PRIMARY)
         self._redraw()
 
     def _show_error(self, message: str) -> None:
-        self.state.update(screen="error", message=message)
+        self.state.update(screen="error", message=message, waiting_phone=False, stalled=False)
         self._set_status("Error", C_DANGER)
         self._redraw()
 

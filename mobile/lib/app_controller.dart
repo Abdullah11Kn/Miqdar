@@ -473,6 +473,9 @@ class MiqdarController extends ChangeNotifier {
   bool _answeringScaleSave = false;
   ({String eventId, String food, double kcal})? _savedFromScale;
 
+  /// A capture was cancelled on the scale, so its Analyzing or Review screen must close.
+  bool closeScaleScreens = false;
+
   /// Set while Review Meal is open, so a save from the scale keeps the meal type and note chosen there.
   Future<void> Function()? reviewSaveHandler;
   bool _scalePollInFlight = false;
@@ -529,6 +532,7 @@ class MiqdarController extends ChangeNotifier {
           plateLostToRestart = true;
         }
         final plateChanged = await _followPlate(data['plate'] as Map<String, dynamic>?);
+        await _followCancelRequest(data['cancel_request'] as String?);
         final newCapture = await _followLatestCapture(data['latest_capture']);
         await _followSaveRequest(data['save_request'] as String?);
         if (newCapture ||
@@ -975,6 +979,27 @@ class MiqdarController extends ChangeNotifier {
     ));
     notifyListeners();
     return applied;
+  }
+
+  /// Cancel on the scale's Analyzing screen. Whatever stage this capture reached here, it stops.
+  Future<void> _followCancelRequest(String? eventId) async {
+    if (eventId == null) return;
+    // Marked seen, so a phone that connects only now does not start analyzing it.
+    _lastSeenCaptureEventId = eventId;
+    _remember('last_capture_event', eventId);
+    if (_analyzingEventId == eventId) {
+      _analyzingEventId = null;
+      pendingScaleCapture = null;
+      closeScaleScreens = true;
+    }
+    if (lastRecognition?.eventId == eventId) {
+      latestExternalScaleCapture = null;
+      closeScaleScreens = true;
+      lastRecognition = null;
+      projectedAlerts = [];
+    }
+    if (closeScaleScreens) notifyListeners();
+    await apiService.postMealOutcome(eventId, 'discarded');
   }
 
   /// Save to Diary on the scale's touchscreen. The diary is here, so the save happens here,

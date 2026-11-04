@@ -41,6 +41,12 @@ class _MainShellState extends State<MainShell> {
   /// even though saving a meal rebuilds this shell.
   void _checkExternalCapture(MiqdarController controller) {
     final shellRoute = ModalRoute.of(context);
+    if (controller.closeScaleScreens) {
+      controller.closeScaleScreens = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).popUntil((route) => route == shellRoute);
+      });
+    }
     final pending = controller.pendingScaleCapture;
     if (pending != null) {
       controller.clearPendingScaleCapture();

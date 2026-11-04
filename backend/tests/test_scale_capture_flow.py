@@ -274,10 +274,29 @@ class ScaleCaptureFlowTests(unittest.TestCase):
 
         return [b[4] for b in scale_app.draw_screen(Painter(), state)]
 
-    def test_waiting_screens_offer_nothing_to_press(self) -> None:
-        for state in ({"screen": "sent", "weight": 34}, {"screen": "analyzing", "weight": 34}):
-            self.assertEqual(self.actions(state), ["exit"])
-        self.assertEqual(self.actions({"screen": "sent", "stalled": True}), ["exit", "done"])
+    def test_analyzing_offers_only_cancel_once_the_phone_has_the_photo(self) -> None:
+        self.assertEqual(self.actions({"screen": "analyzing", "weight": 34}), ["exit"])
+        self.assertEqual(self.actions({"screen": "analyzing", "weight": 34, "waiting_phone": True}),
+                         ["exit", "cancel_analysis"])
+
+    def test_a_single_food_goes_straight_on_analyzing_and_cancel_tells_the_phone(self) -> None:
+        screen = self.touchscreen()
+        self.hw.record_photo_event(b"", 34.0)
+        screen._follow_capture()
+        self.assertEqual(screen.state["screen"], "analyzing")
+        event_id = self.hw.latest_capture_event["event_id"]
+
+        screen.on_cancel_analysis()
+        self.assertEqual(screen.state["screen"], "weigh")
+        self.assertEqual(self.hw.status()["cancel_request"], event_id)
+
+        # A result that was already on its way does not reopen anything.
+        self.hw.record_analysis({"event_id": event_id, "food": {"name_en": "Biscuit"}, "nutrients": {}})
+        screen._follow_capture()
+        self.assertEqual(screen.state["screen"], "weigh")
+
+        self.hw.record_meal_outcome({"event_id": event_id, "outcome": "discarded"})
+        self.assertIsNone(self.hw.status()["cancel_request"])
 
     def test_result_saves_instead_of_capturing_again(self) -> None:
         actions = self.actions({"screen": "result", "food": "Biscuit", "kcal": 146.0})
@@ -289,11 +308,12 @@ class ScaleCaptureFlowTests(unittest.TestCase):
         screen = self.touchscreen()
         self.hw.record_photo_event(b"", 34.0)
         screen._follow_capture()
-        self.assertEqual(screen.state["screen"], "sent")
+        self.assertEqual(screen.state["screen"], "analyzing")
         event_id = self.hw.latest_capture_event["event_id"]
         self.hw.record_analysis({"event_id": event_id, "food": {"name_en": "Biscuit"}, "nutrients": {"calories_kcal": 146.0}})
         screen._follow_capture()
         self.assertEqual(screen.state["screen"], "result")
+        self.assertFalse(screen.state["waiting_phone"])
 
         screen.on_save_button()
         self.assertEqual(self.hw.status()["save_request"], event_id)
@@ -322,7 +342,7 @@ class ScaleCaptureFlowTests(unittest.TestCase):
         self.assertIn("did not answer", screen.state["save_note"])
         self.assertIsNone(self.hw.save_request)
 
-    def test_sent_screen_offers_a_way_back_when_the_phone_is_silent(self) -> None:
+    def test_analyzing_says_so_when_the_phone_is_silent(self) -> None:
         screen = self.touchscreen()
         self.hw.record_photo_event(b"", 34.0)
         screen._follow_capture()
