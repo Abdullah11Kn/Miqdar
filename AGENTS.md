@@ -43,7 +43,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 
 - **Branch:** `feature/scale-live-flow` holds all current work, and the Pi is on it. `main` is well behind and
   `origin/usb` is an older copy. Do not merge to `main` until Abdullah says so.
-- **App:** follows the Miqdar design system from a design tool (`docs/DESIGN.md`), in English and Arabic, light and dark. There are no accounts, by decision.
+- **App:** follows the Miqdar design system (`docs/DESIGN.md`), in English and Arabic, light and dark. There are no accounts, by decision.
 - **Real scale, new app, verified 2026-11-02:** connects at `foodscale.local`, shows the true reading (0 g, sensor ok),
   Zero works, and an empty-plate capture is refused.
 - **Still not verified on the real scale:**
@@ -51,6 +51,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
   2. Starting at boot: the startup entry was launched by hand and worked, but the Pi has not been rebooted, because
      `sudo reboot` needs a password. Power-cycle it once to prove this.
 - **Pi:** tunnel off by default and not running. The scale's Wi-Fi address works.
+- **Pi needs one special update:** git history was rewritten on 2026-11-04, so a plain `git pull` fails there. Once, check `git status` for Pi-only changes first, then run `git fetch origin && git reset --hard origin/feature/scale-live-flow && ./install_pi_desktop.sh`. After that, the usual command works.
 - **Not working:** USB-C networking (Mac → Pi gets no answers). Wi-Fi is used instead, and this is not being pursued.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
@@ -61,8 +62,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 
 ```
 AGENTS.md                 This file
-the local tool file                 Makes the coding tool load this file automatically
-.agents/skills/           38 agent skills from mattpocock/skills, plus frontend-design from a public skills repo; a local folder links to them. skills-lock.json pins them
+Local tool files         Not on GitHub, ignored by git: the skills in .agents/skills/ and their lock file, and the file that makes the coding tool load these notes. Reinstall them with npx skills if they are ever missing
 README.md                 Project overview
 app.py                    Runs on the Pi: scale screen, REST API on :8080, capture
 hardware.py, scale.py     HX711 and camera drivers; calibration tool
@@ -175,9 +175,9 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the root, created only when
 - Add Meal shows the live weight and a Capture button. The photo appears immediately with loading, then the food name and calories.
 - Agents have full freedom on UX and AI choices, as long as nothing gets blocked. He wants the best result, not literal obedience.
 - The 400-sample benchmark is fake placeholder data: ignore it.
-- 2026-11-02: he tried the orange brand redesign (commit 199e6dd) on his simulator, did not like it, and asked for the previous green design back. Do not bring back the orange look unless he asks. The earlier request to improve the design is still open: ask him what he wants before another redesign.
+- 2026-11-02: he tried the orange brand redesign (commit e6c80e7) on his simulator, did not like it, and asked for the previous green design back. Do not bring back the orange look unless he asks. The earlier request to improve the design is still open: ask him what he wants before another redesign.
 - 2026-11-02: earlier requirements no longer bind the project, including `docs/archive/FRONTEND_REQUIREMENTS_V3.md`. No accounts or sign-in; the diary stays on the phone. "You are one of us, do the best for the project": act on your own judgment and report plainly.
-- 2026-11-04: he made a design system in a design tool and asked for it to be applied ("do it"). It replaces the green design as the app's look. It keeps a green, in a deeper shade, with orange as the attention color.
+- 2026-11-04: he made a design system and asked for it to be applied ("do it"). It replaces the green design as the app's look. It keeps a green, in a deeper shade, with orange as the attention color.
 - 2026-11-04: new feature plan, in issue #1. Priority is daily use, with the most effort on what will be demonstrated. Build one at a time: body profile and goal; mixed plates; logging away from the scale (phone camera, describe by text or voice, as a secondary option); quick re-logging from Search; body weight log; meal reminders.
 - 2026-11-04: the profile is required for every user, but skippable in test builds while he tests. Rice with chicken added as one plate is one meal. Adding the next food uses a button on both screens, not automatic detection. Short wobbles of the weight are accepted.
 - 2026-11-04: features that do not use the scale need no hardware testing. He will come back to agents when he is ready for a real-meal accuracy test.
@@ -199,9 +199,15 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-04: Removed every mention of the coding tool from GitHub
+- Decided: Abdullah asked for this ("rewrite and remove") and ran the force-push script himself, because the permission system blocked it for an agent.
+- Changed: rewrote `feature/scale-live-flow`, `usb` and `fix/scale-app-photo-live-weight`: credit lines removed, one commit's author changed to him, tool files removed from all history and now ignored by git but kept on his Mac, tool names in documents replaced. `main` and `feature/frontend-redesign-v3` had none, so they did not change. Commit IDs in this log and in issue comments were updated, so older IDs elsewhere point to nothing.
+- Tested: no matches for the names in any message, author or file on any branch on GitHub, and the contributor list shows only him.
+- Not tested / risks: GitHub can still serve old commits by their direct link until it cleans them up, which GitHub Support can speed up. A backup with the old history is in `~/Documents/miqdar-before-history-rewrite/` on his Mac, not on GitHub. The Pi has not been updated.
+
 ### 2026-11-04: Finished the agent skills setup
 - Changed: Abdullah asked to finish `/setup-matt-pocock-skills`. Added `docs/agents/` for GitHub Issues, labels and domain documents, and the labels `needs-triage`, `needs-info` and `ready-for-human`. No app or Pi code changed.
-- Careful: the skill says to edit the tool file that points here, but that file is leaving GitHub, so the section is in this file. The history rewrite is prepared but not pushed: a normal push to this branch makes its script refuse until the rewrite is prepared again.
+- Careful: the skill says to edit the tool file that points here, but that file is not on GitHub, so the section is in this file.
 - Tested: labels listed from GitHub. No skill was run with the new files.
 
 ### 2026-11-04: Quick re-logging, body weight log and meal reminders (tickets #11, #12, #13)
@@ -241,7 +247,7 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 - Not tested / risks: one Gemini request per plate is a reasoned choice, not measured. The macro split, the 2 kg goal-update offer and the target weight checks are agent defaults he did not ask for. Real food capture on the real scale is still unverified.
 - Next: build the body profile. Finish `/setup-matt-pocock-skills` if he wants `docs/agents/`.
 
-### 2026-11-04: Applied the a design tool design system to the whole app
+### 2026-11-04: Applied the design system to the whole app
 - Changed: new colors with a new dark mode, type, shapes and shared components across every screen, as a theme in `theme.dart` plus the components in `charts_and_gauges.dart`. Icons are now Material Symbols Rounded, cut to a 17 KB font in `mobile/assets/fonts`. New bottom bar. One main button per screen; Capture becomes secondary once a photo is chosen. Scale fault and simulated states now show on the Home card. Review tiles show Unknown for missing macros. Removed unused GlassCard and aiming overlay. No logic, API or database change. `docs/DESIGN.md` rewritten, `docs/APP_SCREENS.md` updated.
 - Also fixed: Insights had two Arabic names; some small English text on Arabic screens; the Choose Meal Photo sheet overflowed on a phone, found while testing.
 - Tested: `flutter analyze`; 35 unit tests; `scale_flow_test` on a throwaway simulator with a simulated scale and real Gemini (Saleeg, 240 g, 336 kcal, saved); a temporary screenshot tour of the main screens in all four language and theme modes, sheets in two, with no layout errors, and most of the screenshots looked at; not-connected states in English light; his simulator rebuilt and Home confirmed by screenshot, his data kept.
@@ -271,7 +277,7 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
 ### 2026-11-02: Orange redesign reverted
 - Decided: Abdullah saw the redesign on his simulator and asked to go back to the old design.
-- Changed: reverted commits 199e6dd, cc952a6 and 3748a71 (colors, fonts, logo, app icons, screens, `docs/DESIGN.md`). Kept the Arabic food categories and the alert wording. The redesign stays in git history.
+- Changed: reverted commits e6c80e7, 0177046 and d0229d6 (colors, fonts, logo, app icons, screens, `docs/DESIGN.md`). Kept the Arabic food categories and the alert wording. The redesign stays in git history.
 - Tested: `flutter analyze`, 35 unit tests, and a screenshot of his simulator after rebuilding it.
 - Next: ask him what he disliked: the orange only, or the whole look. Layout and color can change separately.
 
@@ -280,7 +286,7 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 - Fixed: the clock was white on cream when the app opened to Home, because the dark splash left a light status bar. The tour missed this.
 - Tested: `flutter analyze`, unit tests, screenshot on his simulator, connected to the real scale.
 
-### 2026-11-02: New brand and full front-end redesign (commit 199e6dd)
+### 2026-11-02: New brand and full front-end redesign (commit e6c80e7)
 - Decided: Abdullah rejected the old look as only a starter demo, and said icons, images, fonts and colors may all change.
 - Changed: new identity in `docs/DESIGN.md`: the letter م on a dial as logo and app icon, date-brown, laban and saffron
   palette, Instrument Serif and Amiri for numbers and titles, IBM Plex Sans Arabic for text, Phosphor icons. Every screen
@@ -297,7 +303,7 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 - Careful: `phosphor_flutter` passes `flutter analyze` but does not build on Flutter 3.47. Icon fonts are bundled instead.
 - Next: Abdullah to run `./run_simulator.sh` and judge the look; real food capture.
 
-### 2026-11-02: Boot start, tunnel off, documents sorted, first test on the real scale (commit 7f41667 and the next one)
+### 2026-11-02: Boot start, tunnel off, documents sorted, first test on the real scale (commit 43dcd74 and the next one)
 - Decided: Abdullah said earlier requirements no longer bind the project, and to do what is best. Recorded under Decisions.
 - Changed: the scale starts at boot on Wi-Fi only. The tunnel, which was running publicly with the camera open and no
   password, now needs the new "Miqdar Scale + Internet" icon. Removed the made-up `battery_pct`. `run_simulator.sh`
@@ -311,7 +317,7 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 - Not tested / risks: real food capture; an actual reboot. `TECHNICAL_REFERENCE.md` was corrected where checked, not line by line.
 - Next: put food on the real scale and capture; power-cycle the Pi once.
 
-### 2026-11-02: Organized the repository and created this file (commit 04df902)
+### 2026-11-02: Organized the repository and created this file (commit f1a015a)
 - Changed: Abdullah asked for a shared file so agents stop losing context. Added `AGENTS.md`, `the local tool file` (loads it
   automatically in the coding tool) and `docs/README.md`. Moved the loose root documents into `docs/`; `AGENT_HANDOVER.md`
   is now `docs/TECHNICAL_REFERENCE.md` and the requirements file is `docs/archive/FRONTEND_REQUIREMENTS_V3.md`.
@@ -321,7 +327,7 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 - Tested: Python tests and `flutter analyze` pass, all root scripts pass a syntax check, `evaluation/test_recognition.py --help` runs from its new place, no broken document links.
 - Not tested / risks: no app or Pi code changed. Other tools (Cursor, Codex and similar) may need to be told to read this file.
 
-### 2026-11-02: Finished the whole app (commit dd36652)
+### 2026-11-02: Finished the whole app (commit 3b2b262)
 - Changed: removed fake sign-in, password reset, pairing, sync, account deletion and device stats. Added a real scale
   connection test, Delete All My Data and honest privacy text. Database v3 now keeps fat/fiber goals, track-only mode,
   meal notes and notice state; meal photos are kept and shown. Demo no longer writes to the real diary. The diary
@@ -332,14 +338,14 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 - Not tested / risks: the real scale. Two end-to-end runs timed out while Gemini was overloaded; the retry was added
   after that. Export only copies to the clipboard. Log Again does not carry the photo.
 
-### 2026-11-01: Rebuilt the core app around the real scale (commits 5304d4b, 5ac29bc)
+### 2026-11-01: Rebuilt the core app around the real scale (commits 12bead2, d3aabd3)
 - Changed: Add Meal has a big live weight and one Capture button. Review keeps Save always visible with Undo. No fake
   meals in totals. Arabic works. Welcome, language, theme and name are remembered.
 - Tested: unit tests and flow test on a simulated scale.
 - Risk: while testing, the app was uninstalled from his iPhone 16 Pro simulator, wiping its saved meals. Abdullah was told.
 
-### 2026-11-01: Better Gemini analysis and speed (commits 465b087, 0045d74, ab0ad80)
+### 2026-11-01: Better Gemini analysis and speed (commits 28bf700, a015833, 19775fa)
 - Changed: photo sent at 768 px, deadlines of 8 s per model and 35 s total, model fallback list, edible fraction for
   peel and bones, label reading, corrections, calorie plausibility check. The Pi refuses a weight that never settles.
 - Tested: real scale with pomegranate (243 g, about 21 s, later faster). A benchmark used up the free daily quota on
-  some models. Commit ab0ad80 says "25 test photos" for its accuracy figure; it was really about 10.
+  some models. Commit 19775fa says "25 test photos" for its accuracy figure; it was really about 10.

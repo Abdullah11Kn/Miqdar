@@ -1,7 +1,6 @@
 # Miqdar design system
 
-The app follows the Miqdar design system Abdullah made in a design tool on 2026-11-03:
-a private design file. That link is private to him. This page holds what an agent needs
+The app follows the Miqdar design system Abdullah made on 2026-11-03. The original is private to him. This page holds what an agent needs
 when changing the app. If the design system changes, update `mobile/lib/theme.dart` and this page.
 
 ## In the code
