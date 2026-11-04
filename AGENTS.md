@@ -50,7 +50,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
   1. A real food capture with the new app: nobody was there to put food on the plate. This is the most important next test.
   2. Starting at boot: on the 2026-11-05 00:04 boot the scale was not running 8 minutes later, cause unknown. The same autostart mechanism ran a test entry correctly. `start_all.sh` now logs to `/tmp/miqdar_start.log`. Power-cycle it and read that log; rebooting over SSH needs a password.
 - **Pi:** tunnel off by default and not running. The scale's Wi-Fi address works.
-- **Pi code:** updated 2026-11-05 to the rewritten history, so `git pull` works there again. The earlier calibration is backed up in `~/miqdar-backup/` on the Pi.
+- **Pi code:** at the new touchscreen design (aeae659) with Thmanyah installed, loaded at the next scale restart. `git pull` works there again since the history rewrite. The earlier calibration is backed up in `~/miqdar-backup/` on the Pi.
 - **USB-C networking:** Abdullah remembers it working. On 2026-11-04 the Mac got no reply at 192.168.7.1 and no address from the Pi, even though the Pi's `miqdar-usb` connection reads as active. Use the `iphone A` hotspot, which works.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
@@ -203,11 +203,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
-### 2026-11-05: Scale touchscreen matches the app's design
+### 2026-11-05: Scale touchscreen matches the app's design (commit aeae659)
 - Decided: Abdullah asked for the "balance screen" to be made compatible with the new design. Taken to mean the Pi's touchscreen.
 - Changed: `draw_screen` in `app.py` uses the design system's dark tokens, Thmanyah, pill buttons, a white main action, plain weight with locked digits, and sentence-style labels. Phone results now read "Gemini estimate", and a missing value reads Unknown, not 0. The exit screen now says plainly that closing stops the phone connecting. Actions and flow are unchanged. New `install_thmanyah_pi.sh` copies the fonts over SSH, because the licence keeps them out of git; without them the screen falls back to DejaVu Sans.
-- Tested: 43 of 43 Python tests, including a new one for the labels; all screen states looked at as rendered pictures. See the entry's real-screen result in Current state if added below.
-- Not tested / risks: Arabic food names are not shaped on this screen, as before; it is an English screen. Boot start and real food are still open.
+- Tested: 43 of 43 Python tests, including a new one for the labels; all screen states looked at as pictures rendered on the Mac. On the Pi: code at aeae659, fonts copied, and eight screens drew without error in a hidden Tk window using Thmanyah.
+- Not tested / risks: NOT yet seen on the physical screen, because the running scale still has the old code loaded. It was not restarted: someone had just started it with the Internet icon, and a restart changes the public address. Touch taps on the new buttons are not tested. Arabic food names are not shaped on this screen, as before. Boot start and real food are still open.
+- Next: restart the scale from a desktop icon, then check the look and the buttons on the device. The public tunnel was running at the time; it exposes the camera and API, so turn it off when not needed.
 
 ### 2026-11-05: Applied the black and white design system, in Thmanyah (commit 707a8ef)
 - Decided: Abdullah asked for his design system artifact to become the app's UI and UX, with the Thmanyah fonts. He had put the zips in `mobile/assets/fonts`.
