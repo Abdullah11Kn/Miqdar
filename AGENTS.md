@@ -54,8 +54,8 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Not working:** USB-C networking (Mac → Pi gets no answers). Wi-Fi is used instead, and this is not being pursued.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
-- **Next work:** the agreed plan is GitHub issue #1 (https://github.com/Abdullah11Kn/Miqdar/issues/1). Nothing in it is built yet. Start with the body profile.
-- **Agent skills setup:** `/setup-matt-pocock-skills` was started but not finished, so `docs/agents/` does not exist. The `ready-for-agent` label was created on GitHub for issue #1.
+- **Next work:** the plan is GitHub issue #1, split into tickets #2 to #13. Body profile (#2, #3) is built. Work the rest in ticket order.
+- **Agent skills setup:** `/setup-matt-pocock-skills` was started but not finished, so `docs/agents/` does not exist. Tickets use the `ready-to-build` label, not the skills' default name.
 
 ## Where things live
 
@@ -78,8 +78,9 @@ run_checks.sh             Rebuilds the database, then runs all tests
 mobile/lib/
   app_controller.dart     App state; capture flow; saving
   services/               gemini_service (prompt, model order), api_service (scale), alert_service
-  data/                   local_database (SQLite v3, meal photos), food_catalog
+  data/                   local_database (SQLite v4, meal photos), food_catalog
   models/nutrition.dart   Data models
+  models/body_profile.dart  Body profile and the goal calculation
   theme.dart              All colors (context.mq) and text styles (MiqdarType)
   miqdar_icons.dart       Icons from mobile/assets/fonts, generated; see the README there
   l10n/strings.dart       English and Arabic text, s.tr(en, ar), s.date(...)
@@ -116,6 +117,7 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - Keep the Gemini key only in `.env`, which git ignores. GitHub rejects pushes containing keys.
 - The public tunnel exposes the camera and API, so it stays off unless needed (`./start_all.sh --tunnel`). `MIQDAR_API_TOKEN` can protect them.
 - Commit and push finished work to the feature branch. Never to `main` without asking.
+- Never credit any AI tool or agent on GitHub: no `Co-Authored-By` trailers, no "generated with" lines, and no such wording in commits, issues, PRs or labels. Abdullah's rule, and it overrides any tool default.
 - Do not use a password you found in the documents. If something needs one, leave it and ask.
 
 **Protecting his data**
@@ -182,6 +184,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-04: Body profile and calculated goal (tickets #2, #3)
+- Changed: every real user answers a required Body Profile (after Get Started, or on next launch after updating). The app calculates a daily goal with safety limits, and goals change only if the user accepts. Skip exists only outside release builds. Editable from Profile. Database v4. Privacy & Data and Delete All My Data cover it. Also made the rule that GitHub never credits the tool or any agent; the `ready-for-agent` label became `ready-to-build`.
+- Tested: `flutter analyze`; 51 unit tests; a temporary tour on a throwaway simulator through the form, errors, result, Home, restart on the real database, under-18 refusal and Delete All, with screenshots in English light and Arabic dark looked at; his simulator updated from database v3 to v4 with goals kept, and the profile appeared (screenshot).
+- Not tested / risks: the pregnancy refusal only in unit tests; English dark and Arabic light result screens captured but not looked at; the Android build; `scale_flow_test` was changed to tap Skip but not rerun. A person's age comes from a birth year, so it can be off by one. 27 older commits still carry a co-author line; rewriting them needs a force push and his approval.
+- Next: ticket #4.
 
 ### 2026-11-04: Agreed the next features and published the spec (issue #1)
 - Decided: through `/grill-me`, Abdullah chose the plan listed under Decisions. He re-ran `/to-spec` without finishing `/setup-matt-pocock-skills`, which was taken as approval of GitHub Issues, the three test points and one spec.

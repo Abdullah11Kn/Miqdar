@@ -11,6 +11,7 @@ import 'profile_and_device_screen.dart';
 import 'scan_and_add_screen.dart';
 
 export 'auth_screens.dart';
+export 'body_profile_screen.dart';
 export 'diary_and_detail_screen.dart';
 export 'home_screen.dart';
 export 'insights_and_goals_screen.dart';

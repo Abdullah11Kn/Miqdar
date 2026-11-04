@@ -68,8 +68,9 @@ White rounded cards on a very pale background, one deep green for actions, warm 
 ```text
 Splash
 ├─ First time → Welcome
-│    ├─ Get Started → Main app
+│    ├─ Get Started → Body Profile → Your Daily Goal → Main app
 │    └─ Try with Sample Data → Main app (demo)
+├─ Returning, no body profile yet → Body Profile → Your Daily Goal → Main app
 └─ Returning → Main app
 
 Main app: bottom bar with 5 tabs
@@ -86,7 +87,7 @@ Main app: bottom bar with 5 tabs
 │    └─ Capture → Analyzing → Review Meal, or Failure sheet
 ├─ Diary → Meal Detail → Edit sheet, Log Again, Delete
 ├─ Insights → Export sheet, Nutrient sheet
-└─ Profile → Name sheet, Daily Goals, Food Preferences, Scale, Privacy & Data
+└─ Profile → Name sheet, Body Profile, Daily Goals, Food Preferences, Scale, Privacy & Data
 ```
 
 **Bottom bar, left to right:** Home (house), Add Meal (camera with plus, inside an outlined circle, solid green when
@@ -121,8 +122,31 @@ Shown until the user starts. The layout fills the screen without scrolling.
 3. **Headline:** "Know what's on your plate, down to the gram."
 4. **Text:** "Put your food on the Miqdar scale. It weighs and photographs it, and Gemini estimates the calories and
    nutrients."
-5. **Get Started** (dark, full width, arrow): opens the app with the user's real, empty diary.
+5. **Get Started** (dark, full width, arrow): opens Body Profile, then the app with the user's real, empty diary.
 6. **Try with Sample Data** (outlined, full width): opens the demo.
+
+### Body Profile
+
+Required for every real user, once: after Get Started, or on the next launch for someone updating the app. The demo skips
+it. Test builds show a **Skip** text button at the top; release builds do not. From Profile it opens filled in, with a back arrow.
+
+1. **Text:** the answers calculate the daily goal, stay on this phone and are not sent to Gemini.
+2. **First card:** Sex chips (Male, Female). Selecting Female adds "Pregnant or breastfeeding?" with Yes and No. Age, Height (cm)
+   and Weight (kg) fields.
+3. **"How active are you?"** chips, five levels.
+4. **"What is your goal?"** chips: Lose weight, Keep my weight, Gain weight. Losing or gaining adds Target weight and Weekly
+   pace (0.25 or 0.5 kg a week).
+5. **Calculate My Goal** stays fixed at the bottom. Missing or impossible answers show red messages in place.
+
+### Your Daily Goal
+
+Top bar with a back arrow to correct the answers.
+
+- **With a goal:** "Eat about", an orange **Estimate** pill, calories, protein, carbs and fat. A note if the plan was raised to
+  the safe minimum. A caption names the formula and says it is not medical advice. **Use These Goals** is the main button.
+  **Keep My Current Goals** appears for anyone who already had goals, not on a first run.
+- **Under 18, pregnant or breastfeeding:** no numbers. "Ask a doctor or dietitian", the reason, and **Continue**. On a first
+  run this turns on tracking without goals, so the default 2200 kcal does not stand in as a target. Otherwise goals stay as they were.
 
 ## 6. Home tab
 
@@ -327,7 +351,8 @@ clipboard; no file is created.
    - Language: **English** and **العربية** switch.
    - **Dark Mode** switch.
    - **Phone-sized layout** switch, on wide screens only.
-4. **Settings,** four tappable rows, each with an icon tile, title, subtitle and arrow:
+4. **Settings,** tappable rows, each with an icon tile, title, subtitle and arrow:
+   - **Body Profile,** "165 cm, 70 kg" or "Not filled in yet". Not shown in the demo.
    - **Daily Goals,** "2200 kcal a day" or "Tracking without goals".
    - **Food Preferences,** "Allergies, foods to avoid, meal ideas".
    - **Scale,** "Connected" or "Not connected".
@@ -381,7 +406,8 @@ a red message if the address does not answer, then **Cancel** and **Connect** (o
 ### Privacy & Data
 
 1. **"Where your data goes" card,** three rows with icons:
-   - **This phone:** meals, photos, goals and preferences are stored here, with no account or cloud copy.
+   - **This phone:** meals, photos, goals, preferences and body profile are stored here, with no account or cloud copy. The body
+     profile is not sent to Gemini.
    - **Google Gemini:** each photo goes to Google with its weight and any note. The free plan may use it.
    - **Your scale:** it keeps its own photos, and deleting data here does not remove them.
 2. **Export My Meals** (outlined): opens the Export sheet for the last 365 days.

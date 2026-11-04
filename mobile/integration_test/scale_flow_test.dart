@@ -56,7 +56,11 @@ void main() {
 
     await pumpUntil(() => find.text('Get Started').evaluate().isNotEmpty || find.byType(MainShell).evaluate().isNotEmpty);
     await hold(1);
-    if (find.text('Get Started').evaluate().isNotEmpty) await tester.tap(find.text('Get Started').first);
+    if (find.text('Get Started').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Get Started').first);
+      await tester.pumpAndSettle();
+    }
+    if (find.text('Skip').evaluate().isNotEmpty) await tester.tap(find.text('Skip').first);
     await pumpUntil(() => find.byType(MainShell).evaluate().isNotEmpty);
 
     // The scale connects and reports its true state.

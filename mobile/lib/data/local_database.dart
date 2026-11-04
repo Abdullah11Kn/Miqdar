@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import '../models/body_profile.dart';
 import '../models/nutrition.dart';
 
 class LocalDatabase {
@@ -159,7 +160,7 @@ class LocalDatabase {
       final root = await getDatabasesPath();
       _database = await openDatabase(
         p.join(root, 'miqdar_mobile.db'),
-        version: 3,
+        version: 4,
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE goals(
@@ -184,10 +185,12 @@ class LocalDatabase {
           ''');
           await _createHealthProfileTable(db);
           await _addRestartSafeColumns(db);
+          await _createBodyProfileTable(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) await _createHealthProfileTable(db);
           if (oldVersion < 3) await _addRestartSafeColumns(db);
+          if (oldVersion < 4) await _createBodyProfileTable(db);
         },
       );
       await _seedGoals();
@@ -246,6 +249,21 @@ class LocalDatabase {
       dietary_preferences TEXT NOT NULL,
       allergens TEXT NOT NULL,
       disliked_foods TEXT NOT NULL
+    )
+  ''');
+
+  static Future<void> _createBodyProfileTable(Database db) => db.execute('''
+    CREATE TABLE IF NOT EXISTS body_profile(
+      id INTEGER PRIMARY KEY CHECK(id=1),
+      sex TEXT NOT NULL,
+      birth_year INTEGER NOT NULL,
+      height_cm REAL NOT NULL,
+      weight_kg REAL NOT NULL,
+      activity TEXT NOT NULL,
+      goal TEXT NOT NULL,
+      target_weight_kg REAL,
+      weekly_pace_kg REAL,
+      pregnant_or_breastfeeding INTEGER NOT NULL DEFAULT 0
     )
   ''');
 
@@ -625,11 +643,13 @@ class LocalDatabase {
     _memCustomFoods.clear();
     _memPhotos.clear();
     _memSettings.clear();
+    _memBodyProfile = null;
     if (_useInMemory) return;
     await db.delete('meals');
     await db.delete('alerts');
     await db.delete('goals');
     await db.delete('health_profile');
+    await db.delete('body_profile');
     await db.execute('DROP TABLE IF EXISTS settings');
     await _seedGoals();
     await _seedHealthProfile();
@@ -645,6 +665,21 @@ class LocalDatabase {
   }
 
   final Map<String, String> _memSettings = {};
+  BodyProfile? _memBodyProfile;
+
+  Future<void> saveBodyProfile(BodyProfile profile) async {
+    _memBodyProfile = profile;
+    final database = _database;
+    if (database == null || _useInMemory) return;
+    await database.insert('body_profile', profile.toRow(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<BodyProfile?> loadBodyProfile() async {
+    final database = _database;
+    if (database == null || _useInMemory) return _memBodyProfile;
+    final rows = await database.query('body_profile', limit: 1);
+    return rows.isEmpty ? null : BodyProfile.fromRow(rows.first);
+  }
 
   Future<void> saveSetting(String key, String value) async {
     _memSettings[key] = value;

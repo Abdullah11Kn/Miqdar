@@ -42,11 +42,17 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     Future<void>.delayed(const Duration(milliseconds: 950), () {
       if (!mounted) return;
-      final returning = MiqdarScope.of(context).onboarded;
+      final controller = MiqdarScope.of(context);
+      final returning = controller.onboarded;
+      final needsProfile = controller.needsBodyProfile;
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 400),
-          pageBuilder: (_, __, ___) => returning ? const MainShell() : const WelcomeScreen(),
+          pageBuilder: (_, __, ___) => !returning
+              ? const WelcomeScreen()
+              : needsProfile
+                  ? const BodyProfileScreen()
+                  : const MainShell(),
           transitionsBuilder: (_, animation, __, child) =>
               FadeTransition(opacity: animation, child: child),
         ),
@@ -398,7 +404,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     onPressed: () {
                       controller.signIn(email: '');
                       Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (_) => const MainShell()),
+                        MaterialPageRoute(
+                          builder: (_) => controller.needsBodyProfile
+                              ? const BodyProfileScreen(firstRun: true)
+                              : const MainShell(),
+                        ),
                       );
                     },
                     child: Row(

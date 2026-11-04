@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import 'data/food_catalog.dart';
 import 'data/local_database.dart';
+import 'models/body_profile.dart';
 import 'models/nutrition.dart';
 import 'services/alert_service.dart';
 import 'services/api_service.dart';
@@ -87,6 +88,28 @@ class MiqdarController extends ChangeNotifier {
   /// True once the user has been through the welcome screen, so it only appears once.
   bool onboarded = false;
 
+  /// The answers behind the calculated goal. Stays on this phone and never goes to Gemini.
+  BodyProfile? bodyProfile;
+
+  /// Test builds only: lets Abdullah get past the required profile while testing.
+  bool bodyProfileSkipped = false;
+
+  bool get needsBodyProfile => !account.isDemo && bodyProfile == null && !bodyProfileSkipped;
+
+  /// Saves the answers only. Goals change separately, when the user accepts them.
+  Future<void> saveBodyProfile(BodyProfile value) async {
+    if (account.isDemo) return;
+    bodyProfile = value;
+    await localDatabase.saveBodyProfile(value);
+    notifyListeners();
+  }
+
+  void skipBodyProfile() {
+    bodyProfileSkipped = true;
+    _remember('body_profile_skipped', '1');
+    notifyListeners();
+  }
+
   void _remember(String key, String value) {
     unawaited(localDatabase.saveSetting(key, value).catchError((Object _) {}));
   }
@@ -151,6 +174,8 @@ class MiqdarController extends ChangeNotifier {
     _photoCache.clear();
     account = const UserAccount();
     onboarded = false;
+    bodyProfile = null;
+    bodyProfileSkipped = false;
     meals = [];
     alerts = [];
     goals = await localDatabase.loadGoals();
@@ -177,6 +202,8 @@ class MiqdarController extends ChangeNotifier {
     apiService.gemini.noteInArabic = isAr;
     if (await localDatabase.getSetting('theme') == 'dark') themeMode = ThemeMode.dark;
     onboarded = await localDatabase.getSetting('onboarded') == '1';
+    bodyProfileSkipped = await localDatabase.getSetting('body_profile_skipped') == '1';
+    bodyProfile = await localDatabase.loadBodyProfile();
     _lastSeenCaptureEventId = await localDatabase.getSetting('last_capture_event');
     final name = await localDatabase.getSetting('account_name');
     if (name != null && name.isNotEmpty) {

@@ -146,6 +146,20 @@ class ProfileScreen extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: context.mq.ink),
         ),
         const SizedBox(height: 10),
+        if (!controller.account.isDemo)
+          _ProfileNavRow(
+            icon: MiqdarIcons.person,
+            title: s.tr('Body Profile', 'بياناتك الجسدية'),
+            subtitle: controller.bodyProfile == null
+                ? s.tr('Not filled in yet', 'لم تُملأ بعد')
+                : s.tr(
+                    '${controller.bodyProfile!.heightCm.toStringAsFixed(0)} cm, ${controller.bodyProfile!.weightKg.toStringAsFixed(0)} kg',
+                    '${controller.bodyProfile!.heightCm.toStringAsFixed(0)} سم، ${controller.bodyProfile!.weightKg.toStringAsFixed(0)} كجم',
+                  ),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BodyProfileScreen(editing: true)),
+            ),
+          ),
         _ProfileNavRow(
           icon: MiqdarIcons.trackChanges,
           title: s.tr('Daily Goals', 'الأهداف اليومية'),
@@ -736,8 +750,8 @@ class PrivacyAndDataScreen extends StatelessWidget {
                         icon: MiqdarIcons.phoneIphone,
                         title: s.tr('This phone', 'هذا الهاتف'),
                         body: s.tr(
-                          'Your meals, meal photos, goals and preferences are stored here. There is no Miqdar account or cloud copy, so removing the app removes them.',
-                          'تُحفظ هنا وجباتك وصورها وأهدافك وتفضيلاتك. لا يوجد حساب أو نسخة سحابية لمقدار، لذا فإن حذف التطبيق يحذفها.',
+                          'Your meals, meal photos, goals, preferences and body profile are stored here. There is no Miqdar account or cloud copy, so removing the app removes them. Your body profile is not sent to Gemini.',
+                          'تُحفظ هنا وجباتك وصورها وأهدافك وتفضيلاتك وبياناتك الجسدية. لا يوجد حساب أو نسخة سحابية لمقدار، لذا فإن حذف التطبيق يحذفها. لا تُرسل بياناتك الجسدية إلى Gemini.',
                         ),
                       ),
                       _PrivacyRow(
