@@ -12,6 +12,7 @@ When a document disagrees with the code, the code is right.
 | [HARDWARE.md](HARDWARE.md) | Wiring, Raspberry Pi and calibration |
 | [DESIGN.md](DESIGN.md) | The design system: colors, type, components and rules |
 | [APP_SCREENS.md](APP_SCREENS.md) | Every screen and control as they are now |
+| [agents/](agents/) | Where issues live, the label names and the domain document rules, for the skills that use them |
 
 Next to their own code: [database/README.md](../database/README.md), [mobile/README.md](../mobile/README.md),
 [database/reference_images/CAPTURE_GUIDE.md](../database/reference_images/CAPTURE_GUIDE.md).

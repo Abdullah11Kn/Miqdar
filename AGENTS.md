@@ -55,7 +55,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
 - **Next work:** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
-- **Agent skills setup:** `/setup-matt-pocock-skills` was started but not finished, so `docs/agents/` does not exist. Tickets use the `ready-to-build` label, not the skills' default name.
+- **Agent skills setup:** done. See Agent skills below.
 
 ## Where things live
 
@@ -154,6 +154,20 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - The Pi's terminal runs all its windows in one process. Killing `x-terminal-emulator` stops the scale too.
 - A plain virtualenv cannot import `lgpio` and `picamera2`; it must use `--system-site-packages`.
 
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues in `Abdullah11Kn/Miqdar`, through the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The default labels, except that `ready-for-agent` is `ready-to-build` here. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the root, created only when needed. See `docs/agents/domain.md`.
+
 ## Decisions Abdullah made
 
 - Gemini analyzes every food. No database lookup or repeated stored foods for the scale flow, because ingredients change.
@@ -184,6 +198,11 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-04: Finished the agent skills setup
+- Changed: Abdullah asked to finish `/setup-matt-pocock-skills`. Added `docs/agents/` for GitHub Issues, labels and domain documents, and the labels `needs-triage`, `needs-info` and `ready-for-human`. No app or Pi code changed.
+- Careful: the skill says to edit the tool file that points here, but that file is leaving GitHub, so the section is in this file. The history rewrite is prepared but not pushed: a normal push to this branch makes its script refuse until the rewrite is prepared again.
+- Tested: labels listed from GitHub. No skill was run with the new files.
 
 ### 2026-11-04: Quick re-logging, body weight log and meal reminders (tickets #11, #12, #13)
 - Changed: Search shows up to five recent foods, reusing saved values with no Gemini request. Insights has a body weight card with a chart and an entry list; entries update the profile weight, and at 2 kg from the weight behind the goal it offers new goals, which change only if accepted. Database v6 adds `body_weights`. Profile has Meal Reminders, off by default, with local notifications that ask permission only when turned on. Packages added: `flutter_local_notifications`, `timezone`, `flutter_timezone`.
