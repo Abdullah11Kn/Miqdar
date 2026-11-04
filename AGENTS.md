@@ -199,6 +199,11 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-04: Checked the untested screens; fixed Unknown values, Arabic units and the 90-day test
+- Changed: a plate with unnamed foods now shows Unknown instead of 0 for its total and macros. The Home card uses the plate's name. Arabic units on the new screens now match the app (غ and كغ). `test_at_least_90_days_are_queryable` creates its own dated meals, so it no longer ages.
+- Tested: `flutter analyze`; 84 unit tests; 39 of 39 Python tests; a temporary tour with a fake scale and fake Gemini on a throwaway simulator, looking at Add Meal with a plate, the Failure sheet, Review with unnamed and named foods, Meal Detail and Edit Meal in English dark, Arabic light and Arabic dark.
+- Not tested / risks: the sheets opened during the tour stayed in the language they opened in, so the Arabic text of the plate item sheet and name dialog was not seen. Still not on the real scale or a real iPhone.
+
 ### 2026-11-04: Removed every mention of the coding tool from GitHub
 - Decided: Abdullah asked for this ("rewrite and remove") and ran the force-push script himself, because the permission system blocked it for an agent.
 - Changed: rewrote `feature/scale-live-flow`, `usb` and `fix/scale-app-photo-live-weight`: credit lines removed, one commit's author changed to him, tool files removed from all history and now ignored by git but kept on his Mac, tool names in documents replaced. `main` and `feature/frontend-redesign-v3` had none, so they did not change. Commit IDs in this log and in issue comments were updated, so older IDs elsewhere point to nothing.

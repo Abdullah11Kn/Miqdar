@@ -6,6 +6,7 @@ import sqlite3
 import tempfile
 import unittest
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,7 +14,7 @@ from PIL import Image
 
 from miqdar_backend.alert_engine import evaluate_alerts
 from miqdar_backend.database import (
-    connect, health_profile_for_user, history, update_goals, update_health_profile,
+    connect, health_profile_for_user, history, save_meal, update_goals, update_health_profile,
 )
 from miqdar_backend.recognition import (
     RECOGNITION_CACHE, GeminiRecognitionProvider, detect_new_food,
@@ -59,10 +60,22 @@ class MiqdarAcceptanceTests(unittest.TestCase):
             self.assertGreaterEqual(connection.execute("SELECT COUNT(*) FROM foods").fetchone()[0], 12)
 
     def test_at_least_90_days_are_queryable(self) -> None:
+        # Dated from today, because the seeded history in the database ages.
+        today = datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
+        nutrients = {
+            "calories_kcal": 100.0, "protein_g": 1.0, "carbohydrate_g": 1.0, "fat_g": 1.0,
+            "sugar_g": 1.0, "fiber_g": 1.0, "sodium_mg": 1.0, "potassium_mg": 1.0,
+        }
         with connect(self.db_path) as connection:
-            items = history(connection, "demo-user", 90)
-            distinct_days = {item["eaten_at"][:10] for item in items}
-            self.assertGreaterEqual(len(distinct_days), 90)
+            connection.execute("DELETE FROM meals WHERE user_id='demo-user'")
+            for day in [*range(90), 90]:
+                save_meal(
+                    connection, user_id="demo-user", food_id="food_dates_medjool", weight_g=100,
+                    confidence=0.9, nutrients=nutrients, eaten_at=(today - timedelta(days=day)).isoformat(),
+                )
+            distinct_days = {item["eaten_at"][:10] for item in history(connection, "demo-user", 90)}
+        self.assertEqual(len(distinct_days), 90)
+        self.assertNotIn((today - timedelta(days=90)).date().isoformat(), distinct_days)
 
     def test_health_alert_is_evaluated_within_four_seconds(self) -> None:
         with connect(self.db_path) as connection:

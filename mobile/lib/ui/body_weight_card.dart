@@ -50,7 +50,7 @@ class _BodyWeightCardState extends State<BodyWeightCard> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   labelText: s.tr('Weight', 'الوزن'),
-                  suffixText: s.tr('kg', 'كجم'),
+                  suffixText: s.tr('kg', 'كغ'),
                   errorText: error,
                 ),
               ),
@@ -78,7 +78,7 @@ class _BodyWeightCardState extends State<BodyWeightCard> {
                 onPressed: () {
                   final kg = double.tryParse(normalizeDigits(field.text).trim());
                   if (kg == null || kg < 20 || kg > 300) {
-                    setSheetState(() => error = s.tr('Enter a weight from 20 to 300 kg', 'أدخل وزناً من 20 إلى 300 كجم'));
+                    setSheetState(() => error = s.tr('Enter a weight from 20 to 300 kg', 'أدخل وزناً من 20 إلى 300 كغ'));
                     return;
                   }
                   Navigator.of(sheetCtx).pop(true);
@@ -116,7 +116,7 @@ class _BodyWeightCardState extends State<BodyWeightCard> {
     final c = context.mq;
     final entries = controller.weightEntries;
     final offer = controller.goalUpdateOffer;
-    final kg = s.tr('kg', 'كجم');
+    final kg = s.tr('kg', 'كغ');
     final selected = _selected != null && _selected! < entries.length ? entries[_selected!] : null;
     final shown = selected ?? (entries.isEmpty ? null : entries.last);
 

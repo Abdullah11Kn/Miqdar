@@ -2328,15 +2328,22 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Text(
-                      totalNutrients.calories.toStringAsFixed(0),
-                      style: MiqdarType.numberXl.copyWith(color: kcalColor),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      s.unitKcal,
-                      style: MiqdarType.titleCard.copyWith(color: kcalColor),
-                    ),
+                    if (totalNutrients.isMissing('calories_kcal'))
+                      Text(
+                        s.tr('Unknown', 'غير متوفر'),
+                        style: MiqdarType.titleSection.copyWith(color: context.mq.accentInk),
+                      )
+                    else ...[
+                      Text(
+                        totalNutrients.calories.toStringAsFixed(0),
+                        style: MiqdarType.numberXl.copyWith(color: kcalColor),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        s.unitKcal,
+                        style: MiqdarType.titleCard.copyWith(color: kcalColor),
+                      ),
+                    ],
                     const Spacer(),
                     Text(
                       '${result.totalWeightG.toStringAsFixed(0)} ${s.unitG}',
@@ -2707,7 +2714,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                     ),
                     Text(
                       item.isUnidentified
-                          ? s.tr('Unknown', 'غير معروف')
+                          ? s.tr('Unknown', 'غير متوفر')
                           : '${item.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
                       style: MiqdarType.label.copyWith(color: item.isUnidentified ? c.accentInk : c.ink),
                     ),

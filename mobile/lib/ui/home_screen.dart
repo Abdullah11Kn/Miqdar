@@ -166,7 +166,7 @@ class HomeScreen extends StatelessWidget {
                               style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
                             ),
                             Text(
-                              '${s.isAr && controller.lastRecognition!.nameAr.isNotEmpty ? controller.lastRecognition!.nameAr : controller.lastRecognition!.nameEn} • ${controller.lastRecognition!.totalWeightG.toStringAsFixed(0)} ${s.unitG}',
+                              '${controller.lastRecognition!.displayName(s.isAr)} • ${controller.lastRecognition!.totalWeightG.toStringAsFixed(0)} ${s.unitG}',
                               style: MiqdarType.caption.copyWith(fontSize: 13, height: 18 / 13, color: context.mq.ink),
                             ),
                           ],

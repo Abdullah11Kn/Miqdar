@@ -295,8 +295,9 @@ class MealItemEntry {
         nameEn: 'Unnamed food',
         nameAr: 'طعام بلا اسم',
         weightG: weightG,
-        nutrients: NutritionValues.zero(),
-        basisPer100g: NutritionValues.zero(),
+        // Nothing is known yet, so totals read Unknown rather than 0.
+        nutrients: NutritionValues.fromJson(const {}),
+        basisPer100g: NutritionValues.fromJson(const {}),
         verificationStatus: aiEstimateStatus,
       );
 
@@ -417,6 +418,13 @@ class RecognitionResult {
   final Uint8List? imageBytes;
 
   bool get isPlate => plateItems.isNotEmpty;
+
+  /// A plate goes by the plate's name, or its first food if it has none yet.
+  String displayName(bool isAr) {
+    final plateName = isAr ? plateNameAr : plateNameEn;
+    if (isPlate && plateName.isNotEmpty) return plateName;
+    return isAr && nameAr.isNotEmpty ? nameAr : nameEn;
+  }
   bool get plateNeedsNames => plateItems.any((item) => item.isUnidentified);
 
   /// One meal made of several foods: the first is the main item, the rest count as additional.

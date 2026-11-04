@@ -182,6 +182,15 @@ void main() {
     expect(result.totalNutrients.calories, closeTo(50, 0.01));
   });
 
+  test('an unsaved plate goes by the plate\'s name, not its first food', () async {
+    final rig = _Rig();
+    await rig.setUp();
+    await rig.finishPlate();
+    final result = rig.controller.lastRecognition!;
+    expect(result.displayName(false), 'Chicken Kabsa');
+    expect(result.displayName(true), 'كبسة دجاج');
+  });
+
   test('Log Again brings back every food', () async {
     final rig = _Rig();
     await rig.setUp();
@@ -258,6 +267,24 @@ void main() {
       expect(result.plateItems[1].nutrients.calories, closeTo(food.per100g.calories, 0.01));
       expect(result.plateNeedsNames, isFalse);
       expect(await rig.controller.saveLastRecognition(), isNotNull);
+    });
+
+    test('nutrients read as unknown, not zero, until every food has a name', () async {
+      final rig = _Rig(geminiStatus: 503);
+      await rig.setUp();
+      await rig.finishPlate();
+      await rig.controller.openPlateForNaming(rig.controller.latestScaleCaptureFailure!.plate!);
+      var result = rig.controller.lastRecognition!;
+      expect(result.totalNutrients.isMissing('calories_kcal'), isTrue);
+      expect(result.totalNutrients.isMissing('protein_g'), isTrue);
+
+      final food = MiqdarFoodCatalog.builtInFoods.first;
+      await rig.controller.replacePlateItemFood(result.plateItems[0].id, food);
+      result = rig.controller.lastRecognition!;
+      expect(result.totalNutrients.isMissing('calories_kcal'), isTrue, reason: 'one food is still unnamed');
+
+      await rig.controller.replacePlateItemFood(result.plateItems[1].id, food);
+      expect(rig.controller.lastRecognition!.totalNutrients.isMissing('calories_kcal'), isFalse);
     });
 
     test('a food Gemini cannot tell stays unnamed while the others keep their answers', () async {

@@ -147,7 +147,7 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
     return switch (problem) {
       BodyProfileProblem.age => s.tr('Enter an age from 5 to 110', 'أدخل عمراً من 5 إلى 110'),
       BodyProfileProblem.height => s.tr('Enter a height from 100 to 250 cm', 'أدخل طولاً من 100 إلى 250 سم'),
-      BodyProfileProblem.weight => s.tr('Enter a weight from 20 to 300 kg', 'أدخل وزناً من 20 إلى 300 كجم'),
+      BodyProfileProblem.weight => s.tr('Enter a weight from 20 to 300 kg', 'أدخل وزناً من 20 إلى 300 كغ'),
       BodyProfileProblem.target => _goal == WeightGoal.lose
           ? s.tr('Your target must be below your current weight', 'يجب أن يكون هدفك أقل من وزنك الحالي')
           : s.tr('Your target must be above your current weight', 'يجب أن يكون هدفك أعلى من وزنك الحالي'),
@@ -271,7 +271,7 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
               _numberField(
                 _weight,
                 s.tr('Weight', 'الوزن'),
-                s.tr('kg', 'كجم'),
+                s.tr('kg', 'كغ'),
                 _errorFor(BodyProfileProblem.weight, s, empty: _number(_weight) == null),
               ),
             ],
@@ -321,7 +321,7 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
                 _numberField(
                   _target,
                   s.tr('Target weight', 'الوزن المستهدف'),
-                  s.tr('kg', 'كجم'),
+                  s.tr('kg', 'كغ'),
                   _targetError(s),
                 ),
                 const SizedBox(height: 16),
@@ -329,7 +329,7 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
                 _chips<double>(
                   values: const [0.25, 0.5],
                   selected: _pace,
-                  label: (v) => s.tr('$v kg a week', '$v كجم في الأسبوع'),
+                  label: (v) => s.tr('$v kg a week', '$v كغ في الأسبوع'),
                   onSelected: (v) => setState(() => _pace = v),
                 ),
                 if (_errorFor(BodyProfileProblem.pace, s, empty: _pace == null) case final error?)
@@ -525,7 +525,7 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
           const SizedBox(width: 10),
           Expanded(child: Text(label, style: MiqdarType.body.copyWith(color: c.ink))),
           Text(
-            '${grams.toStringAsFixed(0)} ${s.tr('g', 'جم')}',
+            '${grams.toStringAsFixed(0)} ${s.unitG}',
             style: MiqdarType.bodyStrong.copyWith(color: c.ink),
           ),
         ],

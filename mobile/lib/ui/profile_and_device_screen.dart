@@ -154,7 +154,7 @@ class ProfileScreen extends StatelessWidget {
                 ? s.tr('Not filled in yet', 'لم تُملأ بعد')
                 : s.tr(
                     '${controller.bodyProfile!.heightCm.toStringAsFixed(0)} cm, ${controller.bodyProfile!.weightKg.toStringAsFixed(0)} kg',
-                    '${controller.bodyProfile!.heightCm.toStringAsFixed(0)} سم، ${controller.bodyProfile!.weightKg.toStringAsFixed(0)} كجم',
+                    '${controller.bodyProfile!.heightCm.toStringAsFixed(0)} سم، ${controller.bodyProfile!.weightKg.toStringAsFixed(0)} كغ',
                   ),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const BodyProfileScreen(editing: true)),
