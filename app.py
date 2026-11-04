@@ -776,7 +776,7 @@ def add_plate_step(hw: ScaleHardwareAdapter, *, finishing: bool = False) -> Opti
     the plate, because the last food was already recorded.
     """
     if hw.plate is not None and not hw.plate_is_open:
-        raise PlateOpenError("The last plate is waiting for the phone. Press NEW PLATE to drop it.")
+        raise PlateOpenError("The last plate is waiting for the phone. Press New Plate to drop it.")
     if not hw.capture_lock.acquire(blocking=False):
         raise CaptureBusyError("The scale is already capturing. Please wait a moment.")
     try:
@@ -1143,18 +1143,27 @@ def get_ip_address() -> str:
         return "127.0.0.1"
 
 
-C_BG = "#0A120E"
-C_CARD = "#121F18"
-C_TILE = "#182920"
-C_LINE = "#263E31"
-C_GREEN = "#059669"
-C_GREEN_HI = "#10B981"
-C_WHITE = "#F1F5F9"
-C_MUTED = "#94A3B8"
-C_RED = "#E11D48"
-C_AMBER = "#D97706"
-C_DISABLED = "#2A3530"
-UI_FONT = "DejaVu Sans"
+# The Miqdar design system's dark tokens: see docs/DESIGN.md.
+C_BG = "#000000"
+C_SURFACE = "#1A1A1A"
+C_SUNKEN = "#2A2A2A"
+C_BORDER = "#262626"
+C_INK = "#FFFFFF"
+C_MUTED = "#9D9D9D"
+C_PRIMARY = "#3ECB7F"
+C_ACCENT = "#F3A36B"
+C_ACCENT_SOFT = "#2E2018"
+C_DANGER = "#FF8A80"
+C_DANGER_SOFT = "#2E1817"
+C_PROTEIN = "#5CC9BC"
+C_CARBS = "#E6AE5C"
+C_FAT = "#7FAEEB"
+C_SUGAR = "#F08AAE"
+# Installed on the Pi by mobile/assets/fonts/install_thmanyah_pi.sh, never through git: the licence
+# forbids hosting them. Until they are there, the screen falls back to FALLBACK_FONT.
+UI_FONT = "thmanyah sans"
+DISPLAY_FONT = "thmanyah serif display"
+FALLBACK_FONT = "DejaVu Sans"
 
 
 def _wrap(text: str, width: int) -> List[str]:
@@ -1174,142 +1183,195 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
     """Draws one 640x480 screen with painter p. Returns the touch buttons as (x0, y0, x1, y1, action).
 
     Screens: 'weigh' (live weight), 'analyzing', 'result', 'error'.
-    Painter API: rect(x0, y0, x1, y1, fill), text(x, y, s, size_px, bold, fill, anchor) with anchor in
-    {'center', 'w', 'e'}. The same function draws on the Tk canvas and on PIL previews.
+    Painter API: rect(x0, y0, x1, y1, fill), round(x0, y0, x1, y1, radius, fill) and
+    text(x, y, s, size_px, bold, fill, anchor, family) with anchor in {'center', 'w', 'e'} and family
+    UI_FONT or DISPLAY_FONT. The same function draws on the Tk canvas and on PIL previews.
     """
     W, H = 640, 480
+    M = 20                                                      # screen margin
     p.rect(0, 0, W, H, C_BG)
-    # header
-    p.text(16, 24, "MIQDAR", 22, True, C_GREEN_HI, "w")
-    status, col = s.get("status", ("● READY", C_GREEN_HI))
-    p.text(W - 130, 24, status, 14, True, col, "e")
-    # main card
-    p.rect(12, 50, W - 12, 372, C_CARD)
     screen = s.get("screen", "weigh")
     buttons: List[Tuple[int, int, int, int, str]] = []
 
-    def button(x0: int, y0: int, x1: int, y1: int, label: str, fill: str, action: Optional[str], size: int = 30) -> None:
-        p.rect(x0, y0, x1, y1, fill)
-        p.text((x0 + x1) // 2, (y0 + y1) // 2, label, size, True, C_WHITE if action else C_MUTED, "center")
+    def text(x: int, y: int, value: str, size: int, fill: str = C_INK, anchor: str = "center",
+             bold: bool = False, family: str = UI_FONT) -> None:
+        p.text(x, y, value, size, bold, fill, anchor, family)
+
+    def title(y: int, value: str, size: int = 38, fill: str = C_INK) -> None:
+        text(W // 2, y, value, size, fill, bold=True, family=DISPLAY_FONT)
+
+    def button(x0: int, x1: int, label: str, action: Optional[str], kind: str = "secondary", size: int = 20,
+               y0: int = 388, y1: int = 460) -> None:
+        """Every button is a pill. One white main action per screen, the rest filled grey."""
+        fill, ink = {"main": (C_INK, C_BG), "secondary": (C_SURFACE, C_INK), "danger": (C_DANGER_SOFT, C_DANGER),
+                     "off": (C_SURFACE, C_MUTED)}[kind]
+        p.round(x0, y0, x1, y1, (y1 - y0) // 2, fill)
+        text((x0 + x1) // 2, (y0 + y1) // 2, label, size, ink, bold=True)
         if action:
             buttons.append((x0, y0, x1, y1, action))
 
-    button(W - 115, 6, W - 12, 44, "✕ EXIT", C_RED if screen == "exit_confirm" else C_TILE, "exit", 15)
+    def locked_number(x: int, y: int, value: str, size: int, fill: str) -> int:
+        """Thmanyah's digits are proportional: fixed cells keep a live number from jittering."""
+        for char in value:
+            cell = int((0.66 if char.isdigit() else 0.42) * size)
+            text(x + cell // 2, y, char, size, fill, bold=True)
+            x += cell
+        return x
+
+    # header
+    text(M, 34, "Miqdar", 24, bold=True, anchor="w", family=DISPLAY_FONT)
+    status, colour = s.get("status", ("Scale ready", C_PRIMARY))
+    status_end = W - M - 84 - 16
+    text(status_end, 34, status, 15, C_MUTED, "e", bold=True)
+    dot_end = status_end - 8 - int(7.4 * len(status))
+    p.round(dot_end - 8, 30, dot_end, 38, 4, colour)
+    button(W - M - 84, W - M, "Exit", "exit", "secondary", 15, 14, 54)
 
     if screen == "weigh":
-        p.text(W // 2, 82, "NET WEIGHT", 18, True, C_MUTED, "center")
         grams = s.get("weight", 0.0)
         num = f"{grams:.0f}" if abs(grams) >= 0.5 else "0"
-        colour = C_RED if s.get("overloaded") else C_WHITE
+        colour = C_DANGER if s.get("overloaded") else C_INK
         size = 150 if len(num) <= 3 else 120                    # 4-5 digits get a smaller size
-        num_w = int(0.70 * size * len(num))                     # DejaVu Sans Bold digit width ≈ 0.70 em
-        x0 = (W - (num_w + 14 + 40)) // 2                       # centre number + "g" as one group
-        p.text(x0, 200, num, size, True, colour, "w")
-        p.text(x0 + num_w + 14, 200 + int(0.24 * size), "g", 60, True, C_GREEN_HI, "w")
+        num_w = sum(int((0.66 if c.isdigit() else 0.42) * size) for c in num)
+        unit_size = 48
+        x0 = (W - (num_w + 10 + unit_size // 2)) // 2           # centre number + "g" as one group
+        cy = 158
+        end = locked_number(x0, cy, num, size, colour)
+        text(end + 10, cy + int(0.375 * (size - unit_size)), "g", unit_size, C_MUTED, "w", bold=True)
         if s.get("overloaded"):
-            p.rect(36, 300, W - 36, 352, C_RED)
-            p.text(W // 2, 326, "OVERLOAD: remove weight (max 5 kg)", 20, True, C_WHITE, "center")
+            p.round(M, 262, W - M, 318, 16, C_DANGER_SOFT)
+            text(W // 2, 290, "Too heavy: remove weight (max 5 kg)", 20, C_DANGER, bold=True)
         elif s.get("plate"):
             steps = s["plate"]["steps"]
-            foods = "  ".join(f"{i + 1}: {step['grams']:.0f} g" for i, step in enumerate(steps))
+            foods = "  ·  ".join(f"Food {i + 1}: {step['grams']:.0f} g" for i, step in enumerate(steps))
             note = s.get("plate_note") or foods
-            for i, line in enumerate(_wrap(note, 34)[:2]):
-                p.text(24, 316 + i * 24, line, 16, False, C_WHITE, "w")
-            button(470, 306, W - 24, 352, "CANCEL", C_TILE, "plate_cancel", 16)
+            for i, line in enumerate(_wrap(note, 42)[:3]):
+                text(M, 270 + i * 24, line, 16, C_INK, "w")
+            button(W - M - 110, W - M, "Cancel", "plate_cancel", "danger", 15, 262, 310)
         elif s.get("mock"):
-            p.text(120, 326, "Demo:", 16, False, C_MUTED, "e")
+            text(W // 2, 262, "Simulated scale, not real food", 16, C_ACCENT, bold=True)
             for i, g in enumerate((150, 250, 320)):
-                x0 = 136 + i * 120
-                p.rect(x0, 306, x0 + 104, 346, C_TILE)
-                p.text(x0 + 52, 326, f"{g} g", 18, True, C_WHITE, "center")
-                buttons.append((x0, 306, x0 + 104, 346, f"sim:{g}"))
+                x = 136 + i * 126
+                button(x, x + 112, f"{g} g", f"sim:{g}", "secondary", 17, 282, 330)
         else:
-            p.text(W // 2, 326, s.get("hint", "Zero the empty plate, then add food"), 18, False, C_MUTED, "center")
+            text(W // 2, 278, s.get("hint", "Zero the empty plate, then add food"), 18, C_MUTED)
         if s.get("address"):
-            p.text(W // 2, 359, str(s["address"]), 13, False, C_GREEN_HI, "center")
+            text(W // 2, 360, str(s["address"]), 14, C_MUTED)
         if s.get("plate"):
-            button(12, 384, 142, 468, "UNDO", C_TILE, "plate_undo", 22)
-            button(154, 384, 410, 468, "ADD NEXT FOOD", C_TILE, "plate_add", 22)
-            button(422, 384, W - 12, 468, "FINISH", C_GREEN, "plate_finish", 26)
+            button(M, 140, "Undo", "plate_undo")
+            button(152, 398, "Add Next Food", "plate_add")
+            button(410, W - M, "Finish", "plate_finish", "main", 24)
         else:
-            button(12, 384, 142, 468, "ZERO", C_TILE, "zero", 22)
-            button(154, 384, 410, 468, "ADD NEXT FOOD", C_TILE, "plate_add", 22)
-            button(422, 384, W - 12, 468, "CAPTURE", C_GREEN, "capture", 26)
+            button(M, 140, "Zero", "zero")
+            button(152, 398, "Add Next Food", "plate_add")
+            button(410, W - M, "Capture", "capture", "main", 24)
 
     elif screen == "analyzing":
-        p.text(W // 2, 170, "Analyzing…", 44, True, C_GREEN_HI, "center")
-        p.text(W // 2, 232, f"{s.get('weight', 0):.0f} g · please wait", 22, False, C_MUTED, "center")
-        button(12, 384, W - 12, 468, "PLEASE WAIT", C_DISABLED, None, 26)
+        title(180, "Analyzing…", 44)
+        text(W // 2, 240, f"{s.get('weight', 0):.0f} g", 24, C_MUTED, bold=True)
+        button(M, W - M, "Please Wait", None, "off", 24)
 
     elif screen == "result":
         name = str(s.get("food", "Unknown food"))
         if len(name) > 26:
             name = name[:25] + "…"
-        p.text(W // 2, 86, name, 30, True, C_WHITE, "center")
-        p.text(W // 2, 150, f"{s.get('kcal', 0):.0f} kcal", 52, True, C_GREEN_HI, "center")
-        p.text(W // 2, 192, f"{s.get('weight', 0):.0f} g", 20, False, C_MUTED, "center")
-        tiles = [("Carbs", s.get("carbs", 0)), ("Protein", s.get("protein", 0)),
-                 ("Fat", s.get("fat", 0)), ("Sugar", s.get("sugar", 0))]
-        for i, (lab, val) in enumerate(tiles):
-            x0 = 24 + (i % 2) * 300
-            y0 = 214 + (i // 2) * 76
-            p.rect(x0, y0, x0 + 292, y0 + 68, C_TILE)
-            p.text(x0 + 16, y0 + 34, lab, 20, False, C_MUTED, "w")
-            p.text(x0 + 276, y0 + 34, f"{val:.1f} g", 30, True, C_WHITE, "e")
-        button(12, 384, 232, 468, "DONE", C_TILE, "done")
-        button(244, 384, W - 12, 468, "CAPTURE", C_GREEN, "capture")
+        title(92, name, 32)
+        kcal = s.get("kcal")
+        kcal_text = "Unknown" if kcal is None else f"{kcal:.0f} kcal"
+        text(W // 2, 148, kcal_text, 48, C_ACCENT if kcal is None else C_INK, bold=True)
+        grams_text = f"{s.get('weight', 0):.0f} g"
+        if s.get("estimate"):
+            text(W // 2, 192, f"{grams_text}  ·  Gemini estimate", 17, C_ACCENT, bold=True)
+        else:
+            text(W // 2, 192, grams_text, 17, C_MUTED, bold=True)
+        tiles = [("Carbs", s.get("carbs"), C_CARBS), ("Protein", s.get("protein"), C_PROTEIN),
+                 ("Fat", s.get("fat"), C_FAT), ("Sugar", s.get("sugar"), C_SUGAR)]
+        for i, (lab, val, dot) in enumerate(tiles):
+            x0 = M + (i % 2) * 306
+            y0 = 218 + (i // 2) * 78
+            p.round(x0, y0, x0 + 294, y0 + 68, 12, C_SURFACE)
+            p.round(x0 + 16, y0 + 30, x0 + 24, y0 + 38, 4, dot)
+            text(x0 + 34, y0 + 34, lab, 19, C_MUTED, "w")
+            if val is None:
+                text(x0 + 278, y0 + 34, "Unknown", 19, C_ACCENT, "e", bold=True)
+            else:
+                text(x0 + 278, y0 + 34, f"{val:.1f} g", 28, C_INK, "e", bold=True)
+        button(M, 232, "Done", "done", size=22)
+        button(244, W - M, "Capture", "capture", "main", 24)
 
     elif screen == "plate_sent":
         foods = len((s.get("plate") or {}).get("steps", []))
-        p.text(W // 2, 150, "Plate sent to app", 40, True, C_GREEN_HI, "center")
-        p.text(W // 2, 212, f"{foods} on the plate · open the app to analyze", 22, False, C_MUTED, "center")
-        button(12, 384, W - 12, 468, "NEW PLATE", C_TILE, "plate_cancel")
+        title(160, "Plate sent to the app")
+        text(W // 2, 222, f"{foods} on the plate. Open the app to analyze.", 20, C_MUTED)
+        button(M, W - M, "New Plate", "plate_cancel", size=24)
 
     elif screen == "sent":
-        p.text(W // 2, 150, "Photo sent to app", 40, True, C_GREEN_HI, "center")
-        p.text(W // 2, 212, f"{s.get('weight', 0):.0f} g · the phone is analyzing", 22, False, C_MUTED, "center")
-        p.text(W // 2, 262, "Calories appear here when it finishes", 18, False, C_MUTED, "center")
-        button(12, 384, 232, 468, "DONE", C_TILE, "done")
-        button(244, 384, W - 12, 468, "CAPTURE", C_GREEN, "capture")
+        title(150, "Photo sent to the app")
+        text(W // 2, 212, f"{s.get('weight', 0):.0f} g. The phone is analyzing.", 20, C_MUTED)
+        text(W // 2, 256, "Calories appear here when it finishes", 17, C_MUTED)
+        button(M, 232, "Done", "done", size=22)
+        button(244, W - M, "Capture", "capture", "main", 24)
 
     elif screen == "error":
-        p.text(W // 2, 100, "Could not analyze", 32, True, C_RED, "center")
-        for i, line in enumerate(_wrap(s.get("message", ""), 40)[:6]):
-            p.text(W // 2, 160 + i * 32, line, 19, False, C_WHITE, "center")
-        button(12, 384, 232, 468, "DONE", C_TILE, "done")
-        button(244, 384, W - 12, 468, "TRY AGAIN", C_GREEN, "capture", 28)
+        title(110, "Could not analyze", 34)
+        for i, line in enumerate(_wrap(s.get("message", ""), 44)[:6]):
+            text(W // 2, 166 + i * 30, line, 18)
+        button(M, 232, "Done", "done", size=22)
+        button(244, W - M, "Try Again", "capture", "main", 24)
 
     elif screen == "exit_confirm":
-        p.text(W // 2, 95, "Exit Scale App?", 34, True, C_WHITE, "center")
-        p.text(W // 2, 160, "Close the touchscreen interface and return", 20, False, C_MUTED, "center")
-        p.text(W // 2, 195, "to the Raspberry Pi terminal prompt.", 20, False, C_WHITE, "center")
-        p.text(W // 2, 255, "To restart anytime: ./start_scale_app.sh", 18, False, C_GREEN_HI, "center")
-        p.text(W // 2, 295, "Press CANCEL to continue weighing", 16, False, C_MUTED, "center")
-        button(12, 384, 232, 468, "CANCEL", C_TILE, "cancel_exit")
-        button(244, 384, W - 12, 468, "EXIT APP", C_RED, "confirm_exit")
+        title(120, "Close the scale?", 36)
+        text(W // 2, 180, "This closes the scale screen and the phone", 19, C_MUTED)
+        text(W // 2, 208, "can no longer connect. To start it again,", 19, C_MUTED)
+        text(W // 2, 236, "tap Miqdar Scale on the desktop.", 19, C_MUTED)
+        button(M, 232, "Cancel", "cancel_exit", size=22)
+        button(244, W - M, "Close Scale", "confirm_exit", "danger", 24)
     return buttons
 
 
 class _TkPainter:
     def __init__(self, canvas: Any) -> None:
+        import tkinter.font as tkfont
         self.c = canvas
+        self.tk = canvas.tk
+        installed = set(tkfont.families(canvas))
+        self.fonts = {family: family if family in installed else FALLBACK_FONT for family in (UI_FONT, DISPLAY_FONT)}
+        self.shapes: Dict[Tuple[int, int, int, str], Any] = {}
 
     def rect(self, x0: int, y0: int, x1: int, y1: int, fill: str) -> None:
         self.c.create_rectangle(x0, y0, x1, y1, fill=fill, outline=fill)
 
-    def text(self, x: int, y: int, s: str, size: int, bold: bool, fill: str, anchor: str) -> None:
+    def round(self, x0: int, y0: int, x1: int, y1: int, radius: int, fill: str) -> None:
+        """Tk draws jagged curves, so a rounded shape is a smooth image, kept for the next redraw."""
+        key = (x1 - x0, y1 - y0, radius, fill)
+        if key not in self.shapes:
+            self.shapes[key] = self._shape(*key)
+        self.c.create_image(x0, y0, image=self.shapes[key], anchor="nw")
+
+    def _shape(self, w: int, h: int, radius: int, fill: str) -> Any:
+        import base64
+        import io
+        import tkinter as tk
+        scale = 4
+        big = Image.new("RGBA", (w * scale, h * scale), fill + "00")
+        ImageDraw.Draw(big).rounded_rectangle((0, 0, w * scale - 1, h * scale - 1), radius * scale, fill=fill)
+        out = io.BytesIO()
+        big.resize((w, h), Image.LANCZOS).save(out, "PNG")
+        return tk.PhotoImage(master=self.c, data=base64.b64encode(out.getvalue()))
+
+    def text(self, x: int, y: int, s: str, size: int, bold: bool, fill: str, anchor: str, family: str = UI_FONT) -> None:
         self.c.create_text(x, y, text=s, fill=fill, anchor=anchor,
-                           font=(UI_FONT, -size, "bold" if bold else "normal"))
+                           font=(self.fonts[family], -size, "bold" if bold else "normal"))
 
 
 class ScaleTouchscreenApp:
-    """English touchscreen UI for the 3.5" 640x480 Waveshare DSI LCD.
+    """English touchscreen UI for the 3.5" 640x480 Waveshare DSI LCD, in the Miqdar design system's dark look.
 
-    One screen at a time, large text and two large buttons:
-      weigh     -> live weight (whole grams), ZERO and CAPTURE
+    One screen at a time, large text and large pill buttons:
+      weigh     -> live weight (whole grams), Zero and Capture
       analyzing -> shown while the photo and weight are being analysed
-      result    -> food name, calories, carbs / protein / fat / sugar, DONE and CAPTURE
-      error     -> short message, DONE and TRY AGAIN
+      result    -> food name, calories, carbs / protein / fat / sugar, Done and Capture
+      error     -> short message, Done and Try Again
     """
 
     def __init__(self, hardware: ScaleHardwareAdapter, db_path: Path, port: int,
@@ -1345,9 +1407,9 @@ class ScaleTouchscreenApp:
         self._tick()
 
     # ------------------------------------------------------------- drawing
-    def _set_status(self, text: Optional[str] = None, colour: str = C_GREEN_HI) -> None:
+    def _set_status(self, text: Optional[str] = None, colour: str = C_PRIMARY) -> None:
         if text is None:
-            text, colour = ("● SIMULATED", C_AMBER) if self.hw.is_mock else ("● READY", C_GREEN_HI)
+            text, colour = ("Simulated", C_ACCENT) if self.hw.is_mock else ("Scale ready", C_PRIMARY)
         self.state["status"] = (text, colour)
 
     def _redraw(self) -> None:
@@ -1372,13 +1434,13 @@ class ScaleTouchscreenApp:
         if self.hw.capture_state != "idle" or self._worker_active:
             if screen != "analyzing":
                 self.state.update(screen="analyzing", weight=self.hw.get_weight())
-                self._set_status("● ANALYZING", C_AMBER)
+                self._set_status("Analyzing", C_ACCENT)
             return
         plate = self.hw.plate_summary()
         if plate and plate["state"] == "finished":
             if screen != "plate_sent":
                 self.state.update(screen="plate_sent")
-                self._set_status("✓ SENT TO APP", C_GREEN_HI)
+                self._set_status("Sent to app", C_PRIMARY)
             return
         if screen == "plate_sent":
             self.state.update(screen="weigh")       # the phone took the plate, or NEW PLATE was pressed
@@ -1390,13 +1452,13 @@ class ScaleTouchscreenApp:
                 self._show_results(event, event["weight_g"])
             elif event.get("status") == "photo":
                 self.state.update(screen="sent", weight=event["weight_g"])
-                self._set_status("✓ SENT TO APP", C_GREEN_HI)
+                self._set_status("Sent to app", C_PRIMARY)
             else:
                 self._show_error(event.get("message", "Capture failed"))
         elif screen == "sent" and self.hw.latest_analysis and \
                 self.hw.latest_analysis["event_id"] != self._seen_analysis_id:
             self._seen_analysis_id = self.hw.latest_analysis["event_id"]
-            self._show_results(self.hw.latest_analysis, self.hw.latest_analysis["weight_g"])
+            self._show_results(self.hw.latest_analysis, self.hw.latest_analysis["weight_g"], estimate=True)
         elif screen == "analyzing":
             self.state.update(screen="weigh")       # auto-capture of a plate with no food on it
             self._set_status()
@@ -1436,7 +1498,7 @@ class ScaleTouchscreenApp:
                         self._set_status()
                     else:
                         self.state.update(screen="exit_confirm")
-                        self._set_status("● EXIT", C_RED)
+                        self._set_status("Closing", C_DANGER)
                 elif action == "confirm_exit":
                     self.exit_app()
                     return
@@ -1458,14 +1520,14 @@ class ScaleTouchscreenApp:
     # ------------------------------------------------------------- actions
     def on_zero_button(self) -> None:
         self.state.update(hint="Zeroing… hold still")
-        self._set_status("● ZEROING", C_AMBER)
+        self._set_status("Zeroing", C_ACCENT)
         self._redraw()
 
         def work() -> None:
             ok = self.hw.tare()
 
             def done() -> None:
-                self.state.update(hint="Zero done: add food, then CAPTURE" if ok else "Not steady: press ZERO again")
+                self.state.update(hint="Zero done: add food, then Capture" if ok else "Not steady: press Zero again")
                 self._set_status()
                 self._redraw()
             self.root.after(0, done)
@@ -1513,18 +1575,19 @@ class ScaleTouchscreenApp:
                 self._worker_active = False
         threading.Thread(target=worker, daemon=True).start()
 
-    def _show_results(self, result: Dict[str, Any], grams: float) -> None:
+    def _show_results(self, result: Dict[str, Any], grams: float, estimate: bool = False) -> None:
+        """estimate: the phone's Gemini result, which must be labelled as an estimate. A missing value shows Unknown."""
         food = result.get("food", {})
         n = result.get("nutrients", {})
-        self.state.update(screen="result", food=food.get("name_en", "Unknown food"), weight=grams,
-                          kcal=n.get("calories_kcal", 0), carbs=n.get("carbohydrate_g", 0), protein=n.get("protein_g", 0),
-                          fat=n.get("fat_g", 0), sugar=n.get("sugar_g", 0))
-        self._set_status("✓ SAVED" if result.get("saved_to_history") else "✓ SENT TO APP", C_GREEN_HI)
+        self.state.update(screen="result", food=food.get("name_en", "Unknown food"), weight=grams, estimate=estimate,
+                          kcal=n.get("calories_kcal"), carbs=n.get("carbohydrate_g"), protein=n.get("protein_g"),
+                          fat=n.get("fat_g"), sugar=n.get("sugar_g"))
+        self._set_status("Saved" if result.get("saved_to_history") else "Sent to app", C_PRIMARY)
         self._redraw()
 
     def _show_error(self, message: str) -> None:
         self.state.update(screen="error", message=message)
-        self._set_status("● ERROR", C_RED)
+        self._set_status("Error", C_DANGER)
         self._redraw()
 
     def run(self) -> None:

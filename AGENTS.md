@@ -83,7 +83,7 @@ mobile/lib/
   models/body_profile.dart  Body profile and the goal calculation
   theme.dart              All colors (context.mq) and text styles (MiqdarType)
   miqdar_icons.dart       Icons from mobile/assets/fonts, generated; see the README there
-mobile/assets/fonts/thmanyah/  The text fonts. Not in git, by licence; install_thmanyah.sh beside it puts them there
+mobile/assets/fonts/thmanyah/  The text fonts. Not in git, by licence; install_thmanyah.sh beside it puts them there; install_thmanyah_pi.sh copies them to the Pi for its touchscreen
   l10n/strings.dart       English and Arabic text, s.tr(en, ar), s.date(...)
   ui/                     Screens; ui/widgets/charts_and_gauges.dart for shared widgets
 mobile/test/              Unit tests
@@ -202,6 +202,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-05: Scale touchscreen matches the app's design
+- Decided: Abdullah asked for the "balance screen" to be made compatible with the new design. Taken to mean the Pi's touchscreen.
+- Changed: `draw_screen` in `app.py` uses the design system's dark tokens, Thmanyah, pill buttons, a white main action, plain weight with locked digits, and sentence-style labels. Phone results now read "Gemini estimate", and a missing value reads Unknown, not 0. The exit screen now says plainly that closing stops the phone connecting. Actions and flow are unchanged. New `install_thmanyah_pi.sh` copies the fonts over SSH, because the licence keeps them out of git; without them the screen falls back to DejaVu Sans.
+- Tested: 43 of 43 Python tests, including a new one for the labels; all screen states looked at as rendered pictures. See the entry's real-screen result in Current state if added below.
+- Not tested / risks: Arabic food names are not shaped on this screen, as before; it is an English screen. Boot start and real food are still open.
 
 ### 2026-11-05: Applied the black and white design system, in Thmanyah (commit 707a8ef)
 - Decided: Abdullah asked for his design system artifact to become the app's UI and UX, with the Thmanyah fonts. He had put the zips in `mobile/assets/fonts`.

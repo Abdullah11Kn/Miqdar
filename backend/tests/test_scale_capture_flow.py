@@ -231,6 +231,9 @@ class ScaleCaptureFlowTests(unittest.TestCase):
             def rect(self, *_):
                 pass
 
+            def round(self, *_):
+                pass
+
             def text(self, *_):
                 pass
 
@@ -242,6 +245,25 @@ class ScaleCaptureFlowTests(unittest.TestCase):
         idle = [b[4] for b in scale_app.draw_screen(Painter(), {"screen": "weigh"})]
         self.assertIn("plate_add", idle)
         self.assertIn("capture", idle)
+
+    def test_touchscreen_labels_estimates_and_unknown_values(self) -> None:
+        drawn = []
+
+        class Painter:
+            def rect(self, *_):
+                pass
+
+            def round(self, *_):
+                pass
+
+            def text(self, _x, _y, value, *_):
+                drawn.append(value)
+
+        scale_app.draw_screen(Painter(), {"screen": "result", "food": "Saleeg", "weight": 240, "estimate": True,
+                                          "kcal": 336, "carbs": 40.0, "protein": None, "fat": 5.0, "sugar": 1.0})
+        self.assertTrue(any("Gemini estimate" in value for value in drawn))
+        self.assertIn("Unknown", drawn)
+        self.assertNotIn("0.0 g", drawn)
 
     def test_photo_for_the_app_is_downscaled(self) -> None:
         hw = self.real_scale(FakeHardwareModule(grams=240.0))
