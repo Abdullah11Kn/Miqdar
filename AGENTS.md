@@ -185,6 +185,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-04: Scale side of mixed plates and short wobbles (tickets #4, #5, still open)
+- Changed: settling ignores the highest and lowest tenth of samples and waits up to 8 s, so a brief wobble passes. New plate session on the Pi with add, finish, undo, cancel and a photo per step (`docs/API.md`), and Add Next Food, Undo, Finish and Cancel on the touchscreen. Zero, Capture and automatic capture wait while a plate is open.
+- Tested: 26 scale tests pass on simulated hardware; the plate touchscreen layout looked at as a rendered picture, not on the device.
+- Not tested / risks: NOT run on the real scale, which did not answer at `foodscale.local` at the time, so the Pi has no new code yet. The wobble limits are guesses until then. An unrelated old test, `test_at_least_90_days_are_queryable`, fails because its seeded data aged to 87 days.
+- Next: ticket #6. Close #4 and #5 after a real-scale run.
+
 ### 2026-11-04: Body profile and calculated goal (tickets #2, #3)
 - Changed: every real user answers a required Body Profile (after Get Started, or on next launch after updating). The app calculates a daily goal with safety limits, and goals change only if the user accepts. Skip exists only outside release builds. Editable from Profile. Database v4. Privacy & Data and Delete All My Data cover it. Also made the rule that GitHub never credits the tool or any agent; the `ready-for-agent` label became `ready-to-build`.
 - Tested: `flutter analyze`; 51 unit tests; a temporary tour on a throwaway simulator through the form, errors, result, Home, restart on the real database, under-18 refusal and Delete All, with screenshots in English light and Arabic dark looked at; his simulator updated from database v3 to v4 with goals kept, and the profile appeared (screenshot).

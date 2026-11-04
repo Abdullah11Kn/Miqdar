@@ -9,7 +9,7 @@ import unittest
 import urllib.error
 import urllib.request
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import app as scale_app
 from app import (
@@ -118,6 +118,113 @@ class ScaleCaptureFlowTests(unittest.TestCase):
         self.assertEqual(status, 422)
         self.assertEqual(body["error"], "WEIGHT_NOT_STEADY")
         self.assertEqual(hw.latest_capture_event["status"], "error")
+
+    def test_a_short_wobble_still_settles_but_constant_movement_does_not(self) -> None:
+        with patch.dict("sys.modules", {"lgpio": MagicMock()}):
+            import hardware
+
+        wobble = [170.0] * 18 + [176.0, 164.0]
+        with patch.object(hardware, "_recent", return_value=wobble):
+            self.assertAlmostEqual(hardware._wait_stable(1.0, 1.0, 1.0), 170.0)
+        moving = [150.0 + i for i in range(20)]
+        with patch.object(hardware, "_recent", return_value=moving):
+            self.assertIsNone(hardware._wait_stable(1.0, 1.0, 0.3))
+
+    def plate_call(self, server, action, grams=None):
+        if grams is not None:
+            self.request(server, "/scale/simulate", {"weight_g": grams})
+        return self.request(server, f"/scale/plate/{action}", {})
+
+    def test_mixed_plate_gets_each_foods_grams_from_the_change_in_weight(self) -> None:
+        self.hw.analyze_on_scale = False
+        server = self.serve(self.hw)
+        self.assertEqual(self.plate_call(server, "add", 200.0)[0], 200)
+        self.plate_call(server, "add", 320.0)
+        status, body = self.plate_call(server, "finish", 365.0)
+        self.assertEqual(status, 200)
+        plate = body["plate"]
+        self.assertEqual(plate["state"], "finished")
+        for step, grams in zip(plate["steps"], [200.0, 120.0, 45.0], strict=True):
+            self.assertAlmostEqual(step["grams"], grams, delta=1.0)  # the simulated scale has noise
+
+        status, photo = self.request(server, "/scale/plate/photo?step=1")
+        self.assertEqual(status, 200)
+        self.assertTrue(photo["image_base64"])
+        self.assertEqual(self.request(server, "/scale/plate/photo?step=9")[0], 404)
+        self.assertNotIn("image_base64", json.dumps(self.hw.status()))
+
+        self.plate_call(server, "cancel")
+        self.assertIsNone(self.hw.status()["plate"])
+
+    def test_finish_with_no_new_food_closes_the_plate_without_an_extra_step(self) -> None:
+        server = self.serve(self.hw)
+        self.plate_call(server, "add", 200.0)
+        self.plate_call(server, "add", 320.0)
+        _, body = self.plate_call(server, "finish")
+        self.assertEqual(len(body["plate"]["steps"]), 2)
+        self.assertEqual(body["plate"]["state"], "finished")
+
+    def test_undo_removes_the_last_food_and_the_next_grams_follow_from_the_one_before(self) -> None:
+        server = self.serve(self.hw)
+        self.plate_call(server, "add", 200.0)
+        self.plate_call(server, "add", 320.0)
+        _, body = self.plate_call(server, "undo")
+        self.assertEqual(len(body["plate"]["steps"]), 1)
+        _, body = self.plate_call(server, "add", 290.0)
+        self.assertAlmostEqual(body["plate"]["steps"][1]["grams"], 90.0, delta=1.0)
+        self.plate_call(server, "undo")
+        _, body = self.plate_call(server, "undo")
+        self.assertIsNone(body["plate"])
+
+    def test_plate_refuses_a_small_addition_a_lower_weight_and_an_empty_plate(self) -> None:
+        server = self.serve(self.hw)
+        status, body = self.plate_call(server, "add", 0.0)
+        self.assertEqual((status, body["error"]), (422, "EMPTY_SCALE"))
+        self.plate_call(server, "add", 200.0)
+        status, body = self.plate_call(server, "add", 203.0)
+        self.assertEqual((status, body["error"]), (422, "PLATE_STEP_TOO_SMALL"))
+        status, body = self.plate_call(server, "add", 150.0)
+        self.assertEqual((status, body["error"]), (422, "PLATE_WEIGHT_DROPPED"))
+        self.assertEqual(len(self.hw.plate["steps"]), 1)
+
+    def test_real_scale_plate_refuses_a_weight_that_never_settles(self) -> None:
+        module = FakeHardwareModule(grams=170.0)
+        module.get_stable_weight = lambda *_args, **_kwargs: None
+        status, body = self.plate_call(self.serve(self.real_scale(module)), "add")
+        self.assertEqual((status, body["error"]), (422, "WEIGHT_NOT_STEADY"))
+
+    def test_zero_capture_and_auto_capture_wait_while_a_plate_is_open(self) -> None:
+        server = self.serve(self.hw)
+        self.plate_call(server, "add", 200.0)
+        self.assertEqual(self.request(server, "/scale/tare", {})[1]["error"], "PLATE_OPEN")
+        self.assertEqual(self.request(server, "/scale/capture", {})[1]["error"], "PLATE_OPEN")
+        self.assertFalse(scale_app.AutoCaptureMonitor(self.hw, lambda: self.fail("captured")).step())
+        self.plate_call(server, "cancel")
+        self.assertEqual(self.request(server, "/scale/tare", {})[0], 200)
+
+    def test_a_finished_plate_waits_for_the_phone_and_blocks_a_new_one(self) -> None:
+        server = self.serve(self.hw)
+        self.plate_call(server, "finish", 200.0)
+        status, body = self.plate_call(server, "add", 300.0)
+        self.assertEqual((status, body["error"]), (409, "PLATE_OPEN"))
+        self.assertEqual(self.request(server, "/scale/capture", {})[0], 200)
+
+    def test_touchscreen_shows_the_plate_buttons(self) -> None:
+        class Painter:
+            def rect(self, *_):
+                pass
+
+            def text(self, *_):
+                pass
+
+        plate = {"steps": [{"grams": 120.0}]}
+        actions = [b[4] for b in scale_app.draw_screen(Painter(), {"screen": "weigh", "plate": plate})]
+        for action in ("plate_undo", "plate_add", "plate_finish", "plate_cancel"):
+            self.assertIn(action, actions)
+        self.assertNotIn("zero", actions)
+        idle = [b[4] for b in scale_app.draw_screen(Painter(), {"screen": "weigh"})]
+        self.assertIn("plate_add", idle)
+        self.assertIn("capture", idle)
 
     def test_photo_for_the_app_is_downscaled(self) -> None:
         hw = self.real_scale(FakeHardwareModule(grams=240.0))

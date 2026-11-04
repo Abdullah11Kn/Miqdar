@@ -68,6 +68,22 @@ an older capture are ignored. Returns `{"accepted": true}` or `false`.
 ### `POST /scale/tare`
 Sets the current reading to 0 g. Returns `{"success": true, "scale": { ...same as /scale/live... }}`.
 
+### Mixed plates
+
+The plate is kept on the scale, and `/scale/live` reports it as `plate`: null, or
+`{"plate_id", "state": "open" | "finished", "simulated", "steps": [{"index", "reading_g", "grams"}]}`. Each food's `grams`
+is the change in weight, and only the scale sets it. If the Pi restarts, an unfinished plate is lost.
+
+- `POST /scale/plate/add` records the food added since the last step, and opens a plate if none is open. Returns `{"plate": ...}`.
+- `POST /scale/plate/finish` records a last food if the weight rose, then sets `state` to `finished`.
+- `POST /scale/plate/undo` removes the last food. Removing the only food closes the plate.
+- `POST /scale/plate/cancel` drops the plate. The app also calls it once it has taken a finished plate.
+- `GET /scale/plate/photo?step=N` returns `{"image_base64": ...}` for that step, or 404.
+
+Refusals: 422 `EMPTY_SCALE`, `PLATE_STEP_TOO_SMALL` (under 5 g), `PLATE_WEIGHT_DROPPED`, `WEIGHT_NOT_STEADY`; 409
+`PLATE_OPEN`, `CAPTURE_IN_PROGRESS`. While a plate is open, `/scale/tare` and `/scale/capture` return `PLATE_OPEN`, and automatic
+capture waits.
+
 ### `GET /health`
 `{"status": "ok", "database": "miqdar_nutrition.db", "recognition": {"provider": "gemini-in-app", "configured": true}, "scale": { ... }}`
 

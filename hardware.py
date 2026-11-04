@@ -83,6 +83,15 @@ def get_weight():
     return round(_gross() - _state["tare"], 1)
 
 
+def _settled(vals, tolerance_g):
+    """The steady reading, or None. A brief wobble only touches a few samples, so the
+    highest and lowest tenth are ignored before checking the spread."""
+    ordered = sorted(vals)
+    drop = len(ordered) // 10
+    kept = ordered[drop:len(ordered) - drop]
+    return statistics.mean(kept) if max(kept) - min(kept) <= 2 * tolerance_g else None
+
+
 def _wait_stable(tolerance_g, window_s, timeout_s):
     """Uses only samples taken after the call, so a tap right after placing food
     never returns the old weight. Minimum wait = window_s."""
@@ -91,8 +100,10 @@ def _wait_stable(tolerance_g, window_s, timeout_s):
     need = max(5, int(window_s * 8))              # ~10 samples/s -> at least 80 % of the window
     while time.monotonic() < t_end:
         vals = _recent(window_s, since=t_call)
-        if len(vals) >= need and max(vals) - min(vals) <= 2 * tolerance_g:
-            return statistics.mean(vals)
+        if len(vals) >= need:
+            settled = _settled(vals, tolerance_g)
+            if settled is not None:
+                return settled
         time.sleep(0.1)
     return None
 
@@ -121,7 +132,7 @@ def is_overloaded():
 def is_stable(tolerance_g=1.0, window_s=1.0):
     """True when the last window_s seconds stayed within +/- tolerance_g. Never blocks."""
     vals = _recent(window_s)
-    return len(vals) >= max(5, int(window_s * 8)) and max(vals) - min(vals) <= 2 * tolerance_g
+    return len(vals) >= max(5, int(window_s * 8)) and _settled(vals, tolerance_g) is not None
 
 
 # ---------------------------------------------------------------- camera

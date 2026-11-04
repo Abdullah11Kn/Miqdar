@@ -142,6 +142,21 @@ class CaptureBusyError(RecognitionError):
     http_status = 409
 
 
+class PlateOpenError(RecognitionError):
+    code = "PLATE_OPEN"
+    http_status = 409
+
+
+class PlateStepTooSmallError(RecognitionError):
+    code = "PLATE_STEP_TOO_SMALL"
+    http_status = 422
+
+
+class PlateWeightDroppedError(RecognitionError):
+    code = "PLATE_WEIGHT_DROPPED"
+    http_status = 422
+
+
 class CaptureFailedError(RecognitionError):
     code = "CAPTURE_FAILED"
     http_status = 500
@@ -211,6 +226,9 @@ class ScaleHardwareAdapter:
         # False: the scale only weighs and photographs; the phone app calls Gemini.
         self.analyze_on_scale = False
         self.latest_analysis: Optional[Dict[str, Any]] = None
+        # A mixed plate in progress. Kept here so both screens show the same plate.
+        self.plate: Optional[Dict[str, Any]] = None
+        self._plate_counter = 0
 
         PHOTOS_DIR.mkdir(exist_ok=True)
         self._detect_hardware()
@@ -531,6 +549,23 @@ class ScaleHardwareAdapter:
             "capture_state": self.capture_state,
             "auto_capture": self.auto_capture,
             "latest_capture": summary,
+            "plate": self.plate_summary(),
+        }
+
+    @property
+    def plate_is_open(self) -> bool:
+        return self.plate is not None and self.plate["state"] == "open"
+
+    def plate_summary(self) -> Optional[Dict[str, Any]]:
+        """The plate without its photos, so the live poll stays small."""
+        plate = self.plate
+        if plate is None:
+            return None
+        return {
+            "plate_id": plate["plate_id"],
+            "state": plate["state"],
+            "simulated": self.is_mock,
+            "steps": [{k: v for k, v in step.items() if k != "image_base64"} for step in plate["steps"]],
         }
 
 
@@ -623,7 +658,7 @@ def perform_capture(
     meal_type: str = "Meal",
     hint: Optional[str] = None,
     save: bool = False,
-    stable_timeout_s: float = 5.0,
+    stable_timeout_s: float = 8.0,
 ) -> Dict[str, Any]:
     """The one capture pipeline behind the phone, the touchscreen and auto-capture:
     settle -> photo -> recognise -> publish an event every client can pick up.
@@ -631,6 +666,8 @@ def perform_capture(
     Failures are published too (with the photo when there is one) and re-raised as
     RecognitionError. Only one capture runs at a time; camera and load cell are shared.
     """
+    if hw.plate_is_open:
+        raise PlateOpenError("A mixed plate is open. Finish or cancel it first.")
     if not hw.capture_lock.acquire(blocking=False):
         raise CaptureBusyError("The scale is already capturing. Please wait a moment.")
     grams = 0.0
@@ -701,6 +738,8 @@ class AutoCaptureMonitor:
 
     def step(self) -> bool:
         """Runs one check. Returns True when a capture was attempted."""
+        if self.hw.plate is not None:
+            return False
         grams = self.hw.get_weight()
         if grams < self.MIN_WEIGHT_G:
             self.hw.last_capture_weight_g = None
@@ -724,6 +763,71 @@ class AutoCaptureMonitor:
                 self.step()
                 time.sleep(self.POLL_S)
         threading.Thread(target=loop, daemon=True).start()
+
+
+def add_plate_step(hw: ScaleHardwareAdapter, *, finishing: bool = False) -> Optional[Dict[str, Any]]:
+    """Records the food added since the last step: settle -> weight difference -> photo.
+
+    The grams come only from the scale. With finishing, an unchanged weight simply closes
+    the plate, because the last food was already recorded.
+    """
+    if hw.plate is not None and not hw.plate_is_open:
+        raise PlateOpenError("The last plate is waiting for the phone. Press NEW PLATE to drop it.")
+    if not hw.capture_lock.acquire(blocking=False):
+        raise CaptureBusyError("The scale is already capturing. Please wait a moment.")
+    try:
+        hw.capture_state = "settling"
+        reading = hw.get_stable_weight(timeout_s=8.0)
+        if reading is None:
+            if not hw.is_mock:
+                raise UnsteadyScaleError("The weight is still moving. Take your hand off the plate, then try again.")
+            reading = hw.get_weight()
+        steps = hw.plate["steps"] if hw.plate else []
+        added = reading - (steps[-1]["reading_g"] if steps else 0.0)
+        if steps and added <= -MIN_CAPTURE_WEIGHT_G:
+            raise PlateWeightDroppedError(
+                f"The plate is {-added:.0f} g lighter than before. Undo the last food, or put the food back."
+            )
+        if added < MIN_CAPTURE_WEIGHT_G:
+            if finishing and steps:
+                hw.plate["state"] = "finished"
+                return hw.plate_summary()
+            if not steps:
+                raise EmptyScaleError(f"The scale reads {reading:.0f} g. Put the food on the plate first.")
+            raise PlateStepTooSmallError(
+                f"Only {max(added, 0):.0f} g was added, which is too little to weigh. Use Add Side for small amounts."
+            )
+        hw.capture_state = "capturing"
+        image = hw._encode_photo(Path(hw.capture_photo()).read_bytes())
+        if hw.plate is None:
+            hw._plate_counter += 1
+            hw.plate = {"plate_id": f"plate-{hw._plate_counter}-{int(time.time())}", "state": "open", "steps": []}
+        hw.plate["steps"].append({
+            "index": len(steps) if steps else 0,
+            "reading_g": round(float(reading), 1),
+            "grams": round(float(added), 1),
+            "image_base64": image,
+        })
+        if finishing:
+            hw.plate["state"] = "finished"
+        return hw.plate_summary()
+    finally:
+        hw.capture_state = "idle"
+        hw.capture_lock.release()
+
+
+def undo_plate_step(hw: ScaleHardwareAdapter) -> Optional[Dict[str, Any]]:
+    with hw.capture_lock:
+        if hw.plate_is_open:
+            hw.plate["steps"].pop()
+            if not hw.plate["steps"]:
+                hw.plate = None
+    return hw.plate_summary()
+
+
+def cancel_plate(hw: ScaleHardwareAdapter) -> None:
+    with hw.capture_lock:
+        hw.plate = None
 
 
 # ==============================================================================
@@ -821,6 +925,15 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
                 self.send_json(404, {"error": "NO_CAPTURE_YET"})
             return
 
+        if parsed.path == "/scale/plate/photo":
+            steps = self.scale_hw.plate["steps"] if self.scale_hw.plate else []
+            index = int(query.get("step", ["-1"])[0])
+            if 0 <= index < len(steps):
+                self.send_json(200, {"image_base64": steps[index]["image_base64"]})
+            else:
+                self.send_json(404, {"error": "NO_SUCH_PLATE_STEP"})
+            return
+
         if not self.db_path.exists():
             self.send_json(503, {"error": "DATABASE_NOT_FOUND", "message": "Database not initialized"})
             return
@@ -853,6 +966,8 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
 
             # Scale Remote Tare Endpoint
             if parsed.path == "/scale/tare":
+                if self.scale_hw.plate_is_open:
+                    raise PlateOpenError("Zero is off while a plate is open, because it would break the weights.")
                 ok = self.scale_hw.tare()
                 self.send_json(200, {"success": ok, "scale": self.scale_hw.status()})
                 return
@@ -869,6 +984,20 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
                     save=bool(payload.get("save", True)),
                 )
                 self.send_json(200, result)
+                return
+
+            if parsed.path in ("/scale/plate/add", "/scale/plate/finish"):
+                plate = add_plate_step(self.scale_hw, finishing=parsed.path.endswith("finish"))
+                self.send_json(200, {"plate": plate})
+                return
+
+            if parsed.path == "/scale/plate/undo":
+                self.send_json(200, {"plate": undo_plate_step(self.scale_hw)})
+                return
+
+            if parsed.path == "/scale/plate/cancel":
+                cancel_plate(self.scale_hw)
+                self.send_json(200, {"plate": None})
                 return
 
             if parsed.path == "/scale/capture/result":
@@ -1074,6 +1203,12 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
         if s.get("overloaded"):
             p.rect(36, 300, W - 36, 352, C_RED)
             p.text(W // 2, 326, "OVERLOAD: remove weight (max 5 kg)", 20, True, C_WHITE, "center")
+        elif s.get("plate"):
+            steps = s["plate"]["steps"]
+            note = s.get("plate_note") or f"{len(steps)} on the plate, last {steps[-1]['grams']:.0f} g. Add the next food."
+            for i, line in enumerate(_wrap(note, 34)[:2]):
+                p.text(24, 316 + i * 24, line, 16, False, C_WHITE, "w")
+            button(470, 306, W - 24, 352, "CANCEL", C_TILE, "plate_cancel", 16)
         elif s.get("mock"):
             p.text(120, 326, "Demo:", 16, False, C_MUTED, "e")
             for i, g in enumerate((150, 250, 320)):
@@ -1085,8 +1220,14 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
             p.text(W // 2, 326, s.get("hint", "Zero the empty plate, then add food"), 18, False, C_MUTED, "center")
         if s.get("address"):
             p.text(W // 2, 359, str(s["address"]), 13, False, C_GREEN_HI, "center")
-        button(12, 384, 232, 468, "ZERO", C_TILE, "zero")
-        button(244, 384, W - 12, 468, "CAPTURE", C_GREEN, "capture")
+        if s.get("plate"):
+            button(12, 384, 142, 468, "UNDO", C_TILE, "plate_undo", 22)
+            button(154, 384, 410, 468, "ADD NEXT FOOD", C_TILE, "plate_add", 22)
+            button(422, 384, W - 12, 468, "FINISH", C_GREEN, "plate_finish", 26)
+        else:
+            button(12, 384, 142, 468, "ZERO", C_TILE, "zero", 22)
+            button(154, 384, 410, 468, "ADD NEXT FOOD", C_TILE, "plate_add", 22)
+            button(422, 384, W - 12, 468, "CAPTURE", C_GREEN, "capture", 26)
 
     elif screen == "analyzing":
         p.text(W // 2, 170, "Analyzing…", 44, True, C_GREEN_HI, "center")
@@ -1110,6 +1251,12 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
             p.text(x0 + 276, y0 + 34, f"{val:.1f} g", 30, True, C_WHITE, "e")
         button(12, 384, 232, 468, "DONE", C_TILE, "done")
         button(244, 384, W - 12, 468, "CAPTURE", C_GREEN, "capture")
+
+    elif screen == "plate_sent":
+        foods = len((s.get("plate") or {}).get("steps", []))
+        p.text(W // 2, 150, "Plate sent to app", 40, True, C_GREEN_HI, "center")
+        p.text(W // 2, 212, f"{foods} on the plate · open the app to analyze", 22, False, C_MUTED, "center")
+        button(12, 384, W - 12, 468, "NEW PLATE", C_TILE, "plate_cancel")
 
     elif screen == "sent":
         p.text(W // 2, 150, "Photo sent to app", 40, True, C_GREEN_HI, "center")
@@ -1220,6 +1367,15 @@ class ScaleTouchscreenApp:
                 self.state.update(screen="analyzing", weight=self.hw.get_weight())
                 self._set_status("● ANALYZING", C_AMBER)
             return
+        plate = self.hw.plate_summary()
+        if plate and plate["state"] == "finished":
+            if screen != "plate_sent":
+                self.state.update(screen="plate_sent")
+                self._set_status("✓ SENT TO APP", C_GREEN_HI)
+            return
+        if screen == "plate_sent":
+            self.state.update(screen="weigh")       # the phone took the plate, or NEW PLATE was pressed
+            self._set_status()
         event = self.hw.latest_capture_event
         if event and event["event_id"] != self._seen_event_id:
             self._seen_event_id = event["event_id"]
@@ -1242,6 +1398,7 @@ class ScaleTouchscreenApp:
             self._set_status()
 
     def _tick(self) -> None:
+        self.state["plate"] = self.hw.plate_summary()
         self._follow_capture()
         if self._ticks % 20 == 0:
             self._refresh_address()
@@ -1259,7 +1416,7 @@ class ScaleTouchscreenApp:
     def _on_touch(self, event: Any) -> None:
         for x0, y0, x1, y1, action in self.buttons:
             if x0 <= event.x <= x1 and y0 <= event.y <= y1:
-                if action == "zero":
+                if action == "zero" and not self.hw.plate_is_open:
                     self.on_zero_button()
                 elif action == "capture":
                     self.on_capture_button()
@@ -1276,6 +1433,8 @@ class ScaleTouchscreenApp:
                 elif action == "confirm_exit":
                     self.exit_app()
                     return
+                elif action.startswith("plate_"):
+                    self.on_plate_button(action)
                 elif action.startswith("sim:"):
                     self.hw.set_sim_weight(float(action[4:]))
                 self._redraw()
@@ -1319,6 +1478,29 @@ class ScaleTouchscreenApp:
                 perform_capture(self.hw, self.db_path, server=self.server, source="scale")
             except Exception as exc:
                 print(f"[Scale GUI] {exc}")         # already published; _follow_capture shows it
+            finally:
+                self._worker_active = False
+        threading.Thread(target=worker, daemon=True).start()
+
+    def on_plate_button(self, action: str) -> None:
+        if self._worker_active or self.hw.capture_state != "idle":
+            return
+        self._worker_active = True
+        self.state["plate_note"] = None
+
+        def worker() -> None:
+            try:
+                if action == "plate_add":
+                    add_plate_step(self.hw)
+                elif action == "plate_finish":
+                    add_plate_step(self.hw, finishing=True)
+                elif action == "plate_undo":
+                    undo_plate_step(self.hw)
+                else:
+                    cancel_plate(self.hw)
+            except RecognitionError as exc:
+                note = str(exc)
+                self.root.after(0, lambda: self.state.update(plate_note=note, hint=note))
             finally:
                 self._worker_active = False
         threading.Thread(target=worker, daemon=True).start()
