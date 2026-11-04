@@ -686,11 +686,12 @@ class MiqdarController extends ChangeNotifier {
     if (current == null || items.isEmpty) return current;
     // A name nobody chose follows the foods; Gemini's name for the plate stays once it has one.
     final named = items.where((item) => !item.isUnidentified);
+    final namedByHand = current.provider == 'manual';
     final applied = await _applyResult(RecognitionResult.forPlate(
       eventId: current.eventId,
       items: items,
-      nameEn: current.plateNameEn.isNotEmpty ? current.plateNameEn : named.map((i) => i.nameEn).join(' + '),
-      nameAr: current.plateNameAr.isNotEmpty ? current.plateNameAr : named.map((i) => i.nameAr).join(' + '),
+      nameEn: namedByHand ? named.map((i) => i.nameEn).join(' + ') : current.plateNameEn,
+      nameAr: namedByHand ? named.map((i) => i.nameAr).join(' + ') : current.plateNameAr,
       confidence: current.confidence,
       provider: current.provider,
       model: current.model,

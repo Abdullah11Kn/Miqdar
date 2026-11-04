@@ -275,6 +275,24 @@ void main() {
     expect(entered.isUnidentified, isFalse);
   });
 
+  test('a plate named by hand is called after all its foods, but Gemini\'s name for a plate stays', () async {
+    final failed = _Rig(geminiStatus: 503);
+    await failed.setUp();
+    await failed.finishPlate();
+    await failed.controller.openPlateForNaming(failed.controller.latestScaleCaptureFailure!.plate!);
+    final items = failed.controller.lastRecognition!.plateItems;
+    await failed.controller.enterPlateItemByHand(items[0].id, name: 'Home bread', caloriesPer100g: 250);
+    expect(failed.controller.lastRecognition!.plateNameEn, 'Home bread');
+    await failed.controller.enterPlateItemByHand(items[1].id, name: 'Grilled fish', caloriesPer100g: 250);
+    expect(failed.controller.lastRecognition!.plateNameEn, 'Home bread + Grilled fish');
+
+    final named = _Rig();
+    await named.setUp();
+    await named.finishPlate();
+    await named.controller.removePlateItem(named.controller.lastRecognition!.plateItems[1].id);
+    expect(named.controller.lastRecognition!.plateNameEn, 'Chicken Kabsa');
+  });
+
   test('Log Again brings back every food', () async {
     final rig = _Rig();
     await rig.setUp();

@@ -203,8 +203,10 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 - Decided: Abdullah asked for everything not yet done to be finished while he tests food. Another session has a large uncommitted redesign in this folder, so this work was tested in a separate git worktree and only its own files were committed.
 - Changed: added the Local Network message and local networking setting a real iPhone needs. Added `run_iphone.sh`. Added Android permissions, notification receivers and desugaring for voice and reminders. Recent foods in Search show their source. The Arabic Profile tab is ملفي, because there are no accounts.
 - Tested: 96 unit tests and `flutter analyze` in the clean worktree.
-- Not tested / risks: Android has never been built here, because this Mac has no Android SDK, so that setup follows the packages' instructions only. `run_iphone.sh` had not run at this entry. The screen tour for the Enter by Hand and lighter-plate dialogs, the restart card and the Arabic plate food sheet had not completed at this entry, because something kept shutting down its throwaway simulator. Separate sessions sharing this folder can collide on `mobile/build` and on simulators.
-- Next: real-iPhone tests for #10 and #13; food tests for #4 and #5.
+- Also fixed: a plate named by hand kept its first food's name; it now lists all its foods, and Gemini's name for a plate stays. Found by the tour.
+- Tested later: 97 unit tests. A temporary tour with a fake scale and fake Gemini passed, with these looked at: Enter by Hand, the lighter-plate dialog and the restart card in English and Arabic; the Arabic plate food sheet and name dialog; the pregnancy refusal; Recent in Search.
+- Not tested / risks: Android has never been built here, because this Mac has no Android SDK, so that setup follows the packages' instructions only. `run_iphone.sh` reached the phone and stopped because Developer Mode is off, so no real-iPhone build exists. Something shut down a throwaway simulator during testing; separate sessions sharing this folder can collide on `mobile/build` and on simulators, so use a git worktree.
+- Next: Abdullah turns on Developer Mode, then `./run_iphone.sh`, then real-iPhone tests for #10 and #13; power-cycle and food tests for #4 and #5.
 
 ### 2026-11-05: Checked the Pi update on the real scale
 - Decided: Abdullah asked for the Pi update and hardware steps. Another session had already updated the Pi, so it was not repeated. A separate session has uncommitted design work in this folder, so only this file was committed.
