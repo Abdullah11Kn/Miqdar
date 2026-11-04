@@ -160,7 +160,7 @@ class LocalDatabase {
       final root = await getDatabasesPath();
       _database = await openDatabase(
         p.join(root, 'miqdar_mobile.db'),
-        version: 4,
+        version: 5,
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE goals(
@@ -186,11 +186,13 @@ class LocalDatabase {
           await _createHealthProfileTable(db);
           await _addRestartSafeColumns(db);
           await _createBodyProfileTable(db);
+          await _createMealItemsTable(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) await _createHealthProfileTable(db);
           if (oldVersion < 3) await _addRestartSafeColumns(db);
           if (oldVersion < 4) await _createBodyProfileTable(db);
+          if (oldVersion < 5) await _createMealItemsTable(db);
         },
       );
       await _seedGoals();
@@ -264,6 +266,22 @@ class LocalDatabase {
       target_weight_kg REAL,
       weekly_pace_kg REAL,
       pregnant_or_breastfeeding INTEGER NOT NULL DEFAULT 0
+    )
+  ''');
+
+  static Future<void> _createMealItemsTable(Database db) => db.execute('''
+    CREATE TABLE IF NOT EXISTS meal_items(
+      id TEXT PRIMARY KEY,
+      meal_id TEXT NOT NULL,
+      position INTEGER NOT NULL,
+      food_id TEXT NOT NULL,
+      name_en TEXT NOT NULL,
+      name_ar TEXT NOT NULL,
+      weight_g REAL NOT NULL,
+      portion_source TEXT NOT NULL,
+      verification_status TEXT NOT NULL,
+      preparation TEXT NOT NULL,
+      basis_json TEXT NOT NULL
     )
   ''');
 
@@ -404,7 +422,15 @@ class LocalDatabase {
       whereArgs: [cutoff.toIso8601String()],
       orderBy: 'eaten_at DESC',
     );
-    return rows.map(_mealFromRow).toList();
+    final itemRows = await db.query('meal_items', orderBy: 'position');
+    final items = <String, List<MealItemEntry>>{};
+    for (final row in itemRows) {
+      (items[row['meal_id'] as String] ??= []).add(MealItemEntry.fromRow(row));
+    }
+    return rows.map((row) {
+      final meal = _mealFromRow(row);
+      return items.containsKey(meal.id) ? meal.copyWith(items: items[meal.id]) : meal;
+    }).toList();
   }
 
   MealEntry _mealFromRow(Map<String, Object?> row) {
@@ -445,12 +471,16 @@ class LocalDatabase {
     final meal = MealEntry(
       id: 'local-${stamp.microsecondsSinceEpoch}',
       foodId: result.foodId,
-      nameEn: result.additionalItems.isEmpty
-          ? result.nameEn
-          : '${result.nameEn} + ${result.additionalItems.length} item(s)',
-      nameAr: result.additionalItems.isEmpty
-          ? result.nameAr
-          : '${result.nameAr} + ${result.additionalItems.length}',
+      nameEn: result.isPlate
+          ? result.plateNameEn
+          : result.additionalItems.isEmpty
+              ? result.nameEn
+              : '${result.nameEn} + ${result.additionalItems.length} item(s)',
+      nameAr: result.isPlate
+          ? result.plateNameAr
+          : result.additionalItems.isEmpty
+              ? result.nameAr
+              : '${result.nameAr} + ${result.additionalItems.length}',
       eatenAt: stamp,
       mealType: mealType,
       weightG: totalWeight,
@@ -461,7 +491,7 @@ class LocalDatabase {
       syncStatus: syncStatus,
       notes: notes,
       basisPer100g: totalWeight > 0 ? totalNutrients.scaledBy(100.0 / totalWeight) : totalNutrients,
-      items: [
+      items: result.isPlate ? result.plateItems : [
         MealItemEntry(
           id: 'item-main-${stamp.microsecondsSinceEpoch}',
           foodId: result.foodId,
@@ -503,6 +533,15 @@ class LocalDatabase {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    if (meal.items.length > 1) {
+      for (var i = 0; i < meal.items.length; i++) {
+        await db.insert(
+          'meal_items',
+          meal.items[i].toRow(meal.id, i),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    }
     return meal;
   }
 
@@ -537,6 +576,7 @@ class LocalDatabase {
       where: 'id = ?',
       whereArgs: [id],
     );
+    await db.delete('meal_items', where: 'meal_id = ?', whereArgs: [id]);
   }
 
   Future<void> saveAlerts(List<HealthAlert> alerts) async {
@@ -650,6 +690,7 @@ class LocalDatabase {
     await db.delete('goals');
     await db.delete('health_profile');
     await db.delete('body_profile');
+    await db.delete('meal_items');
     await db.execute('DROP TABLE IF EXISTS settings');
     await _seedGoals();
     await _seedHealthProfile();

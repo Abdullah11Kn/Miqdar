@@ -13,18 +13,33 @@ import 'models/body_profile.dart';
 import 'models/nutrition.dart';
 import 'services/alert_service.dart';
 import 'services/api_service.dart';
+import 'services/gemini_service.dart';
 
 /// A capture the scale could not finish, with the photo when one was taken.
 class ScaleCaptureFailure {
-  const ScaleCaptureFailure({required this.error, this.imageBytes, this.weightG = 0, this.event});
+  const ScaleCaptureFailure({required this.error, this.imageBytes, this.weightG = 0, this.event, this.plate});
 
   final RecognitionException error;
   final Uint8List? imageBytes;
   final double weightG;
   final Map<String, dynamic>? event;
 
+  /// Set when a whole mixed plate failed. Its photos and grams are kept here.
+  final TakenPlate? plate;
+
   /// A photo that reached the app can go back to Gemini without capturing again.
-  bool get canRetry => imageBytes != null && event?['status'] == 'photo';
+  bool get canRetry => plate != null || (imageBytes != null && event?['status'] == 'photo');
+}
+
+/// A finished plate the phone has taken from the scale.
+class TakenPlate {
+  const TakenPlate({required this.plateId, required this.steps, this.note = ''});
+
+  final String plateId;
+  final List<PlatePhoto> steps;
+  final String note;
+
+  double get totalG => steps.fold(0.0, (sum, step) => sum + step.grams);
 }
 
 /// A scale photo Gemini is still analyzing, shown to the user right away.
@@ -471,8 +486,10 @@ class MiqdarController extends ChangeNotifier {
         }
         if (wasOffline) unawaited(checkServer());
 
+        final plateChanged = await _followPlate(data['plate'] as Map<String, dynamic>?);
         final newCapture = await _followLatestCapture(data['latest_capture']);
         if (newCapture ||
+            plateChanged ||
             wasOffline ||
             hadIssue ||
             previous.liveWeightG != scaleDevice.liveWeightG ||
@@ -496,6 +513,230 @@ class MiqdarController extends ChangeNotifier {
     } finally {
       _scalePollInFlight = false;
     }
+  }
+
+  /// The plate being built on the scale, from either screen.
+  ScalePlate? scalePlate;
+  bool plateBusy = false;
+  final Map<String, Uint8List> _platePhotos = {};
+  String? _takenPlateId;
+
+  /// Step photos for the rows on Review. Only the last photo is kept with the saved meal.
+  Map<String, Uint8List> plateItemPhotos = {};
+
+  Uint8List? platePhoto(ScalePlateStep step) {
+    final plate = scalePlate;
+    return plate == null ? null : _platePhotos[step.photoKey(plate.plateId)];
+  }
+
+  /// add, finish, undo or cancel. Throws [RecognitionException] when the scale refuses.
+  Future<void> plateAction(String action) async {
+    plateBusy = true;
+    notifyListeners();
+    try {
+      await _followPlate(await apiService.plateAction(action));
+    } finally {
+      plateBusy = false;
+      notifyListeners();
+    }
+  }
+
+  /// Keeps the phone's copy in step with the scale, and picks up a finished plate.
+  Future<bool> _followPlate(Map<String, dynamic>? json) async {
+    final plate = json == null ? null : ScalePlate.fromJson(json);
+    final changed = plate?.plateId != scalePlate?.plateId ||
+        plate?.finished != scalePlate?.finished ||
+        plate?.steps.length != scalePlate?.steps.length ||
+        plate?.totalG != scalePlate?.totalG;
+    scalePlate = plate;
+    if (plate == null) return changed;
+
+    var fetched = false;
+    for (final step in plate.steps) {
+      final key = step.photoKey(plate.plateId);
+      if (_platePhotos.containsKey(key)) continue;
+      try {
+        _platePhotos[key] = await apiService.getPlatePhoto(step.index);
+        fetched = true;
+      } catch (_) {
+        return changed || fetched; // tried again on the next poll
+      }
+    }
+    if (plate.finished && plate.plateId != _takenPlateId) {
+      _takenPlateId = plate.plateId;
+      final taken = TakenPlate(
+        plateId: plate.plateId,
+        steps: [
+          for (final step in plate.steps)
+            PlatePhoto(photo: _platePhotos[step.photoKey(plate.plateId)]!, grams: step.grams),
+        ],
+        note: aiNote.trim(),
+      );
+      aiNote = '';
+      _platePhotos.clear();
+      scalePlate = null;
+      unawaited(apiService.plateAction('cancel').catchError((Object _) => null)); // the phone holds it now
+      unawaited(_analyzePlate(taken));
+      return true;
+    }
+    return changed || fetched;
+  }
+
+  void _rememberPlatePhotos(TakenPlate plate, RecognitionResult result) {
+    plateItemPhotos = {
+      for (var i = 0; i < result.plateItems.length && i < plate.steps.length; i++)
+        result.plateItems[i].id: plate.steps[i].photo,
+    };
+  }
+
+  Future<void> _analyzePlate(TakenPlate plate) async {
+    _analyzingEventId = plate.plateId;
+    pendingScaleCapture = PendingScaleCapture(imageBytes: plate.steps.last.photo, weightG: plate.totalG);
+    notifyListeners();
+    try {
+      final result = await apiService.gemini.analyzePlate(
+        steps: plate.steps,
+        eventId: plate.plateId,
+        hint: plate.note.isEmpty ? null : plate.note,
+      );
+      if (_analyzingEventId != plate.plateId) return;
+      _rememberPlatePhotos(plate, result);
+      await _acceptScaleCapture(result);
+    } on RecognitionException catch (error) {
+      if (_analyzingEventId != plate.plateId) return;
+      latestScaleCaptureFailure = ScaleCaptureFailure(
+        error: error,
+        imageBytes: plate.steps.last.photo,
+        weightG: plate.totalG,
+        plate: plate,
+      );
+    } finally {
+      if (_analyzingEventId == plate.plateId) _analyzingEventId = null;
+      notifyListeners();
+    }
+  }
+
+  /// Gemini could not help, so the user names each food. The weighing is kept.
+  Future<void> openPlateForNaming(TakenPlate plate) async {
+    final result = RecognitionResult.forPlate(
+      eventId: plate.plateId,
+      items: [
+        for (var i = 0; i < plate.steps.length; i++)
+          MealItemEntry.unidentified(id: 'plate-item-${plate.plateId}-$i', weightG: plate.steps[i].grams),
+      ],
+      nameEn: '',
+      nameAr: '',
+      confidence: 0,
+      provider: 'manual',
+      imageBytes: plate.steps.last.photo,
+    );
+    _rememberPlatePhotos(plate, result);
+    await _acceptScaleCapture(result);
+    notifyListeners();
+  }
+
+  Future<RecognitionResult?> _replacePlateItems(List<MealItemEntry> items) async {
+    final current = lastRecognition;
+    if (current == null || items.isEmpty) return current;
+    // A name nobody chose follows the foods; Gemini's name for the plate stays once it has one.
+    final named = items.where((item) => !item.isUnidentified);
+    final applied = await _applyResult(RecognitionResult.forPlate(
+      eventId: current.eventId,
+      items: items,
+      nameEn: current.plateNameEn.isNotEmpty ? current.plateNameEn : named.map((i) => i.nameEn).join(' + '),
+      nameAr: current.plateNameAr.isNotEmpty ? current.plateNameAr : named.map((i) => i.nameAr).join(' + '),
+      confidence: current.confidence,
+      provider: current.provider,
+      model: current.model,
+      imageBytes: current.imageBytes,
+    ));
+    notifyListeners();
+    return applied;
+  }
+
+  List<MealItemEntry> _platePatched(String itemId, MealItemEntry Function(MealItemEntry) patch) => [
+        for (final item in lastRecognition?.plateItems ?? const <MealItemEntry>[])
+          item.id == itemId ? patch(item) : item,
+      ];
+
+  Future<RecognitionResult?> removePlateItem(String itemId) => _replacePlateItems(
+        (lastRecognition?.plateItems ?? const <MealItemEntry>[]).where((item) => item.id != itemId).toList(),
+      );
+
+  Future<RecognitionResult?> setPlateItemWeight(String itemId, double grams) => _replacePlateItems(
+        _platePatched(itemId, (item) => item.withWeight(grams, newSource: PortionSource.manual)),
+      );
+
+  Future<RecognitionResult?> replacePlateItemFood(String itemId, FoodCatalogItem food) => _replacePlateItems(
+        _platePatched(
+          itemId,
+          (item) => MealItemEntry(
+            id: item.id,
+            foodId: food.foodId,
+            nameEn: food.nameEn,
+            nameAr: food.nameAr,
+            weightG: item.weightG,
+            nutrients: food.per100g.forPortionGrams(item.weightG),
+            basisPer100g: food.per100g,
+            portionSource: item.portionSource,
+            verificationStatus: food.verificationStatus,
+            preparation: food.preparation,
+          ),
+        ),
+      );
+
+  /// The user types what a food really is. Gemini gives its values; the measured grams stay.
+  Future<RecognitionResult?> namePlateItem(String itemId, String name) async {
+    final items = lastRecognition?.plateItems ?? const <MealItemEntry>[];
+    final item = items.where((i) => i.id == itemId).firstOrNull;
+    if (item == null) return lastRecognition;
+    final answer = await apiService.gemini.analyzeDescription(description: name, weightG: item.weightG);
+    return _replacePlateItems(
+      _platePatched(
+        itemId,
+        (old) => MealItemEntry(
+          id: old.id,
+          foodId: answer.foodId,
+          nameEn: answer.nameEn,
+          nameAr: answer.nameAr,
+          weightG: old.weightG,
+          nutrients: answer.resolvedBasisPer100g.forPortionGrams(old.weightG),
+          basisPer100g: answer.resolvedBasisPer100g,
+          portionSource: old.portionSource,
+          verificationStatus: answer.verificationStatus,
+        ),
+      ),
+    );
+  }
+
+  /// Log Again for a meal of several foods keeps all of them.
+  Future<RecognitionResult> prepareMealAgain(MealEntry meal) async {
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    plateItemPhotos = {};
+    final applied = await _applyResult(RecognitionResult.forPlate(
+      eventId: 'again-$stamp',
+      items: [
+        for (var i = 0; i < meal.items.length; i++)
+          MealItemEntry(
+            id: 'plate-item-$stamp-$i',
+            foodId: meal.items[i].foodId,
+            nameEn: meal.items[i].nameEn,
+            nameAr: meal.items[i].nameAr,
+            weightG: meal.items[i].weightG,
+            nutrients: meal.items[i].nutrients,
+            basisPer100g: meal.items[i].resolvedBasisPer100g,
+            portionSource: PortionSource.manual,
+            verificationStatus: meal.items[i].verificationStatus,
+            preparation: meal.items[i].preparation,
+          ),
+      ],
+      nameEn: meal.nameEn,
+      nameAr: meal.nameAr,
+      confidence: meal.confidence,
+      provider: 'diary',
+    ));
+    notifyListeners();
+    return applied;
   }
 
   /// Picks up captures started anywhere: the scale's button, auto-capture or this phone.
@@ -546,6 +787,7 @@ class MiqdarController extends ChangeNotifier {
   }
 
   Future<void> retryScaleAnalysis(ScaleCaptureFailure failure) async {
+    if (failure.plate != null) return _analyzePlate(failure.plate!);
     final event = failure.event;
     if (event != null && failure.canRetry) await _analyzeScalePhoto(event);
   }
@@ -839,6 +1081,7 @@ class MiqdarController extends ChangeNotifier {
       verificationStatus: food.verificationStatus,
       preparation: food.preparation,
     );
+    if (current.isPlate) return _replacePlateItems([...current.plateItems, item]);
     final updated = current.withAdditionalItems([...current.additionalItems, item]);
     final applied = await _applyResult(updated);
     notifyListeners();
@@ -876,7 +1119,7 @@ class MiqdarController extends ChangeNotifier {
     Uint8List? photo,
   }) async {
     final result = lastRecognition;
-    if (result == null) return null;
+    if (result == null || result.plateNeedsNames) return null;
 
     final isDemo = account.isDemo;
     final meal = await localDatabase.saveRecognition(
@@ -905,7 +1148,7 @@ class MiqdarController extends ChangeNotifier {
 
     // The phone holds the diary. A Gemini estimate has no food record on the scale to link to;
     // anything else is also logged there when it can be, without holding up the save.
-    if (!isDemo && !result.foodId.startsWith(aiFoodIdPrefix) && isApiOnline) {
+    if (!isDemo && !result.isPlate && !result.foodId.startsWith(aiFoodIdPrefix) && isApiOnline) {
       unawaited(apiService
           .logMeal(
             foodId: result.foodId,

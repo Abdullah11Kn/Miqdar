@@ -958,9 +958,14 @@ class _ScanScreenState extends State<ScanScreen> {
     final isReady = scale.online && scale.sensorError == null && !working && grams >= 5 && scale.isStable;
     // One main action per screen: once a photo is chosen, that is Analyze This Photo.
     final hasPhoto = imageBytes != null || selectedSampleAsset != null;
+    final plate = controller.scalePlate;
+    final plateOpen = plate != null && plate.isOpen;
+    final plateActive = !working && !controller.plateBusy && scale.online;
 
     final String guidance;
-    if (!scale.online) {
+    if (plateOpen && !working && scale.online) {
+      guidance = s.tr('Add the next food, or Finish.', 'أضف الطعام التالي، أو اضغط إنهاء.');
+    } else if (!scale.online) {
       final issue = controller.scaleConnectionIssue;
       guidance = issue != null && !s.isAr
           ? issue
@@ -996,7 +1001,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   ),
                 ),
               ),
-              if (scale.online)
+              if (scale.online && !plateOpen)
                 TextButton(
                   onPressed: controller.taringScale || working
                       ? null
@@ -1055,7 +1060,39 @@ class _ScanScreenState extends State<ScanScreen> {
                 : MiqdarType.body.copyWith(color: c.inkMuted),
           ),
           const SizedBox(height: 16),
-          if (scale.online)
+          if (plateOpen && scale.online) ...[
+            _plateSteps(controller, s, plate),
+            const SizedBox(height: 12),
+            _ScaleActionButton(
+              primary: true,
+              onPressed: plateActive ? () => _plateAction(controller, s, 'finish') : null,
+              icon: controller.plateBusy || working
+                  ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.3))
+                  : const Icon(MiqdarIcons.check, size: 22),
+              label: s.tr('Finish', 'إنهاء'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              onPressed: plateActive ? () => _plateAction(controller, s, 'add') : null,
+              icon: const Icon(MiqdarIcons.add),
+              label: Text(s.tr('Add Next Food', 'إضافة الطعام التالي')),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton(
+                  onPressed: plateActive ? () => _plateAction(controller, s, 'undo') : null,
+                  child: Text(s.tr('Undo Last Food', 'تراجع عن آخر طعام')),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: c.danger),
+                  onPressed: plateActive ? () => _plateAction(controller, s, 'cancel') : null,
+                  child: Text(s.tr('Cancel Plate', 'إلغاء الطبق')),
+                ),
+              ],
+            ),
+          ] else if (scale.online) ...[
             _ScaleActionButton(
               primary: !hasPhoto,
               onPressed: canCapture ? _captureFromScaleCamera : null,
@@ -1066,8 +1103,15 @@ class _ScanScreenState extends State<ScanScreen> {
                     )
                   : const Icon(MiqdarIcons.photoCamera, fill: 1, size: 22),
               label: s.tr('Capture', 'التقاط'),
-            )
-          else
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              onPressed: canCapture && !controller.plateBusy ? () => _plateAction(controller, s, 'add') : null,
+              icon: const Icon(MiqdarIcons.add),
+              label: Text(s.tr('Add Next Food', 'إضافة الطعام التالي')),
+            ),
+          ] else
             _ScaleActionButton(
               primary: !hasPhoto,
               onPressed: () => showScaleAddressDialog(context, controller),
@@ -1091,6 +1135,68 @@ class _ScanScreenState extends State<ScanScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Future<void> _plateAction(MiqdarController controller, S s, String action) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await controller.plateAction(action);
+    } on RecognitionException catch (error) {
+      if (!mounted) return;
+      final message = switch (error.code) {
+        'PLATE_STEP_TOO_SMALL' => s.tr(
+            'Too little was added to weigh. For small amounts, use Add Side on the review screen.',
+            'الكمية المضافة قليلة جداً للوزن. للكميات الصغيرة استخدم إضافة صنف في شاشة المراجعة.',
+          ),
+        'PLATE_WEIGHT_DROPPED' => s.tr(
+            'The plate got lighter. Undo the last food, or put the food back and try again.',
+            'أصبح الطبق أخف. تراجع عن آخر طعام، أو أعد الطعام وحاول مجدداً.',
+          ),
+        'WEIGHT_NOT_STEADY' => s.tr(
+            'The weight is still moving. Take your hand off the plate, then try again.',
+            'الوزن ما زال يتحرك. أبعد يدك عن الطبق ثم حاول مجدداً.',
+          ),
+        'EMPTY_SCALE' => s.tr('Put the food on the plate first.', 'ضع الطعام على الطبق أولاً.'),
+        'PLATE_OPEN' => s.tr('Finish or cancel the current plate first.', 'أنهِ الطبق الحالي أو ألغِه أولاً.'),
+        'CAPTURE_IN_PROGRESS' => s.tr('The scale is busy. Try again in a moment.', 'الميزان مشغول. حاول بعد لحظة.'),
+        _ => s.tr('The scale did not respond. Try again.', 'لم يستجب الميزان. حاول مجدداً.'),
+      };
+      messenger.showSnackBar(SnackBar(behavior: SnackBarBehavior.floating, content: Text(message)));
+    }
+  }
+
+  Widget _plateSteps(MiqdarController controller, S s, ScalePlate plate) {
+    final c = context.mq;
+    return Column(
+      children: [
+        for (final step in plate.steps)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox.square(
+                    dimension: 44,
+                    child: switch (controller.platePhoto(step)) {
+                      final photo? => Image.memory(photo, fit: BoxFit.cover),
+                      null => ColoredBox(color: c.surfaceSunken, child: Icon(MiqdarIcons.restaurant, color: c.inkMuted)),
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    s.tr('Food ${step.index + 1}', 'الطعام ${step.index + 1}'),
+                    style: MiqdarType.body.copyWith(color: c.ink),
+                  ),
+                ),
+                Text('${step.grams.toStringAsFixed(0)} ${s.unitG}', style: MiqdarType.bodyStrong.copyWith(color: c.ink)),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -2041,7 +2147,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
           child: FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58)),
-            onPressed: () async {
+            onPressed: result.plateNeedsNames ? null : () async {
               final messenger = ScaffoldMessenger.of(context);
               final navigator = Navigator.of(context);
               final meal = await controller.saveLastRecognition(
@@ -2146,7 +2252,11 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
 
                 // The answer
                 Text(
-                  s.isAr && result.nameAr.isNotEmpty ? result.nameAr : result.nameEn,
+                  result.isPlate
+                      ? (_plateTitle(result, s))
+                      : s.isAr && result.nameAr.isNotEmpty
+                          ? result.nameAr
+                          : result.nameEn,
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
@@ -2154,7 +2264,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                     color: textPrimary,
                   ),
                 ),
-                if ((s.isAr ? result.nameEn : result.nameAr).isNotEmpty)
+                if (!result.isPlate && (s.isAr ? result.nameEn : result.nameAr).isNotEmpty)
                   Text(
                     s.isAr ? result.nameEn : result.nameAr,
                     style: TextStyle(fontSize: 14, color: textSecondary, fontWeight: FontWeight.w600),
@@ -2217,8 +2327,13 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                   ),
                 ],
 
+                if (result.isPlate) ...[
+                  const SizedBox(height: 14),
+                  _plateFoodsCard(context, controller, result, s),
+                ],
+
                 // Is it wrong?
-                if (alternatives.isNotEmpty) ...[
+                if (!result.isPlate && alternatives.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   Text(
                     s.tr('Could also be', 'قد يكون أيضاً'),
@@ -2250,7 +2365,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    if (result.verificationStatus == aiEstimateStatus && result.imageBytes != null)
+                    if (!result.isPlate && result.verificationStatus == aiEstimateStatus && result.imageBytes != null)
                       smallAction(
                         icon: MiqdarIcons.autoAwesome,
                         label: s.tr('Not right? Tell Gemini', 'غير صحيح؟ أخبر Gemini'),
@@ -2262,6 +2377,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                               )
                             : null,
                       ),
+                    if (!result.isPlate)
                     smallAction(
                       icon: MiqdarIcons.swapHoriz,
                       label: s.tr('Change Food', 'تغيير الصنف'),
@@ -2277,6 +2393,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                 const SizedBox(height: 14),
 
                 // Portion
+                if (!result.isPlate)
                 SurfaceCard(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
                   child: Column(
@@ -2329,7 +2446,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                   ),
                 ),
 
-                if (result.additionalItems.isNotEmpty) ...[
+                if (!result.isPlate && result.additionalItems.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   SurfaceCard(
                     child: Column(
@@ -2476,7 +2593,201 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
     );
   }
 
-  void _showReplaceFoodDialog(BuildContext context, MiqdarController controller) {
+  String _plateTitle(RecognitionResult result, S s) {
+    final name = s.isAr && result.plateNameAr.isNotEmpty ? result.plateNameAr : result.plateNameEn;
+    return name.isEmpty ? s.tr('Mixed plate', 'طبق مختلط') : name;
+  }
+
+  Widget _plateFoodsCard(BuildContext context, MiqdarController controller, RecognitionResult result, S s) {
+    final c = context.mq;
+    return SurfaceCard(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.tr('On this plate', 'في هذا الطبق'), style: MiqdarType.bodyStrong.copyWith(color: c.ink)),
+          if (result.plateNeedsNames) ...[
+            const SizedBox(height: 4),
+            Text(
+              s.tr('Name every food to save this meal.', 'سمِّ كل طعام لحفظ هذه الوجبة.'),
+              style: MiqdarType.caption.copyWith(color: c.accentInk),
+            ),
+          ],
+          const SizedBox(height: 6),
+          for (final item in result.plateItems)
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _showPlateItemSheet(context, controller, result, item),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox.square(
+                        dimension: 44,
+                        child: switch (controller.plateItemPhotos[item.id]) {
+                          final photo? => Image.memory(photo, fit: BoxFit.cover),
+                          null => ColoredBox(color: c.surfaceSunken, child: Icon(MiqdarIcons.restaurant, color: c.inkMuted)),
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s.isAr && item.nameAr.isNotEmpty ? item.nameAr : item.nameEn,
+                            style: MiqdarType.bodyStrong.copyWith(color: item.isUnidentified ? c.accentInk : c.ink),
+                          ),
+                          Text(
+                            [
+                              '${item.weightG.toStringAsFixed(0)} ${s.unitG}',
+                              if (item.portionSource == PortionSource.manual) item.portionSource.label(s.isAr),
+                            ].join(' • '),
+                            style: MiqdarType.caption.copyWith(color: c.inkMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      item.isUnidentified
+                          ? s.tr('Unknown', 'غير معروف')
+                          : '${item.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
+                      style: MiqdarType.label.copyWith(color: item.isUnidentified ? c.accentInk : c.ink),
+                    ),
+                    Icon(MiqdarIcons.chevronRight, size: 18, color: c.inkMuted),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showPlateItemSheet(BuildContext context, MiqdarController controller, RecognitionResult result, MealItemEntry item) {
+    final s = S.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(MiqdarIcons.edit),
+              title: Text(s.tr('Type the Name', 'اكتب الاسم')),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                _typePlateItemName(context, controller, item);
+              },
+            ),
+            ListTile(
+              leading: const Icon(MiqdarIcons.search),
+              title: Text(s.tr('Search Food', 'ابحث عن طعام')),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                _showReplaceFoodDialog(context, controller, onPick: (food) async {
+                  final updated = await controller.replacePlateItemFood(item.id, food);
+                  if (updated != null && mounted) setState(() => currentResult = updated);
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(MiqdarIcons.scale),
+              title: Text(s.tr('Change Weight', 'تغيير الوزن')),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                _changePlateItemWeight(context, controller, item);
+              },
+            ),
+            if (result.plateItems.length > 1)
+              ListTile(
+                leading: Icon(MiqdarIcons.removeCircle, color: context.mq.danger),
+                title: Text(s.tr('Remove', 'إزالة'), style: TextStyle(color: context.mq.danger)),
+                onTap: () async {
+                  Navigator.of(sheetCtx).pop();
+                  final updated = await controller.removePlateItem(item.id);
+                  if (updated != null && mounted) setState(() => currentResult = updated);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _askText(
+    BuildContext context, {
+    required String title,
+    required String label,
+    required String action,
+    String initial = '',
+    TextInputType? keyboard,
+  }) {
+    final s = S.of(context);
+    final field = TextEditingController(text: initial);
+    return showDialog<String>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: field,
+          autofocus: true,
+          keyboardType: keyboard,
+          decoration: InputDecoration(labelText: label),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogCtx).pop(), child: Text(s.tr('Cancel', 'إلغاء'))),
+          FilledButton(onPressed: () => Navigator.of(dialogCtx).pop(field.text.trim()), child: Text(action)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _typePlateItemName(BuildContext context, MiqdarController controller, MealItemEntry item) async {
+    final s = S.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final name = await _askText(
+      context,
+      title: s.tr('What is this food?', 'ما هذا الطعام؟'),
+      label: s.tr('Food name', 'اسم الطعام'),
+      action: s.tr('Ask Gemini', 'اسأل Gemini'),
+    );
+    if (name == null || name.isEmpty) return;
+    try {
+      final updated = await controller.namePlateItem(item.id, name);
+      if (updated != null && mounted) setState(() => currentResult = updated);
+    } on RecognitionException catch (error) {
+      messenger.showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(error.recoveryAdvice(s.isAr)),
+      ));
+    }
+  }
+
+  Future<void> _changePlateItemWeight(BuildContext context, MiqdarController controller, MealItemEntry item) async {
+    final s = S.of(context);
+    final value = await _askText(
+      context,
+      title: s.tr('Change Weight', 'تغيير الوزن'),
+      label: s.tr('Weight (g)', 'الوزن (غ)'),
+      action: s.tr('Save', 'حفظ'),
+      initial: item.weightG.toStringAsFixed(0),
+      keyboard: const TextInputType.numberWithOptions(decimal: true),
+    );
+    final grams = value == null ? null : double.tryParse(normalizeDigits(value));
+    if (grams == null || grams <= 0) return;
+    final updated = await controller.setPlateItemWeight(item.id, grams);
+    if (updated != null && mounted) setState(() => currentResult = updated);
+  }
+
+  void _showReplaceFoodDialog(
+    BuildContext context,
+    MiqdarController controller, {
+    Future<void> Function(FoodCatalogItem food)? onPick,
+  }) {
     final s = S.of(context);
     var query = '';
     showModalBottomSheet<void>(
@@ -2523,6 +2834,10 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                           trailing: const Icon(MiqdarIcons.chevronRight),
                           onTap: () async {
                             Navigator.of(sheetCtx).pop();
+                            if (onPick != null) {
+                              await onPick(item);
+                              return;
+                            }
                             final current = controller.lastRecognition ?? currentResult;
                             final updated = await controller.prepareCatalogDraft(
                               food: item,

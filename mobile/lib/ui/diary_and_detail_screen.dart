@@ -165,6 +165,14 @@ class MealDetailScreen extends StatelessWidget {
   final MealEntry meal;
 
   Future<void> _logAgain(BuildContext context, MiqdarController controller, MealEntry currentMeal) async {
+    if (currentMeal.items.length > 1) {
+      final draft = await controller.prepareMealAgain(currentMeal);
+      if (!context.mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => RecognitionResultScreen(result: draft)),
+      );
+      return;
+    }
     final catalogItem = MiqdarFoodCatalog.findByIdOrLabel(currentMeal.foodId) ??
         FoodCatalogItem(
           foodId: currentMeal.foodId,
@@ -276,6 +284,37 @@ class MealDetailScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (currentMeal.items.length > 1) ...[
+                  const SizedBox(height: 14),
+                  SurfaceCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(s.tr('On this plate', 'في هذا الطبق'), style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink)),
+                        const SizedBox(height: 8),
+                        for (final item in currentMeal.items)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    s.isAr && item.nameAr.isNotEmpty ? item.nameAr : item.nameEn,
+                                    style: MiqdarType.body.copyWith(color: context.mq.ink),
+                                  ),
+                                ),
+                                Text(
+                                  '${item.weightG.toStringAsFixed(0)} ${s.unitG} • ${item.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
+                                  style: MiqdarType.label.copyWith(color: context.mq.inkMuted),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 NutrientGrid2x4(
                   values: currentMeal.nutrients,
@@ -374,6 +413,8 @@ class MealDetailScreen extends StatelessWidget {
                   onChanged: (value) =>
                       setSheetState(() => selectedType = value ?? selectedType),
                 ),
+                // A plate's weight comes from its foods, so one total cannot be edited here.
+                if (currentMeal.items.length <= 1) ...[
                 const SizedBox(height: 12),
                 TextField(
                   controller: weightController,
@@ -384,6 +425,7 @@ class MealDetailScreen extends StatelessWidget {
                   ),
                   onChanged: (_) => setSheetState(() {}),
                 ),
+                ],
                 const SizedBox(height: 12),
                 TextField(
                   controller: notesController,

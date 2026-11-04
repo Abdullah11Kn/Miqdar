@@ -203,6 +203,11 @@ Title "Add Meal", then a three-part switch: **Scale**, **Search**, **Manual**. S
    - Not connected: **Connect to Scale**, which opens the Scale Address dialog.
 5. **Note field,** when connected: "Note for AI (optional): grilled, no sauce…"
 
+**Mixed plate:** under Capture is **Add Next Food** (outlined). Pressing it weighs and photographs the first food and opens a plate.
+While a plate is open, Zero and Capture are hidden and the card shows a row per food (photo, "Food 1", grams), then **Finish** (main button),
+**Add Next Food**, and the text buttons **Undo Last Food** and **Cancel Plate**. Refusals appear as a message at the bottom. Finish opens
+the Analyzing screen and then Review Meal.
+
 **Under the card:**
 
 - **Error card,** after a failed analysis of a chosen photo: red tint, title, advice, what was detected, and the buttons
@@ -282,6 +287,13 @@ The page, top to bottom:
     - **All nutrients:** the eight-nutrient grid and the source badge.
     - **Meal time & notes:** a summary such as "Lunch • Mon, 1:32 PM". Open, it shows chips for Breakfast, Lunch, Dinner and
       Snack (preselected by time of day), the date with **Change Date**, and a note field of up to 200 characters.
+
+**A mixed plate on Review:** the name is the plate's, and the total comes from all its foods. "On this plate" replaces the alternatives, the
+Portion card and Also on the plate: one row per food with its photo, name, grams and calories. Tapping a row opens a sheet with **Type the
+Name**, **Search Food**, **Change Weight** and **Remove**. A food with no name reads "Unknown" in orange, and Save to Diary stays off until
+every food has a name. **Add Side** stays. Meal Detail lists the same foods, Edit Meal has no Weight field for them, and Log Again restores them all.
+
+**The Failure sheet for a plate** adds **Name the Foods Myself**, which opens Review with the weights kept and the names empty.
 
 ### Sheets opened from Add Meal and Review
 

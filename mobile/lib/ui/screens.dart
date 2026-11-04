@@ -393,6 +393,16 @@ class _CaptureFailureSheet extends StatelessWidget {
               ),
               const SizedBox(height: 8),
             ],
+            if (failure.plate != null) ...[
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  controller.openPlateForNaming(failure.plate!);
+                },
+                child: Text(s.tr('Name the Foods Myself', 'سأسمي الأطعمة بنفسي')),
+              ),
+              const SizedBox(height: 8),
+            ],
             OutlinedButton(
               onPressed: () {
                 Navigator.of(context).pop();

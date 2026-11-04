@@ -54,7 +54,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Not working:** USB-C networking (Mac → Pi gets no answers). Wi-Fi is used instead, and this is not being pursued.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
-- **Next work:** the plan is GitHub issue #1, split into tickets #2 to #13. Body profile (#2, #3) is built. Work the rest in ticket order.
+- **Next work:** the plan is GitHub issue #1, split into tickets #2 to #13. Body profile (#2, #3) and the phone side of mixed plates (#6, #7) are built. #4 and #5 stay open until they run on the real scale. Work the rest in ticket order.
 - **Agent skills setup:** `/setup-matt-pocock-skills` was started but not finished, so `docs/agents/` does not exist. Tickets use the `ready-to-build` label, not the skills' default name.
 
 ## Where things live
@@ -78,7 +78,7 @@ run_checks.sh             Rebuilds the database, then runs all tests
 mobile/lib/
   app_controller.dart     App state; capture flow; saving
   services/               gemini_service (prompt, model order), api_service (scale), alert_service
-  data/                   local_database (SQLite v4, meal photos), food_catalog
+  data/                   local_database (SQLite v5, meal photos, meal_items), food_catalog
   models/nutrition.dart   Data models
   models/body_profile.dart  Body profile and the goal calculation
   theme.dart              All colors (context.mq) and text styles (MiqdarType)
@@ -86,7 +86,7 @@ mobile/lib/
   l10n/strings.dart       English and Arabic text, s.tr(en, ar), s.date(...)
   ui/                     Screens; ui/widgets/charts_and_gauges.dart for shared widgets
 mobile/test/              Unit tests
-mobile/integration_test/  scale_flow_test: end-to-end flow on a simulator
+mobile/integration_test/  scale_flow_test and mixed_plate_flow_test: end-to-end flows on a simulator
 backend/                  Python service and tests (old path, /recommendations, goals)
 database/                 Food database, seeds and build scripts
 evaluation/               Benchmark tools and test_recognition.py. The 400-sample data is placeholder
@@ -184,6 +184,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-04: Mixed plates on the phone, with recovery when Gemini fails (tickets #6, #7)
+- Changed: Add Next Food, Finish, Undo Last Food and Cancel Plate on Add Meal. One Gemini request at Finish with every photo and each food's grams. Review shows the total and a row per food, which can be renamed by typing, searched, reweighed (labelled as entered by hand) or removed. Saved as one meal; database v5 adds `meal_items`, so sides are now kept too. Log Again restores all foods. If Gemini fails, the photos and grams stay, with Ask Gemini Again or Name the Foods Myself, and saving waits until every food has a name. Only the last photo is kept with the saved meal; step photos live in memory until saved.
+- Tested: `flutter analyze`; 67 unit tests; new `mixed_plate_flow_test` on a throwaway simulator with the simulated scale and real Gemini (Chicken Kabsa 200 g + Jareesh 120 g, 448 kcal, saved and read back from the database). Add Meal and Review looked at in English light.
+- Not tested / risks: NOT on the real scale, and the simulated photos are separate pictures, so comparing real photos of one plate building up is unproven. That is the main accuracy risk. Arabic and dark on these screens not looked at. Failure sheet and naming tested by unit tests only, not by eye. Upgrading to v5 not checked at the time of this entry.
+- Next: tickets #8 onward.
 
 ### 2026-11-04: Scale side of mixed plates and short wobbles (tickets #4, #5, still open)
 - Changed: settling ignores the highest and lowest tenth of samples and waits up to 8 s, so a brief wobble passes. New plate session on the Pi with add, finish, undo, cancel and a photo per step (`docs/API.md`), and Add Next Food, Undo, Finish and Cancel on the touchscreen. Zero, Capture and automatic capture wait while a plate is open.

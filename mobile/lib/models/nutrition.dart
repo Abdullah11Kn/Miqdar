@@ -256,6 +256,9 @@ class RecognitionCandidate {
   }
 }
 
+/// Marks a food on a mixed plate that still has no name, so its calories are not known yet.
+const unidentifiedFoodId = 'unidentified-plate-food';
+
 class MealItemEntry {
   const MealItemEntry({
     required this.id,
@@ -281,8 +284,55 @@ class MealItemEntry {
   final String verificationStatus;
   final String preparation;
 
+  bool get isUnidentified => foodId == unidentifiedFoodId;
+
   NutritionValues get resolvedBasisPer100g =>
       basisPer100g ?? (weightG > 0 ? nutrients.scaledBy(100.0 / weightG) : nutrients);
+
+  factory MealItemEntry.unidentified({required String id, required double weightG}) => MealItemEntry(
+        id: id,
+        foodId: unidentifiedFoodId,
+        nameEn: 'Unnamed food',
+        nameAr: 'طعام بلا اسم',
+        weightG: weightG,
+        nutrients: NutritionValues.zero(),
+        basisPer100g: NutritionValues.zero(),
+        verificationStatus: aiEstimateStatus,
+      );
+
+  Map<String, Object?> toRow(String mealId, int position) => {
+        'id': id,
+        'meal_id': mealId,
+        'position': position,
+        'food_id': foodId,
+        'name_en': nameEn,
+        'name_ar': nameAr,
+        'weight_g': weightG,
+        'portion_source': portionSource.name,
+        'verification_status': verificationStatus,
+        'preparation': preparation,
+        'basis_json': jsonEncode(
+          Map<String, double>.from(resolvedBasisPer100g.toDatabase())
+            ..removeWhere((key, _) => resolvedBasisPer100g.isMissing(key)),
+        ),
+      };
+
+  factory MealItemEntry.fromRow(Map<String, Object?> row) {
+    final basis = NutritionValues.fromJson(jsonDecode(row['basis_json'] as String) as Map<String, dynamic>);
+    final weight = (row['weight_g'] as num).toDouble();
+    return MealItemEntry(
+      id: row['id'] as String,
+      foodId: row['food_id'] as String,
+      nameEn: row['name_en'] as String,
+      nameAr: row['name_ar'] as String,
+      weightG: weight,
+      nutrients: basis.forPortionGrams(weight),
+      basisPer100g: basis,
+      portionSource: PortionSource.values.asNameMap()[row['portion_source']] ?? PortionSource.scale,
+      verificationStatus: row['verification_status'] as String,
+      preparation: row['preparation'] as String,
+    );
+  }
 
   MealItemEntry withWeight(double newWeightG, {PortionSource? newSource}) {
     final basis = resolvedBasisPer100g;
@@ -330,6 +380,9 @@ class RecognitionResult {
     this.portionSource = PortionSource.scale,
     this.basisPer100g,
     this.additionalItems = const [],
+    this.plateItems = const [],
+    this.plateNameEn = '',
+    this.plateNameAr = '',
     this.imageBytes,
     this.edibleFraction = 1,
     this.aiNote = '',
@@ -356,7 +409,53 @@ class RecognitionResult {
   final PortionSource portionSource;
   final NutritionValues? basisPer100g;
   final List<MealItemEntry> additionalItems;
+
+  /// Every food on a mixed plate, in the order added. Empty for a one-food meal.
+  final List<MealItemEntry> plateItems;
+  final String plateNameEn;
+  final String plateNameAr;
   final Uint8List? imageBytes;
+
+  bool get isPlate => plateItems.isNotEmpty;
+  bool get plateNeedsNames => plateItems.any((item) => item.isUnidentified);
+
+  /// One meal made of several foods: the first is the main item, the rest count as additional.
+  factory RecognitionResult.forPlate({
+    required String eventId,
+    required List<MealItemEntry> items,
+    required String nameEn,
+    required String nameAr,
+    required double confidence,
+    required String provider,
+    String? model,
+    Uint8List? imageBytes,
+    int recognitionMs = 0,
+  }) {
+    final first = items.first;
+    return RecognitionResult(
+      eventId: eventId,
+      foodId: first.foodId,
+      nameEn: first.nameEn,
+      nameAr: first.nameAr,
+      weightG: first.weightG,
+      confidence: confidence,
+      verificationStatus: first.verificationStatus,
+      nutrients: first.nutrients,
+      basisPer100g: first.resolvedBasisPer100g,
+      alertEvaluationMs: 0,
+      alertSloMet: true,
+      isMock: false,
+      provider: provider,
+      model: model,
+      recognitionMs: recognitionMs,
+      portionSource: first.portionSource,
+      additionalItems: items.sublist(1),
+      plateItems: items,
+      plateNameEn: nameEn,
+      plateNameAr: nameAr,
+      imageBytes: imageBytes,
+    );
+  }
 
   /// Share of the weighed grams that is eaten, and what Gemini assumed to get there.
   final double edibleFraction;
@@ -406,6 +505,9 @@ class RecognitionResult {
       portionSource: portionSource,
       basisPer100g: candidateBasis,
       additionalItems: additionalItems,
+      plateItems: plateItems,
+      plateNameEn: plateNameEn,
+      plateNameAr: plateNameAr,
       imageBytes: imageBytes,
     );
   }
@@ -435,6 +537,9 @@ class RecognitionResult {
       portionSource: newSource ?? portionSource,
       basisPer100g: basis,
       additionalItems: additionalItems,
+      plateItems: plateItems,
+      plateNameEn: plateNameEn,
+      plateNameAr: plateNameAr,
       imageBytes: imageBytes,
       edibleFraction: edibleFraction,
       aiNote: aiNote,
@@ -463,6 +568,9 @@ class RecognitionResult {
         portionSource: portionSource,
         basisPer100g: basisPer100g,
         additionalItems: items,
+        plateItems: plateItems,
+        plateNameEn: plateNameEn,
+        plateNameAr: plateNameAr,
         edibleFraction: edibleFraction,
         aiNote: aiNote,
         imageBytes: imageBytes,
@@ -588,6 +696,44 @@ class MealEntry {
       portionSource: newSource ?? portionSource,
     );
   }
+}
+
+/// A mixed plate in progress, as the scale reports it. The scale alone sets the grams.
+class ScalePlate {
+  const ScalePlate({required this.plateId, required this.finished, required this.simulated, required this.steps});
+
+  final String plateId;
+  final bool finished;
+  final bool simulated;
+  final List<ScalePlateStep> steps;
+
+  bool get isOpen => !finished;
+  double get totalG => steps.fold(0.0, (sum, step) => sum + step.grams);
+
+  factory ScalePlate.fromJson(Map<String, dynamic> json) => ScalePlate(
+        plateId: json['plate_id'] as String,
+        finished: json['state'] == 'finished',
+        simulated: json['simulated'] as bool? ?? false,
+        steps: (json['steps'] as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .map((step) => ScalePlateStep(
+                  index: step['index'] as int,
+                  grams: (step['grams'] as num).toDouble(),
+                  readingG: (step['reading_g'] as num).toDouble(),
+                ))
+            .toList(),
+      );
+}
+
+class ScalePlateStep {
+  const ScalePlateStep({required this.index, required this.grams, required this.readingG});
+
+  final int index;
+  final double grams;
+  final double readingG;
+
+  /// Undo and adding again reuse an index, so the reading tells the photos apart.
+  String photoKey(String plateId) => '$plateId/$index/$readingG';
 }
 
 class NutritionGoals {

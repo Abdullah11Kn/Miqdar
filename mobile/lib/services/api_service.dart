@@ -453,6 +453,36 @@ class ApiService {
     throw recognitionExceptionFromJson(body, fallbackStatus: response.statusCode);
   }
 
+  /// add, finish, undo or cancel on the scale's mixed plate. Returns the plate, or null for none.
+  Future<Map<String, dynamic>?> plateAction(String action) async {
+    final http.Response response;
+    try {
+      response = await _client
+          .post(Uri.parse('$baseUrl/scale/plate/$action'), headers: _jsonHeaders, body: jsonEncode({}))
+          .timeout(captureTimeout);
+    } catch (error) {
+      throw RecognitionException('SERVER_UNREACHABLE', 'Cannot connect to $baseUrl ($error).');
+    }
+    Map<String, dynamic>? body;
+    try {
+      body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    } catch (_) {}
+    if (body == null) {
+      throw RecognitionException('SERVER_UNREACHABLE', _describeScaleHttpFailure(response));
+    }
+    if (response.statusCode != 200) throw recognitionExceptionFromJson(body, fallbackStatus: response.statusCode);
+    return body['plate'] as Map<String, dynamic>?;
+  }
+
+  Future<Uint8List> getPlatePhoto(int step) async {
+    final response = await _client
+        .get(Uri.parse('$baseUrl/scale/plate/photo?step=$step'), headers: _jsonHeaders)
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) throw ApiException('No photo for this food yet.');
+    final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    return base64Decode(body['image_base64'] as String);
+  }
+
   /// Builds the exception for a failed capture, from an API error or a capture event.
   static RecognitionException recognitionExceptionFromJson(
     Map<String, dynamic> json, {
