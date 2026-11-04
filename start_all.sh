@@ -10,6 +10,11 @@ set -uo pipefail
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$project_dir"
 
+# Keeps what the terminal window shows, so a failed start at boot can be diagnosed.
+export PYTHONUNBUFFERED=1
+exec > >(tee -a /tmp/miqdar_start.log) 2>&1
+echo "=== $(date) start_all.sh $*"
+
 port="${MIQDAR_PORT:-8080}"
 tunnel_log="/tmp/miqdar_tunnel_launcher.log"
 tunnel_pid=""
