@@ -212,8 +212,14 @@ the Analyzing screen and then Review Meal.
 
 - **Error card,** after a failed analysis of a chosen photo: red tint, title, advice, what was detected, and the buttons
   **Search Food** and **Enter by Hand**. The demo can also show **Use Sample Result**.
-- **Use a photo instead** (text button), which expands into a box titled "Choose a photo of your food" with **Choose File**,
-  **Photos** and **Try a sample photo**.
+- **"Away from the scale?"** with three text buttons:
+  - **Take a Photo** opens the camera, then the No Time to Weigh sheet with the photo added.
+  - **No Time to Weigh?** opens that sheet.
+  - **Use a Photo** expands into a box titled "Choose a photo of your food" with **Choose File**, **Photos** and **Try a sample photo**.
+
+**No Time to Weigh sheet:** explains that Gemini estimates the food and the amount, so the meal is marked as estimated. A description field with
+a microphone button (speech only fills the field), **Camera** and **Photos** for an optional photo, and **Get an Estimate**. It opens Review Meal with
+an estimated portion; nothing is saved without review. The Failure sheet offers it as **Describe It Instead**.
 
 **After a photo is chosen,** these replace that button:
 
@@ -420,7 +426,7 @@ a red message if the address does not answer, then **Cancel** and **Connect** (o
 1. **"Where your data goes" card,** three rows with icons:
    - **This phone:** meals, photos, goals, preferences and body profile are stored here, with no account or cloud copy. The body
      profile is not sent to Gemini.
-   - **Google Gemini:** each photo goes to Google with its weight and any note. The free plan may use it.
+   - **Google Gemini:** each photo goes to Google with its weight and any note or description. Speech may also go through Apple's service. The free plan may use it.
    - **Your scale:** it keeps its own photos, and deleting data here does not remove them.
 2. **Export My Meals** (outlined): opens the Export sheet for the last 365 days.
 3. **Delete All My Data** (red outline, not in the demo): a dialog with **Cancel** and **Delete Everything**, then back to Welcome.

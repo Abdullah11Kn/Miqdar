@@ -323,6 +323,32 @@ void main() {
       expect(bodies.single, contains('inline_data'));
     });
 
+    test('a meal logged this way reaches Review marked as estimated, and nothing is saved', () async {
+      final rig = _Rig(answer: {'estimated_grams': 300, 'candidates': [_food('Kabsa', kcal: 180)]});
+      await rig.setUp();
+      final result = await rig.controller.logEstimatedMeal(description: 'kabsa');
+      expect(rig.controller.lastRecognition, same(result));
+      expect(result.portionSource, PortionSource.estimated);
+      expect(rig.controller.meals, isEmpty);
+    });
+
+    test('a photo alone is enough', () async {
+      final bodies = <String>[];
+      final result = await service({'estimated_grams': 150, 'candidates': [_food('Kabsa')]}, bodies).analyzeDescription(
+        description: '',
+        photo: Uint8List.fromList([0xFF, 0xD8, 1]),
+      );
+      expect(result.portionSource, PortionSource.estimated);
+      expect(result.weightG, 150);
+    });
+
+    test('an answer with no amount is not trusted', () async {
+      await expectLater(
+        service({'candidates': [_food('Kabsa')]}, []).analyzeDescription(description: 'kabsa'),
+        throwsA(isA<RecognitionException>().having((e) => e.code, 'code', 'AI_PROVIDER_UNAVAILABLE')),
+      );
+    });
+
     test('words that are not food are reported', () async {
       await expectLater(
         service({'estimated_grams': 0, 'candidates': [_food('not food', kcal: 0)]}, []).analyzeDescription(

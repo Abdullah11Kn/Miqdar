@@ -709,6 +709,17 @@ class MiqdarController extends ChangeNotifier {
     );
   }
 
+  /// A meal logged away from the scale, from words, a photo or both. Gemini estimates the amount
+  /// too, so it is marked as estimated. Throws [RecognitionException] if Gemini cannot help.
+  Future<RecognitionResult> logEstimatedMeal({String description = '', Uint8List? photo}) async {
+    final result = await apiService.gemini.analyzeDescription(description: description, photo: photo);
+    activeProviderName = result.provider;
+    activeModelName = result.model;
+    final applied = await _applyResult(result);
+    notifyListeners();
+    return applied;
+  }
+
   /// Log Again for a meal of several foods keeps all of them.
   Future<RecognitionResult> prepareMealAgain(MealEntry meal) async {
     final stamp = DateTime.now().microsecondsSinceEpoch;

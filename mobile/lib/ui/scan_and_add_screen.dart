@@ -658,15 +658,34 @@ class _ScanScreenState extends State<ScanScreen> {
               ),
             ] else if (showPhotoOptions)
               _buildEmptyPhotoZone(context, s)
-            else
-              TextButton.icon(
-                onPressed: () => setState(() => showPhotoOptions = true),
-                icon: const Icon(MiqdarIcons.photoLibrary, size: 18),
-                label: Text(
-                  s.tr('Use a photo instead', 'استخدم صورة بدلاً من ذلك'),
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
+            else ...[
+              Text(
+                s.tr('Away from the scale?', 'بعيد عن الميزان؟'),
+                textAlign: TextAlign.center,
+                style: MiqdarType.label.copyWith(color: context.mq.inkMuted),
               ),
+              const SizedBox(height: 4),
+              Wrap(
+                alignment: WrapAlignment.center,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => openDescribeMeal(context, startWithCamera: true),
+                    icon: const Icon(MiqdarIcons.photoCamera, size: 18),
+                    label: Text(s.tr('Take a Photo', 'التقط صورة')),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => openDescribeMeal(context),
+                    icon: const Icon(MiqdarIcons.editNote, size: 18),
+                    label: Text(s.tr('No Time to Weigh?', 'لا وقت للوزن؟')),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => setState(() => showPhotoOptions = true),
+                    icon: const Icon(MiqdarIcons.photoLibrary, size: 18),
+                    label: Text(s.tr('Use a Photo', 'استخدم صورة')),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

@@ -70,4 +70,5 @@ abstract final class MiqdarIcons {
   static const arrowForward = IconData(0xe5c8, fontFamily: _font, matchTextDirection: true);
   static const addTask = IconData(0xf23a, fontFamily: _font);
   static const addCircle = IconData(0xe990, fontFamily: _font);
+  static const mic = IconData(0xe31d, fontFamily: _font);
 }

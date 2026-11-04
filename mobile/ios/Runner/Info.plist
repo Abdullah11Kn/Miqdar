@@ -47,6 +47,10 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Miqdar listens when you choose to say what you ate.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Miqdar turns what you say into text so you can log a meal.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Miqdar uses the camera to recognize food.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

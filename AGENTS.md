@@ -185,6 +185,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-04: Logging away from the scale (tickets #8, #9, #10)
+- Changed: Take a Photo and No Time to Weigh? on Add Meal, and Describe It Instead on the Failure sheet. Gemini estimates food and amount, marked as estimated. Microphone button via `speech_to_text`, which only fills the field. Requests that estimate an amount get 20 s per model and 50 s in all, because a real one took 15 s under load. Added the `mic` icon by rebuilding the font.
+- Tested: `flutter analyze`; 70 unit tests; a temporary tour on a throwaway simulator with real Gemini ("half a plate of chicken kabsa and a small salad" gave Chicken Kabsa, 450 g, 631 kcal, estimated, which seems high); Gemini overload really happened during the test, and the failure message showed correctly. Sheet looked at in English light and Arabic dark.
+- Not tested / risks: VOICE HAS NOT RUN. It builds, but needs a real iPhone in both languages, so #10 stays open. The camera was not used, because a simulator has none. No accuracy is measured for estimates.
+- Next: tickets #11 onward.
+
 ### 2026-11-04: Mixed plates on the phone, with recovery when Gemini fails (tickets #6, #7)
 - Changed: Add Next Food, Finish, Undo Last Food and Cancel Plate on Add Meal. One Gemini request at Finish with every photo and each food's grams. Review shows the total and a row per food, which can be renamed by typing, searched, reweighed (labelled as entered by hand) or removed. Saved as one meal; database v5 adds `meal_items`, so sides are now kept too. Log Again restores all foods. If Gemini fails, the photos and grams stay, with Ask Gemini Again or Name the Foods Myself, and saving waits until every food has a name. Only the last photo is kept with the saved meal; step photos live in memory until saved.
 - Tested: `flutter analyze`; 67 unit tests; new `mixed_plate_flow_test` on a throwaway simulator with the simulated scale and real Gemini (Chicken Kabsa 200 g + Jareesh 120 g, 448 kcal, saved and read back from the database). Add Meal and Review looked at in English light.

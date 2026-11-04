@@ -758,8 +758,8 @@ class PrivacyAndDataScreen extends StatelessWidget {
                         icon: MiqdarIcons.autoAwesome,
                         title: s.tr('Google Gemini', 'Google Gemini'),
                         body: s.tr(
-                          'Each food photo you analyze is sent to Google, with its weight and any note you typed. On Gemini\'s free plan, Google may use what it receives to improve its products, so avoid including people or private items in the photo.',
-                          'تُرسل كل صورة طعام تحللها إلى Google مع وزنها وأي ملاحظة كتبتها. في خطة Gemini المجانية قد تستخدم Google ما تتلقاه لتحسين منتجاتها، لذا تجنب ظهور أشخاص أو أشياء خاصة في الصورة.',
+                          'Each food photo you analyze is sent to Google, with its weight and any note or description you typed or said. Speaking a description may also go through Apple\'s speech service. On Gemini\'s free plan, Google may use what it receives to improve its products, so avoid including people or private items in the photo.',
+                          'تُرسل كل صورة طعام تحللها إلى Google مع وزنها وأي ملاحظة أو وصف كتبته أو نطقته. وقد يمر الوصف المنطوق أيضاً عبر خدمة النطق من Apple. في خطة Gemini المجانية قد تستخدم Google ما تتلقاه لتحسين منتجاتها، لذا تجنب ظهور أشخاص أو أشياء خاصة في الصورة.',
                         ),
                       ),
                       _PrivacyRow(

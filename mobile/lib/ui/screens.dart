@@ -4,6 +4,7 @@ import '../app.dart';
 import '../app_controller.dart';
 import '../l10n/strings.dart';
 import '../theme.dart';
+import 'describe_meal_sheet.dart';
 import 'diary_and_detail_screen.dart';
 import 'home_screen.dart';
 import 'insights_and_goals_screen.dart';
@@ -12,6 +13,7 @@ import 'scan_and_add_screen.dart';
 
 export 'auth_screens.dart';
 export 'body_profile_screen.dart';
+export 'describe_meal_sheet.dart';
 export 'diary_and_detail_screen.dart';
 export 'home_screen.dart';
 export 'insights_and_goals_screen.dart';
@@ -76,6 +78,7 @@ class _MainShellState extends State<MainShell> {
           context: context,
           isScrollControlled: true,
           builder: (_) => _CaptureFailureSheet(
+            hostContext: context,
             failure: failure,
             onRetry: () => controller.retryScaleAnalysis(failure),
             onChooseFood: () => setState(() => index = 1),
@@ -343,11 +346,13 @@ class _CaptureProgressStrip extends StatelessWidget {
 /// Shows why a scale capture produced no calories, with the photo it was based on.
 class _CaptureFailureSheet extends StatelessWidget {
   const _CaptureFailureSheet({
+    required this.hostContext,
     required this.failure,
     required this.onRetry,
     required this.onChooseFood,
   });
 
+  final BuildContext hostContext;
   final ScaleCaptureFailure failure;
   final VoidCallback onRetry;
   final VoidCallback onChooseFood;
@@ -393,6 +398,14 @@ class _CaptureFailureSheet extends StatelessWidget {
               ),
               const SizedBox(height: 8),
             ],
+            OutlinedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                openDescribeMeal(hostContext);
+              },
+              child: Text(s.tr('Describe It Instead', 'صِفه بدلاً من ذلك')),
+            ),
+            const SizedBox(height: 8),
             if (failure.plate != null) ...[
               OutlinedButton(
                 onPressed: () {

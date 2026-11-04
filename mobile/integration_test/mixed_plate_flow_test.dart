@@ -7,7 +7,6 @@
 // Run it on a throwaway simulator: installing the test wipes the app's saved meals.
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';

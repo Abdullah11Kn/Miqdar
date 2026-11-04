@@ -8,7 +8,7 @@ notifications notifications_active help content_copy search chevron_right chevro
 photo_library edit close swap_horiz search_off restaurant restaurant_menu notes local_fire_department link light_mode
 dark_mode folder_open exposure_zero download check camera_enhance bolt wifi warning track_changes shield schedule replay
 remove_circle refresh phone_iphone no_food logout language fact_check edit_calendar done_all devices delete
-delete_forever check_circle build arrow_forward add_task add_circle""".split()
+delete_forever check_circle build arrow_forward add_task add_circle mic""".split()
 cp = dict(l.split() for l in open(codepoints) if l.strip())
 missing = [n for n in names if n not in cp]
 assert not missing, missing
