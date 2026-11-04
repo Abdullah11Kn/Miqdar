@@ -177,6 +177,8 @@ DEFAULT_DB = ROOT / "database" / "miqdar_nutrition.db"
 PHOTOS_DIR = ROOT / "photos"
 DEMO_USER = "demo-user"
 MIN_CAPTURE_WEIGHT_G = 5.0     # below this a reading is sensor noise, not food
+SENT_STALLED_S = 60.0          # Gemini gives up by 50 s, so longer than this the phone is not answering
+SAVE_ANSWER_S = 10.0           # the phone polls twice a second, so it answers Save almost at once
 SIM_SAMPLES = {
     "kabsa": "kabsa.jpg", "shawarma": "shawarma.jpeg", "jareesh": "jareesh.jpeg",
     "pizza": "pizza.jpeg", "burger": "burger.jpg",
@@ -227,6 +229,9 @@ class ScaleHardwareAdapter:
         # False: the scale only weighs and photographs; the phone app calls Gemini.
         self.analyze_on_scale = False
         self.latest_analysis: Optional[Dict[str, Any]] = None
+        # The diary lives on the phone: Save on the touchscreen asks, and only the phone's answer counts.
+        self.save_request: Optional[str] = None
+        self.meal_outcome: Optional[Dict[str, Any]] = None
         # A mixed plate in progress. Kept here so both screens show the same plate.
         self.plate: Optional[Dict[str, Any]] = None
         # Plates live in memory, so the app uses this to tell a restart from a cancel.
@@ -491,6 +496,8 @@ class ScaleHardwareAdapter:
                 **fields,
             }
             self.latest_capture_event = event
+            self.save_request = None
+            self.meal_outcome = None
         return event
 
     def record_capture_event(self, result: Dict[str, Any], img_bytes: bytes, grams: float, source: str = "scale") -> Dict[str, Any]:
@@ -527,6 +534,20 @@ class ScaleHardwareAdapter:
         }
         return True
 
+    def record_meal_outcome(self, payload: Dict[str, Any]) -> bool:
+        """The phone says what became of the capture's meal: saved, discarded or missing."""
+        latest = self.latest_capture_event
+        if not latest or latest["event_id"] != payload.get("event_id"):
+            return False
+        self.meal_outcome = {
+            "event_id": latest["event_id"],
+            "outcome": payload.get("outcome"),
+            "food": payload.get("food"),
+            "kcal": payload.get("kcal"),
+        }
+        self.save_request = None
+        return True
+
     def record_capture_error(self, exc: RecognitionError, img_bytes: bytes, grams: float, source: str = "scale") -> Dict[str, Any]:
         """Publishes a failed capture so the app can show the photo and what went wrong."""
         return self._publish_event({"status": "error", **exc.to_dict()}, img_bytes, grams, source)
@@ -552,6 +573,7 @@ class ScaleHardwareAdapter:
             "capture_state": self.capture_state,
             "auto_capture": self.auto_capture,
             "latest_capture": summary,
+            "save_request": self.save_request,
             "plate": self.plate_summary(),
             "boot_id": self.boot_id,
         }
@@ -1010,6 +1032,20 @@ class MiqdarScaleApiHandler(BaseHTTPRequestHandler):
                 self.send_json(200, {"accepted": self.scale_hw.record_analysis(payload)})
                 return
 
+            if parsed.path == "/scale/capture/outcome":
+                self.send_json(200, {"accepted": self.scale_hw.record_meal_outcome(payload)})
+                return
+
+            # Simulation only: press Save to Diary with no touchscreen, for the end-to-end test
+            if parsed.path == "/scale/simulate/save":
+                latest = self.scale_hw.latest_capture_event
+                if not self.scale_hw.is_mock or not latest:
+                    self.send_json(404, {"error": "route_not_found"})
+                    return
+                self.scale_hw.save_request = latest["event_id"]
+                self.send_json(200, self.scale_hw.status())
+                return
+
             # Simulation only: "put food on the plate" without hardware
             if parsed.path == "/scale/simulate":
                 if not self.scale_hw.is_mock:
@@ -1210,6 +1246,12 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
         if action:
             buttons.append((x0, y0, x1, y1, action))
 
+    def waiting_dots(y: int) -> None:
+        """Shows the scale is working. Nothing to press, so nothing here looks like a button."""
+        for i in range(3):
+            x = W // 2 - 30 + i * 24
+            p.round(x, y, x + 12, y + 12, 6, C_INK if i == s.get("frame", 0) else C_SUNKEN)
+
     def locked_number(x: int, y: int, value: str, size: int, fill: str) -> int:
         """Thmanyah's digits are proportional: fixed cells keep a live number from jittering."""
         for char in value:
@@ -1269,7 +1311,7 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
     elif screen == "analyzing":
         title(180, "Analyzing…", 44)
         text(W // 2, 240, f"{s.get('weight', 0):.0f} g", 24, C_MUTED, bold=True)
-        button(M, W - M, "Please Wait", None, "off", 24)
+        waiting_dots(300)
 
     elif screen == "result":
         name = str(s.get("food", "Unknown food"))
@@ -1279,6 +1321,8 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
         kcal = s.get("kcal")
         kcal_text = "Unknown" if kcal is None else f"{kcal:.0f} kcal"
         text(W // 2, 148, kcal_text, 48, C_ACCENT if kcal is None else C_INK, bold=True)
+        if s.get("save_note"):
+            text(W // 2, 370, str(s["save_note"]), 14, C_ACCENT, bold=True)
         grams_text = f"{s.get('weight', 0):.0f} g"
         if s.get("estimate"):
             text(W // 2, 192, f"{grams_text}  ·  Gemini estimate", 17, C_ACCENT, bold=True)
@@ -1288,16 +1332,28 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
                  ("Fat", s.get("fat"), C_FAT), ("Sugar", s.get("sugar"), C_SUGAR)]
         for i, (lab, val, dot) in enumerate(tiles):
             x0 = M + (i % 2) * 306
-            y0 = 218 + (i // 2) * 78
-            p.round(x0, y0, x0 + 294, y0 + 68, 12, C_SURFACE)
-            p.round(x0 + 16, y0 + 30, x0 + 24, y0 + 38, 4, dot)
-            text(x0 + 34, y0 + 34, lab, 19, C_MUTED, "w")
+            y0 = 214 + (i // 2) * 72
+            p.round(x0, y0, x0 + 294, y0 + 64, 12, C_SURFACE)
+            p.round(x0 + 16, y0 + 28, x0 + 24, y0 + 36, 4, dot)
+            text(x0 + 34, y0 + 32, lab, 19, C_MUTED, "w")
             if val is None:
-                text(x0 + 278, y0 + 34, "Unknown", 19, C_ACCENT, "e", bold=True)
+                text(x0 + 278, y0 + 32, "Unknown", 19, C_ACCENT, "e", bold=True)
             else:
-                text(x0 + 278, y0 + 34, f"{val:.1f} g", 28, C_INK, "e", bold=True)
-        button(M, 232, "Done", "done", size=22)
-        button(244, W - M, "Capture", "capture", "main", 24)
+                text(x0 + 278, y0 + 32, f"{val:.1f} g", 28, C_INK, "e", bold=True)
+        if s.get("saving"):
+            button(M, W - M, "Saving to the phone…", None, "off", 22)
+        elif s.get("saved_to_history"):
+            button(M, W - M, "Done", "done", "main", 24)
+        else:
+            button(M, 300, "Review on Phone", "done", size=20)
+            button(312, W - M, "Save to Diary", "save", "main", 24)
+
+    elif screen == "saved":
+        title(150, "Saved to your diary")
+        if s.get("saved_food"):
+            text(W // 2, 212, str(s["saved_food"]), 20, C_MUTED)
+        text(W // 2, 256, "Take it off the plate before the next food", 17, C_MUTED)
+        button(M, W - M, "Done", "done", "main", 24)
 
     elif screen == "plate_sent":
         foods = len((s.get("plate") or {}).get("steps", []))
@@ -1308,9 +1364,12 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
     elif screen == "sent":
         title(150, "Photo sent to the app")
         text(W // 2, 212, f"{s.get('weight', 0):.0f} g. The phone is analyzing.", 20, C_MUTED)
-        text(W // 2, 256, "Calories appear here when it finishes", 17, C_MUTED)
-        button(M, 232, "Done", "done", size=22)
-        button(244, W - M, "Capture", "capture", "main", 24)
+        if s.get("stalled"):
+            text(W // 2, 256, "No result yet. Check the app on your phone.", 17, C_ACCENT, bold=True)
+            button(M, W - M, "Back to Scale", "done", size=24)
+        else:
+            text(W // 2, 256, "Calories appear here when it finishes", 17, C_MUTED)
+            waiting_dots(310)
 
     elif screen == "error":
         title(110, "Could not analyze", 34)
@@ -1370,7 +1429,9 @@ class ScaleTouchscreenApp:
     One screen at a time, large text and large pill buttons:
       weigh     -> live weight (whole grams), Zero and Capture
       analyzing -> shown while the photo and weight are being analysed
-      result    -> food name, calories, carbs / protein / fat / sugar, Done and Capture
+      sent      -> waiting for the phone's result, with nothing to press
+      result    -> food name, calories, carbs / protein / fat / sugar, Review on Phone and Save to Diary
+      saved     -> the phone confirmed the save
       error     -> short message, Done and Try Again
     """
 
@@ -1402,6 +1463,9 @@ class ScaleTouchscreenApp:
         self._last_drawn: Optional[Tuple] = None
         self._seen_event_id: Optional[str] = None
         self._seen_analysis_id: Optional[str] = None
+        self._seen_outcome_id: Optional[str] = None
+        self._sent_at = 0.0
+        self._save_asked_at = 0.0
         self._worker_active = False
         self._ticks = 0
         self._tick()
@@ -1433,7 +1497,7 @@ class ScaleTouchscreenApp:
             return
         if self.hw.capture_state != "idle" or self._worker_active:
             if screen != "analyzing":
-                self.state.update(screen="analyzing", weight=self.hw.get_weight())
+                self.state.update(screen="analyzing", weight=self.hw.get_weight(), saving=False, save_note=None)
                 self._set_status("Analyzing", C_ACCENT)
             return
         plate = self.hw.plate_summary()
@@ -1451,7 +1515,8 @@ class ScaleTouchscreenApp:
             if event.get("status") == "ok":
                 self._show_results(event, event["weight_g"])
             elif event.get("status") == "photo":
-                self.state.update(screen="sent", weight=event["weight_g"])
+                self.state.update(screen="sent", weight=event["weight_g"], stalled=False)
+                self._sent_at = time.time()
                 self._set_status("Sent to app", C_PRIMARY)
             else:
                 self._show_error(event.get("message", "Capture failed"))
@@ -1459,12 +1524,38 @@ class ScaleTouchscreenApp:
                 self.hw.latest_analysis["event_id"] != self._seen_analysis_id:
             self._seen_analysis_id = self.hw.latest_analysis["event_id"]
             self._show_results(self.hw.latest_analysis, self.hw.latest_analysis["weight_g"], estimate=True)
+        elif screen == "sent" and not self.state.get("stalled") and time.time() - self._sent_at > SENT_STALLED_S:
+            self.state["stalled"] = True            # the phone may be closed: offer a way back
         elif screen == "analyzing":
             self.state.update(screen="weigh")       # auto-capture of a plate with no food on it
             self._set_status()
-        elif screen in ("result", "error", "sent") and self.hw.get_weight() < MIN_CAPTURE_WEIGHT_G:
+        elif screen in ("result", "error", "sent", "saved") and self.hw.get_weight() < MIN_CAPTURE_WEIGHT_G:
             self.state.update(screen="weigh")       # plate cleared: ready for the next meal
             self._set_status()
+        self._follow_save()
+
+    def _follow_save(self) -> None:
+        """Shows what the phone did with the meal, whichever screen it was saved or discarded from."""
+        outcome = self.hw.meal_outcome
+        if outcome and outcome["event_id"] != self._seen_outcome_id:
+            self._seen_outcome_id = outcome["event_id"]
+            if self.state["screen"] not in ("result", "sent"):
+                return
+            self.state.update(saving=False, save_note=None)
+            if outcome["outcome"] == "saved":
+                kcal = outcome.get("kcal")
+                food = str(outcome.get("food") or "")
+                saved_food = f"{food}, {kcal:.0f} kcal" if food and kcal is not None else food
+                self.state.update(screen="saved", saved_food=saved_food)
+                self._set_status("Saved", C_PRIMARY)
+            elif outcome["outcome"] == "discarded":
+                self.state.update(screen="weigh", hint="Discarded on the phone")
+                self._set_status()
+            else:
+                self.state.update(save_note="This meal changed on the phone. Save it there.")
+        elif self.state.get("saving") and time.time() - self._save_asked_at > SAVE_ANSWER_S:
+            self.hw.save_request = None             # so opening the app later does not save by surprise
+            self.state.update(saving=False, save_note="The phone did not answer. Open the app, then try again.")
 
     def _tick(self) -> None:
         self.state["plate"] = self.hw.plate_summary()
@@ -1472,6 +1563,8 @@ class ScaleTouchscreenApp:
         if self._ticks % 20 == 0:
             self._refresh_address()
         self._ticks += 1
+        # Only the waiting screens animate; on the others the frame stays put and nothing redraws.
+        self.state["frame"] = (self._ticks // 3) % 3 if self.state["screen"] in ("analyzing", "sent") else 0
         if self.state["screen"] == "weigh":
             try:
                 w = self.hw.get_weight()
@@ -1489,6 +1582,8 @@ class ScaleTouchscreenApp:
                     self.on_zero_button()
                 elif action == "capture":
                     self.on_capture_button()
+                elif action == "save":
+                    self.on_save_button()
                 elif action in ("done", "cancel_exit"):
                     self.state.update(screen="weigh")
                     self._set_status()
@@ -1551,6 +1646,17 @@ class ScaleTouchscreenApp:
                 self._worker_active = False
         threading.Thread(target=worker, daemon=True).start()
 
+    def on_save_button(self) -> None:
+        """Asks the phone to save. The screen says Saved only once the phone has answered."""
+        event_id = self.state.get("event_id")
+        if not event_id or self.state.get("saving"):
+            return
+        self._seen_outcome_id = None
+        self.hw.meal_outcome = None
+        self.hw.save_request = event_id
+        self._save_asked_at = time.time()
+        self.state.update(saving=True, save_note=None)
+
     def on_plate_button(self, action: str) -> None:
         if self._worker_active or self.hw.capture_state != "idle":
             return
@@ -1580,6 +1686,8 @@ class ScaleTouchscreenApp:
         food = result.get("food", {})
         n = result.get("nutrients", {})
         self.state.update(screen="result", food=food.get("name_en", "Unknown food"), weight=grams, estimate=estimate,
+                          event_id=result.get("event_id"), saved_to_history=bool(result.get("saved_to_history")),
+                          saving=False, save_note=None,
                           kcal=n.get("calories_kcal"), carbs=n.get("carbohydrate_g"), protein=n.get("protein_g"),
                           fat=n.get("fat_g"), sugar=n.get("sugar_g"))
         self._set_status("Saved" if result.get("saved_to_history") else "Sent to app", C_PRIMARY)

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:miqdar_mobile/app_controller.dart';
 import 'package:miqdar_mobile/data/local_database.dart';
+import 'package:miqdar_mobile/models/nutrition.dart';
 import 'package:miqdar_mobile/services/alert_service.dart';
 import 'package:miqdar_mobile/services/api_service.dart';
 
@@ -62,6 +63,80 @@ http.Response _json(Object body, [int status = 200]) => http.Response.bytes(
     );
 
 void main() {
+  group('Save to Diary on the touchscreen', () {
+    Map<String, dynamic> live(String? saveRequest) => {..._liveBody(capture: _event('cap-1')), 'save_request': saveRequest};
+
+    Future<_Harness> withDraft(String? Function() saveRequest) async {
+      final h = _Harness();
+      h.handler = (r) async => switch (r.url.path) {
+            '/scale/live' => _json(live(saveRequest())),
+            '/scale/capture/latest' => _json({..._event('cap-1'), 'image_base64': _photo}),
+            _ => _json({'accepted': true}),
+          };
+      h.controller.signIn(email: '', displayName: 'Demo', isDemo: true); // saves without a database
+      await h.controller.syncScaleLive();
+      return h;
+    }
+
+    Map<String, dynamic> outcome(_Harness h) => jsonDecode(
+          h.requests.lastWhere((r) => r.url.path == '/scale/capture/outcome').body,
+        ) as Map<String, dynamic>;
+
+    test('saves once and answers saved, however many polls see the request', () async {
+      String? request;
+      final h = await withDraft(() => request);
+      expect(h.controller.lastRecognition?.eventId, 'cap-1');
+      final before = h.controller.meals.length;
+
+      request = 'cap-1';
+      await h.controller.syncScaleLive();
+      await h.controller.syncScaleLive();
+
+      expect(h.controller.meals.length, before + 1);
+      expect(h.controller.lastRecognition, isNull);
+      expect(outcome(h)['outcome'], 'saved');
+      expect(outcome(h)['food'], 'White Rice');
+    });
+
+    test('with no matching meal it answers missing and saves nothing', () async {
+      String? request;
+      final h = await withDraft(() => request);
+      final before = h.controller.meals.length;
+      h.controller.discardDraft();
+
+      request = 'cap-1';
+      await h.controller.syncScaleLive();
+
+      expect(h.controller.meals.length, before);
+      expect(outcome(h)['outcome'], 'missing');
+    });
+
+    test('saving on the phone tells the scale too', () async {
+      final h = await withDraft(() => null);
+      await h.controller.saveLastRecognition();
+      await Future<void>.delayed(Duration.zero);
+      expect(outcome(h)['outcome'], 'saved');
+    });
+
+    test('a draft from search is never saved by a scale request', () async {
+      String? request;
+      final h = await withDraft(() => request);
+      final before = h.controller.meals.length;
+      await h.controller.prepareCatalogDraft(
+        food: h.controller.searchCatalog('').first,
+        weightG: 100,
+        portionSource: PortionSource.manual,
+      );
+
+      request = 'cap-1';
+      await h.controller.syncScaleLive();
+
+      expect(h.controller.meals.length, before);
+      expect(h.controller.lastRecognition, isNotNull);
+      expect(outcome(h)['outcome'], 'missing');
+    });
+  });
+
   test('a new capture downloads its photo once and survives further polls', () async {
     final h = _Harness();
     h.handler = (r) async => r.url.path == '/scale/live'

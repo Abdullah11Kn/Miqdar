@@ -419,6 +419,23 @@ class ApiService {
     }
   }
 
+  /// Tells the scale what became of a capture's meal: saved, discarded or missing.
+  /// Returns false if the scale could not be told, so a save it asked for can be reported again.
+  Future<bool> postMealOutcome(String eventId, String outcome, {String? food, double? kcal}) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('$baseUrl/scale/capture/outcome'),
+            headers: _jsonHeaders,
+            body: jsonEncode({'event_id': eventId, 'outcome': outcome, 'food': food, 'kcal': kcal}),
+          )
+          .timeout(const Duration(seconds: 8));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Triggers physical scale photo capture and load-cell measurement. Returns the capture
   /// event: a weighed photo to analyse, or a finished draft from --analyze-on-scale.
   /// Either way the meal is logged only when the user saves it on the review screen.

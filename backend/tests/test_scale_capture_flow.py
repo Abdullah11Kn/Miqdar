@@ -246,6 +246,96 @@ class ScaleCaptureFlowTests(unittest.TestCase):
         self.assertIn("plate_add", idle)
         self.assertIn("capture", idle)
 
+    def touchscreen(self) -> scale_app.ScaleTouchscreenApp:
+        """The touchscreen's logic without a window, on simulated hardware."""
+        screen = object.__new__(scale_app.ScaleTouchscreenApp)
+        screen.hw = self.hw
+        screen.state = {"screen": "weigh", "weight": 0.0}
+        screen.canvas = None
+        screen._last_drawn = None
+        screen._worker_active = False
+        screen._seen_event_id = screen._seen_analysis_id = screen._seen_outcome_id = None
+        screen._sent_at = screen._save_asked_at = 0.0
+        screen._redraw = lambda: None
+        self.hw.place_sim_food(200.0)
+        return screen
+
+    @staticmethod
+    def actions(state):
+        class Painter:
+            def rect(self, *_):
+                pass
+
+            def round(self, *_):
+                pass
+
+            def text(self, *_):
+                pass
+
+        return [b[4] for b in scale_app.draw_screen(Painter(), state)]
+
+    def test_waiting_screens_offer_nothing_to_press(self) -> None:
+        for state in ({"screen": "sent", "weight": 34}, {"screen": "analyzing", "weight": 34}):
+            self.assertEqual(self.actions(state), ["exit"])
+        self.assertEqual(self.actions({"screen": "sent", "stalled": True}), ["exit", "done"])
+
+    def test_result_saves_instead_of_capturing_again(self) -> None:
+        actions = self.actions({"screen": "result", "food": "Biscuit", "kcal": 146.0})
+        self.assertIn("save", actions)
+        self.assertNotIn("capture", actions)
+        self.assertEqual(self.actions({"screen": "result", "saving": True}), ["exit"])
+
+    def test_save_says_saved_only_after_the_phone_answers(self) -> None:
+        screen = self.touchscreen()
+        self.hw.record_photo_event(b"", 34.0)
+        screen._follow_capture()
+        self.assertEqual(screen.state["screen"], "sent")
+        event_id = self.hw.latest_capture_event["event_id"]
+        self.hw.record_analysis({"event_id": event_id, "food": {"name_en": "Biscuit"}, "nutrients": {"calories_kcal": 146.0}})
+        screen._follow_capture()
+        self.assertEqual(screen.state["screen"], "result")
+
+        screen.on_save_button()
+        self.assertEqual(self.hw.status()["save_request"], event_id)
+        screen._follow_capture()
+        self.assertEqual(screen.state["screen"], "result")
+        self.assertTrue(screen.state["saving"])
+
+        self.hw.record_meal_outcome({"event_id": event_id, "outcome": "saved", "food": "Biscuit", "kcal": 146.0})
+        screen._follow_capture()
+        self.assertEqual(screen.state["screen"], "saved")
+        self.assertEqual(screen.state["saved_food"], "Biscuit, 146 kcal")
+        self.assertIsNone(self.hw.status()["save_request"])
+
+    def test_save_with_no_answer_says_so_and_withdraws_the_request(self) -> None:
+        screen = self.touchscreen()
+        self.hw.record_photo_event(b"", 34.0)
+        screen._follow_capture()
+        event_id = self.hw.latest_capture_event["event_id"]
+        self.hw.record_analysis({"event_id": event_id, "food": {"name_en": "Biscuit"}, "nutrients": {}})
+        screen._follow_capture()
+        screen.on_save_button()
+        screen._save_asked_at -= scale_app.SAVE_ANSWER_S + 1
+        screen._follow_capture()
+        self.assertEqual(screen.state["screen"], "result")
+        self.assertFalse(screen.state["saving"])
+        self.assertIn("did not answer", screen.state["save_note"])
+        self.assertIsNone(self.hw.save_request)
+
+    def test_sent_screen_offers_a_way_back_when_the_phone_is_silent(self) -> None:
+        screen = self.touchscreen()
+        self.hw.record_photo_event(b"", 34.0)
+        screen._follow_capture()
+        self.assertFalse(screen.state["stalled"])
+        screen._sent_at -= scale_app.SENT_STALLED_S + 1
+        screen._follow_capture()
+        self.assertTrue(screen.state["stalled"])
+
+    def test_an_outcome_for_an_old_capture_is_ignored(self) -> None:
+        self.hw.record_photo_event(b"", 34.0)
+        self.assertFalse(self.hw.record_meal_outcome({"event_id": "old", "outcome": "saved"}))
+        self.assertIsNone(self.hw.meal_outcome)
+
     def test_touchscreen_labels_estimates_and_unknown_values(self) -> None:
         drawn = []
 

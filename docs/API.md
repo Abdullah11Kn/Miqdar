@@ -61,6 +61,15 @@ Errors look like `{"error": "<code>", "message": "...", "candidates": [], "event
 The full latest capture including `image_base64`. Clients fetch it once per new `event_id`. Returns 404
 `NO_CAPTURE_YET` when there is none.
 
+### `POST /scale/capture/outcome`
+The app reports what became of a capture's meal: `{"event_id", "outcome", "food", "kcal"}`, with `outcome` one of `saved`,
+`discarded`, `missing` or `failed`. The touchscreen says Saved only after this. It also clears `save_request`. Returns
+`{"accepted": true}`, or `false` for an older capture.
+
+`save_request` in `GET /scale/live` is the `event_id` of a meal whose Save to Diary was pressed on the touchscreen, or null.
+The diary is on the phone, so the phone saves it and answers with the route above. With no answer in 10 s the scale withdraws
+the request and says so.
+
 ### `POST /scale/capture/result`
 The app reports `{"event_id", "food": {"name_en"}, "nutrients"}` so the touchscreen can show the calories. Results for
 an older capture are ignored. Returns `{"accepted": true}` or `false`.

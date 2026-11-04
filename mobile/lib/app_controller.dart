@@ -470,6 +470,11 @@ class MiqdarController extends ChangeNotifier {
   String aiNote = '';
   String? scaleConnectionIssue;
   String? _analyzingEventId;
+  bool _answeringScaleSave = false;
+  ({String eventId, String food, double kcal})? _savedFromScale;
+
+  /// Set while Review Meal is open, so a save from the scale keeps the meal type and note chosen there.
+  Future<void> Function()? reviewSaveHandler;
   bool _scalePollInFlight = false;
   int _scaleFailures = 0;
 
@@ -525,6 +530,7 @@ class MiqdarController extends ChangeNotifier {
         }
         final plateChanged = await _followPlate(data['plate'] as Map<String, dynamic>?);
         final newCapture = await _followLatestCapture(data['latest_capture']);
+        await _followSaveRequest(data['save_request'] as String?);
         if (newCapture ||
             plateChanged ||
             wasOffline ||
@@ -971,6 +977,46 @@ class MiqdarController extends ChangeNotifier {
     return applied;
   }
 
+  /// Save to Diary on the scale's touchscreen. The diary is here, so the save happens here,
+  /// once, however many polls see the request, and the scale is told how it went.
+  Future<void> _followSaveRequest(String? eventId) async {
+    if (eventId == null || _answeringScaleSave) return;
+    _answeringScaleSave = true;
+    try {
+      final saved = _savedFromScale;
+      if (saved != null && saved.eventId == eventId) {
+        // Saved already, but the scale did not hear: only the answer is repeated.
+        await apiService.postMealOutcome(eventId, 'saved', food: saved.food, kcal: saved.kcal);
+        return;
+      }
+      final draft = lastRecognition;
+      if (draft == null || draft.eventId != eventId || draft.plateNeedsNames) {
+        await apiService.postMealOutcome(eventId, 'missing');
+        return;
+      }
+      final handler = reviewSaveHandler;
+      if (handler != null) {
+        await handler();
+      } else {
+        final now = DateTime.now();
+        await saveLastRecognition(mealType: defaultMealType(now), eatenAt: now);
+      }
+    } catch (_) {
+      // The meal is still on the phone; the scale must not keep waiting or say Saved.
+      await apiService.postMealOutcome(eventId, 'failed');
+    } finally {
+      _answeringScaleSave = false;
+    }
+  }
+
+  /// The meal type a new draft starts with, from the time of day.
+  static String defaultMealType(DateTime time) {
+    if (time.hour < 11) return 'Breakfast';
+    if (time.hour < 16) return 'Lunch';
+    if (time.hour < 22) return 'Dinner';
+    return 'Snack';
+  }
+
   /// Picks up captures started anywhere: the scale's button, auto-capture or this phone.
   Future<bool> _followLatestCapture(Object? summary) async {
     if (summary is! Map<String, dynamic>) return false;
@@ -1378,6 +1424,14 @@ class MiqdarController extends ChangeNotifier {
       if (!isDemo) await localDatabase.saveAlerts(projectedAlerts);
     }
 
+    // Whichever screen saved it, the scale's touchscreen stops offering Save.
+    if (result.eventId == _lastSeenCaptureEventId) {
+      final food = meal.nameEn;
+      final kcal = meal.nutrients.calories;
+      _savedFromScale = (eventId: result.eventId, food: food, kcal: kcal);
+      unawaited(apiService.postMealOutcome(result.eventId, 'saved', food: food, kcal: kcal));
+    }
+
     // The phone holds the diary. A Gemini estimate has no food record on the scale to link to;
     // anything else is also logged there when it can be, without holding up the save.
     if (!isDemo && !result.isPlate && !result.foodId.startsWith(aiFoodIdPrefix) && isApiOnline) {
@@ -1399,6 +1453,10 @@ class MiqdarController extends ChangeNotifier {
   }
 
   void discardDraft() {
+    final eventId = lastRecognition?.eventId;
+    if (eventId != null && eventId == _lastSeenCaptureEventId) {
+      unawaited(apiService.postMealOutcome(eventId, 'discarded'));
+    }
     lastRecognition = null;
     projectedAlerts = [];
     notifyListeners();

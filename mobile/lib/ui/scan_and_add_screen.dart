@@ -2028,6 +2028,7 @@ class RecognitionResultScreen extends StatefulWidget {
 class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
   late RecognitionResult currentResult = widget.result;
   bool correcting = false;
+  MiqdarController? _controller;
   String selectedMealType = 'Lunch';
   DateTime consumedAt = DateTime.now();
   final notesCtrl = TextEditingController();
@@ -2038,23 +2039,57 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
   @override
   void initState() {
     super.initState();
-    final hour = DateTime.now().hour;
-    if (hour < 11) {
-      selectedMealType = 'Breakfast';
-    } else if (hour < 16) {
-      selectedMealType = 'Lunch';
-    } else if (hour < 22) {
-      selectedMealType = 'Dinner';
-    } else {
-      selectedMealType = 'Snack';
-    }
+    selectedMealType = MiqdarController.defaultMealType(DateTime.now());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller = MiqdarScope.of(context)..reviewSaveHandler = _save;
   }
 
   @override
   void dispose() {
+    // A newer review may already have taken over.
+    if (_controller?.reviewSaveHandler == _save) _controller?.reviewSaveHandler = null;
     notesCtrl.dispose();
     weightEditCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _save() async {
+    final controller = MiqdarScope.of(context);
+    final s = S.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final meal = await controller.saveLastRecognition(
+      mealType: selectedMealType,
+      eatenAt: consumedAt,
+      notes: notesCtrl.text.trim(),
+      photo: widget.previewBytes,
+    );
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainShell()),
+      (_) => false,
+    );
+    if (meal == null) return;
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        persist: false,
+        duration: const Duration(seconds: 5),
+        content: Text(
+          s.tr(
+            'Saved: ${meal.nameEn}, ${meal.nutrients.calories.toStringAsFixed(0)} kcal',
+            'تم الحفظ: ${meal.nameAr.isEmpty ? meal.nameEn : meal.nameAr}، ${meal.nutrients.calories.toStringAsFixed(0)} سعرة',
+          ),
+        ),
+        action: SnackBarAction(
+          label: s.tr('Undo', 'تراجع'),
+          onPressed: () => controller.deleteMeal(meal.id),
+        ),
+      ),
+    );
   }
 
   Future<void> _askGeminiToCorrect(BuildContext context, MiqdarController controller) async {
@@ -2218,38 +2253,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
           child: FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-            onPressed: result.plateNeedsNames ? null : () async {
-              final messenger = ScaffoldMessenger.of(context);
-              final navigator = Navigator.of(context);
-              final meal = await controller.saveLastRecognition(
-                mealType: selectedMealType,
-                eatenAt: consumedAt,
-                notes: notesCtrl.text.trim(),
-                photo: widget.previewBytes,
-              );
-              navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const MainShell()),
-                (_) => false,
-              );
-              if (meal == null) return;
-              messenger.showSnackBar(
-                SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  persist: false,
-                  duration: const Duration(seconds: 5),
-                  content: Text(
-                    s.tr(
-                      'Saved: ${meal.nameEn}, ${meal.nutrients.calories.toStringAsFixed(0)} kcal',
-                      'تم الحفظ: ${meal.nameAr.isEmpty ? meal.nameEn : meal.nameAr}، ${meal.nutrients.calories.toStringAsFixed(0)} سعرة',
-                    ),
-                  ),
-                  action: SnackBarAction(
-                    label: s.tr('Undo', 'تراجع'),
-                    onPressed: () => controller.deleteMeal(meal.id),
-                  ),
-                ),
-              );
-            },
+            onPressed: result.plateNeedsNames ? null : _save,
             icon: const Icon(MiqdarIcons.check),
             label: Text(
               s.saveMealToDiary,
