@@ -57,6 +57,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
   overloaded and the last fallback was out of quota.
 - **Next work (after the code review, all fixed):** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
 - **Agent skills setup:** done. See Agent skills below.
+- **Planned next:** spec #14 (Weigh What's Left, diabetes mode, doctor's report, Ramadan mode), not yet split into tickets or built.
 
 ## Where things live
 
@@ -205,6 +206,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-07: Planned four new features; spec published as issue #14
+- Decided: through `/grill-me`, Abdullah chose Weigh What's Left (container method only), diabetes mode, a doctor's PDF report and Ramadan mode, in that order. Cook-once recipe weighing was rejected. The confidence display stays as it is until he removes it himself. The report summary is worked out by the app, with no AI. Ramadan mode is a Settings switch the app suggests near Ramadan, with Iftar, Suhoor and Snack, a noon-to-noon day, and no times. He asked for the carb numbers to be researched. He ran `/to-spec` with five questions unanswered (the numbers, when no number is offered, no suhoor and iftar split, per-meal number separate from the daily goal, and what "nothing" referred to); the spec takes the recommended answers and says so.
+- Changed: added `docs/research/diabetes-carb-guidance.md`, listed in `docs/README.md`. Published issue #14. No app or Pi code changed.
+- Tested: nothing to run. The research was checked against primary sources where they could be reached; the Ramadan carb split and ADCES material could not be.
+- Not tested / risks: no current guideline gives a fixed carb number per meal; the 45 g and 60 g defaults are common teaching, offered as a choice. The PDF and Hijri calendar packages are not yet checked to build.
+- Next: `/to-tickets` on issue #14, then build Weigh What's Left first.
 
 ### 2026-11-05: Save and Cancel on the touchscreen; full technical record for Report 3 (commits 692e811 and the next one)
 - Decided: from photos of his real capture, Abdullah said Capture on the waiting and result screens made no sense and "Photo sent" was useless, for a single food only. He then asked for the Report 3 file to be a full technical record, not a short summary, still leaving out the artifact's design.
