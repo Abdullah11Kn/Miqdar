@@ -1,0 +1,145 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:miqdar_mobile/app_controller.dart';
+import 'package:miqdar_mobile/data/local_database.dart';
+import 'package:miqdar_mobile/models/body_profile.dart';
+import 'package:miqdar_mobile/models/diabetes.dart';
+import 'package:miqdar_mobile/models/nutrition.dart';
+import 'package:miqdar_mobile/services/alert_service.dart';
+import 'package:miqdar_mobile/services/api_service.dart';
+import 'package:miqdar_mobile/services/gemini_service.dart';
+
+BodyProfile _profile({BodySex sex = BodySex.female, int birthYear = 1990, bool pregnant = false}) => BodyProfile(
+      sex: sex,
+      birthYear: birthYear,
+      heightCm: 165,
+      weightKg: 70,
+      activity: ActivityLevel.light,
+      goal: WeightGoal.maintain,
+      pregnantOrBreastfeeding: pregnant,
+    );
+
+const _type2 = DiabetesSettings(hasDiabetes: true, type: DiabetesType.type2);
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('carb portions', () {
+    test('are 15 g each, to the nearest half', () {
+      expect(carbPortions(45), 3);
+      expect(carbPortions(52), 3.5);
+      expect(carbPortions(7), 0.5);
+      expect(formatPortions(3), '3');
+      expect(formatPortions(3.5), '3.5');
+    });
+  });
+
+  group('when a starting number is offered', () {
+    test('45 g a meal for women, 60 g for men, 15 g a snack', () {
+      expect(suggestedCarbs(_profile()).meal, 45);
+      expect(suggestedCarbs(_profile(sex: BodySex.male)).meal, 60);
+      expect(suggestedCarbs(_profile()).snack, 15);
+      expect(suggestedCarbs(null).meal, 45);
+    });
+
+    test('never for type 1, insulin, pregnancy, under 18, kidney disease or fasting', () {
+      final now = DateTime(2026, 11, 7);
+      expect(carbAdviceBlock(_type2, profile: _profile(), now: now), isNull);
+      expect(carbAdviceBlock(_type2.copyWith(type: DiabetesType.type1), now: now), CarbAdviceBlock.type1);
+      expect(carbAdviceBlock(_type2.copyWith(usesInsulin: true), now: now), CarbAdviceBlock.insulin);
+      expect(carbAdviceBlock(_type2, profile: _profile(pregnant: true), now: now), CarbAdviceBlock.pregnancy);
+      expect(carbAdviceBlock(_type2, profile: _profile(birthYear: 2010), now: now), CarbAdviceBlock.underAge);
+      expect(carbAdviceBlock(_type2, kidneyDisease: true, now: now), CarbAdviceBlock.kidney);
+      expect(carbAdviceBlock(_type2, fasting: true, now: now), CarbAdviceBlock.fasting);
+    });
+
+    test('settings survive being stored', () {
+      final value = _type2.copyWith(mealCarbsG: 50, snackCarbsG: 20, source: CarbPlanSource.doctor);
+      final back = DiabetesSettings.fromJson(value.toJson());
+      expect(back.hasDiabetes, isTrue);
+      expect(back.type, DiabetesType.type2);
+      expect(back.carbTargetFor('Lunch'), 50);
+      expect(back.carbTargetFor('Snack'), 20);
+    });
+  });
+
+  group('the diabetes setting', () {
+    late MiqdarController controller;
+
+    setUp(() async {
+      final client = MockClient((_) async => http.Response('{}', 200));
+      final database = LocalDatabase();
+      await database.initialize();
+      controller = MiqdarController(
+        localDatabase: database,
+        apiService: ApiService(
+          baseUrl: 'http://scale.test',
+          client: client,
+          gemini: GeminiNutritionService(apiKey: 'k', models: const ['m'], client: client),
+        ),
+        alertService: AlertService(),
+      );
+      controller.signIn(email: '');
+      controller.bodyProfile = _profile();
+    });
+
+    test('is off by default, and nothing is offered', () {
+      expect(controller.diabetes.carbsFirst, isFalse);
+      expect(controller.suggestedCarbPlan, isNull);
+      expect(controller.carbTargetFor('Lunch'), isNull);
+    });
+
+    test('Use This sets the starting numbers, and Wait for My Doctor leaves none', () async {
+      await controller.updateDiabetes(_type2);
+      expect(controller.suggestedCarbPlan!.meal, 45);
+      await controller.useSuggestedCarbs();
+      expect(controller.carbTargetFor('Dinner'), 45);
+      expect(controller.carbTargetFor('Snack'), 15);
+
+      await controller.waitForDoctor();
+      expect(controller.carbTargetFor('Dinner'), isNull);
+      expect(controller.diabetes.source, CarbPlanSource.waiting);
+    });
+
+    test('a doctor number can be typed in even when none is offered', () async {
+      await controller.updateDiabetes(_type2.copyWith(usesInsulin: true));
+      expect(controller.suggestedCarbPlan, isNull);
+      expect(controller.carbBlock, CarbAdviceBlock.insulin);
+      await controller.setDoctorCarbs(meal: 40, snack: 10);
+      expect(controller.carbTargetFor('Lunch'), 40);
+      expect(controller.carbTargetFor('Snack'), 10);
+    });
+
+    test('a kidney diet in Food Preferences stops the suggestion from applying', () async {
+      await controller.updateDiabetes(_type2);
+      await controller.useSuggestedCarbs();
+      controller.healthProfile = controller.healthProfile.copyWith(conditions: ['kidney_disease']);
+      expect(controller.suggestedCarbPlan, isNull);
+      expect(controller.carbTargetFor('Lunch'), isNull);
+    });
+
+    test('is kept on the phone and restored', () async {
+      await controller.updateDiabetes(_type2.copyWith(mealCarbsG: 50, source: CarbPlanSource.doctor));
+      final raw = await controller.localDatabase.getSetting('diabetes');
+      expect(raw, contains('"has_diabetes":true'));
+      await controller.restorePreferences();
+      expect(controller.diabetes.carbTargetFor('Lunch'), 50);
+    });
+
+    test('Delete All My Data removes it', () async {
+      await controller.updateDiabetes(_type2);
+      await controller.deleteAllData();
+      expect(controller.diabetes.hasDiabetes, isFalse);
+    });
+  });
+
+  test('carbs total includes leftovers already taken off', () {
+    final meal = MealEntry(
+      id: 'm', foodId: 'f', nameEn: 'Rice', nameAr: '', eatenAt: DateTime.now(), mealType: 'Lunch',
+      weightG: 200, confidence: 0.9,
+      nutrients: const NutritionValues(calories: 300, protein: 5, carbohydrates: 60, fat: 2, sugar: 1, fiber: 1, sodium: 1, potassium: 1),
+    ).copyWith(leftover: MealLeftover(grams: 100, weighedAt: DateTime.now()));
+    expect(carbPortions(meal.nutrients.carbohydrates), 2);
+  });
+}

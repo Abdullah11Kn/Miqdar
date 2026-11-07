@@ -7,6 +7,7 @@ import '../l10n/strings.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
 import 'screens.dart';
+import 'leftovers_sheet.dart';
 import 'widgets/charts_and_gauges.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -240,6 +241,56 @@ class MealDetailScreen extends StatelessWidget {
                   verificationStatus: currentMeal.verificationStatus,
                   portionSource: currentMeal.portionSource,
                 ),
+                if (currentMeal.leftover != null) ...[
+                  const SizedBox(height: 14),
+                  SurfaceCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          [
+                            '${s.tr('Served', 'المقدَّم')} ${currentMeal.weightG.toStringAsFixed(0)} ${s.unitG}',
+                            '${s.tr('Left', 'المتبقي')} ${currentMeal.leftover!.grams.toStringAsFixed(0)} ${s.unitG}',
+                            '${s.tr('Eaten', 'المأكول')} ${currentMeal.eatenWeightG.toStringAsFixed(0)} ${s.unitG}',
+                          ].join(' · '),
+                          style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
+                        ),
+                        if (currentMeal.leftover!.itemIndex case final i? when i < currentMeal.items.length)
+                          Text(
+                            s.tr('Left: ', 'المتبقي: ') +
+                                (s.isAr && currentMeal.items[i].nameAr.isNotEmpty
+                                    ? currentMeal.items[i].nameAr
+                                    : currentMeal.items[i].nameEn),
+                            style: MiqdarType.label.copyWith(color: context.mq.inkMuted),
+                          ),
+                        const SizedBox(height: 4),
+                        Text(
+                          s.tr('Totals count only what was eaten.', 'المجاميع تحسب المأكول فقط.'),
+                          style: MiqdarType.label.copyWith(color: context.mq.inkMuted),
+                        ),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: TextButton(
+                            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                            onPressed: () => controller.removeLeftover(currentMeal),
+                            child: Text(s.tr('Remove Leftovers', 'إزالة المتبقي')),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (controller.canWeighLeftovers(currentMeal)) ...[
+                  const SizedBox(height: 14),
+                  OutlinedButton.icon(
+                    onPressed: () => showLeftoversSheet(context, controller, currentMeal),
+                    icon: const Icon(MiqdarIcons.scale),
+                    label: Text(currentMeal.leftover == null
+                        ? s.tr("Weigh What's Left", 'وزن المتبقي')
+                        : s.tr('Weigh Again', 'وزن مرة أخرى')),
+                  ),
+                ],
                 if (currentMeal.notes.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   SurfaceCard(

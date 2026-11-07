@@ -160,7 +160,7 @@ class LocalDatabase {
       final root = await getDatabasesPath();
       _database = await openDatabase(
         p.join(root, 'miqdar_mobile.db'),
-        version: 6,
+        version: 7,
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE goals(
@@ -188,6 +188,7 @@ class LocalDatabase {
           await _createBodyProfileTable(db);
           await _createMealItemsTable(db);
           await _createBodyWeightsTable(db);
+          await _addLeftoverColumns(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) await _createHealthProfileTable(db);
@@ -195,6 +196,7 @@ class LocalDatabase {
           if (oldVersion < 4) await _createBodyProfileTable(db);
           if (oldVersion < 5) await _createMealItemsTable(db);
           if (oldVersion < 6) await _createBodyWeightsTable(db);
+          if (oldVersion < 7) await _addLeftoverColumns(db);
         },
       );
       await _seedGoals();
@@ -294,6 +296,19 @@ class LocalDatabase {
       weight_kg REAL NOT NULL
     )
   ''');
+
+  /// Food weighed after eating (database v7). Served values stay in the meal's own columns.
+  static Future<void> _addLeftoverColumns(Database db) async {
+    await db.execute('ALTER TABLE meals ADD COLUMN leftover_g REAL');
+    await db.execute('ALTER TABLE meals ADD COLUMN leftover_item INTEGER');
+    await db.execute('ALTER TABLE meals ADD COLUMN leftover_at TEXT');
+  }
+
+  static Map<String, Object?> _leftoverColumns(MealEntry meal) => {
+        'leftover_g': meal.leftover?.grams,
+        'leftover_item': meal.leftover?.itemIndex,
+        'leftover_at': meal.leftover?.weighedAt.toUtc().toIso8601String(),
+      };
 
   /// Fields that used to live only in memory and were lost on every restart.
   static Future<void> _addRestartSafeColumns(Database db) async {
@@ -458,6 +473,13 @@ class LocalDatabase {
       nutrients: nutrients,
       notes: row['notes'] as String? ?? '',
       portionSource: PortionSource.values.asNameMap()[row['portion_source']] ?? PortionSource.scale,
+      leftover: row['leftover_g'] is num && row['leftover_at'] is String
+          ? MealLeftover(
+              grams: (row['leftover_g'] as num).toDouble(),
+              itemIndex: (row['leftover_item'] as num?)?.toInt(),
+              weighedAt: DateTime.parse(row['leftover_at'] as String),
+            )
+          : null,
       basisPer100g: weightG > 0 ? nutrients.scaledBy(100.0 / weightG) : nutrients,
       verificationStatus: (row['food_id'] as String).startsWith(aiFoodIdPrefix)
           ? aiEstimateStatus
@@ -539,7 +561,8 @@ class LocalDatabase {
         'confidence': meal.confidence,
         'notes': meal.notes,
         'portion_source': meal.portionSource.name,
-        ...meal.nutrients.toDatabase(),
+        ..._leftoverColumns(meal),
+        ...meal.servedNutrients.toDatabase(),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -569,7 +592,8 @@ class LocalDatabase {
         'weight_g': meal.weightG,
         'notes': meal.notes,
         'portion_source': meal.portionSource.name,
-        ...meal.nutrients.toDatabase(),
+        ..._leftoverColumns(meal),
+        ...meal.servedNutrients.toDatabase(),
       },
       where: 'id = ?',
       whereArgs: [meal.id],

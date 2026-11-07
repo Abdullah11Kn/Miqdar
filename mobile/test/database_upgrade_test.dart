@@ -49,6 +49,15 @@ void main() {
     expect(meals.single.nameEn, 'Jareesh');
     expect(meals.single.nutrients.calories, 336);
     expect(meals.single.items, isEmpty);
+    expect(meals.single.leftover, isNull);
+
+    await database.updateMeal(meals.single.copyWith(
+      leftover: MealLeftover(grams: 60, weighedAt: DateTime.now()),
+    ));
+    final weighed = (await database.loadMeals()).single;
+    expect(weighed.leftover!.grams, 60);
+    expect(weighed.servedNutrients.calories, 336);
+    expect(weighed.nutrients.calories, 252);
 
     const profile = BodyProfile(
       sex: BodySex.female, birthYear: 1995, heightCm: 165, weightKg: 62,

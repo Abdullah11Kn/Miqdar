@@ -11,6 +11,7 @@ import 'data/food_catalog.dart';
 import 'data/local_database.dart';
 import 'l10n/strings.dart';
 import 'models/body_profile.dart';
+import 'models/diabetes.dart';
 import 'models/nutrition.dart';
 import 'services/alert_service.dart';
 import 'services/api_service.dart';
@@ -217,6 +218,7 @@ class MiqdarController extends ChangeNotifier {
       unawaited(_applyReminders().catchError((Object _) {}));
     }
     reminderSettings = const ReminderSettings();
+    diabetes = const DiabetesSettings();
     meals = [];
     alerts = [];
     goals = await localDatabase.loadGoals();
@@ -249,6 +251,7 @@ class MiqdarController extends ChangeNotifier {
     weightEntries = await localDatabase.loadBodyWeights();
     goalBasisWeightKg = double.tryParse(await localDatabase.getSetting('goal_weight_kg') ?? '');
     reminderSettings = ReminderSettings.decode(await localDatabase.getSetting('reminders'));
+    diabetes = _decodeDiabetes(await localDatabase.getSetting('diabetes'));
     _lastSeenCaptureEventId = await localDatabase.getSetting('last_capture_event');
     final name = await localDatabase.getSetting('account_name');
     if (name != null && name.isNotEmpty) {
@@ -1494,6 +1497,90 @@ class MiqdarController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Diabetes mode
+  DiabetesSettings diabetes = const DiabetesSettings();
+
+  static DiabetesSettings _decodeDiabetes(String? raw) {
+    if (raw == null || raw.isEmpty) return const DiabetesSettings();
+    try {
+      return DiabetesSettings.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return const DiabetesSettings();
+    }
+  }
+
+  /// Asked in the Body Profile and in Food Preferences; both write here.
+  Future<void> updateDiabetes(DiabetesSettings value) async {
+    diabetes = value;
+    notifyListeners();
+    if (!account.isDemo) await localDatabase.saveSetting('diabetes', jsonEncode(value.toJson()));
+  }
+
+  /// Fasting in Ramadan. Ramadan mode sets it.
+  bool get fasting => false;
+
+  /// Why no carb number is suggested to this user, or null when one can be.
+  CarbAdviceBlock? get carbBlock => carbAdviceBlock(
+        diabetes,
+        profile: bodyProfile,
+        kidneyDisease: healthProfile.conditions.contains('kidney_disease'),
+        fasting: fasting,
+      );
+
+  /// The starting point the app can offer, or null when the care team should set it.
+  ({double meal, double snack})? get suggestedCarbPlan =>
+      diabetes.hasDiabetes && carbBlock == null ? suggestedCarbs(bodyProfile) : null;
+
+  Future<void> useSuggestedCarbs() async {
+    final plan = suggestedCarbPlan;
+    if (plan == null) return;
+    await updateDiabetes(diabetes.copyWith(mealCarbsG: plan.meal, snackCarbsG: plan.snack, source: CarbPlanSource.suggested));
+  }
+
+  Future<void> waitForDoctor() => updateDiabetes(diabetes.copyWith(clearPlan: true, source: CarbPlanSource.waiting));
+
+  Future<void> setDoctorCarbs({required double meal, double? snack}) => updateDiabetes(
+      diabetes.copyWith(mealCarbsG: meal, snackCarbsG: snack ?? meal, source: CarbPlanSource.doctor));
+
+  Future<void> clearCarbPlan() => updateDiabetes(diabetes.copyWith(clearPlan: true));
+
+  /// The planned carbs for a meal. A suggestion stops applying once it would no longer be offered;
+  /// numbers from a doctor always apply.
+  double? carbTargetFor(String mealType) {
+    if (diabetes.source == CarbPlanSource.suggested && carbBlock != null) return null;
+    return diabetes.carbTargetFor(mealType);
+  }
+
+  /// Leftovers can be weighed until the end of the meal's diary day.
+  bool canWeighLeftovers(MealEntry meal) => isSameLocalDay(meal.eatenAt, DateTime.now());
+
+  /// Records food weighed after eating. Returns why it was refused, or null once saved.
+  Future<String?> saveLeftover(MealEntry meal, double grams, {int? itemIndex}) async {
+    final problem = leftoverProblem(meal, grams, itemIndex: itemIndex);
+    if (problem != null) return problem;
+    await updateMeal(meal.copyWith(
+      leftover: MealLeftover(grams: grams, itemIndex: itemIndex, weighedAt: DateTime.now()),
+    ));
+    return null;
+  }
+
+  /// The meal goes back to what was served.
+  Future<void> removeLeftover(MealEntry meal) => updateMeal(meal.copyWith(clearLeftover: true));
+
+  /// Food left on plates in [mealsInPeriod]: grams and values that were served but not eaten.
+  static ({double grams, NutritionValues values, int meals}) notEaten(Iterable<MealEntry> mealsInPeriod) {
+    var grams = 0.0;
+    var count = 0;
+    var values = NutritionValues.zero();
+    for (final meal in mealsInPeriod) {
+      if (meal.leftover == null) continue;
+      count++;
+      grams += meal.weightG - meal.eatenWeightG;
+      values = values + leftoverNutrients(meal);
+    }
+    return (grams: grams, values: values, meals: count);
+  }
+
   Future<void> deleteMeal(String id) async {
     final target = meals.where((m) => m.id == id).firstOrNull;
     if (target != null) {
@@ -1610,7 +1697,7 @@ class MiqdarController extends ChangeNotifier {
 
     final buffer = StringBuffer();
     buffer.writeln(
-      'Date,Time,Meal Type,Food (EN),Food (AR),Portion (g),Portion Source,Verification,Calories (kcal),Protein (g),Carbs (g),Fat (g),Sugar (g),Fiber (g),Sodium (mg),Potassium (mg),Notes',
+      'Date,Time,Meal Type,Food (EN),Food (AR),Portion (g),Left (g),Portion Source,Verification,Calories (kcal),Protein (g),Carbs (g),Fat (g),Sugar (g),Fiber (g),Sodium (mg),Potassium (mg),Notes',
     );
     final cutoff = DateTime.now().subtract(Duration(days: days));
     for (final meal in meals.where((m) => m.eatenAt.isAfter(cutoff))) {
@@ -1623,6 +1710,7 @@ class MiqdarController extends ChangeNotifier {
         safeCell(meal.nameEn),
         safeCell(meal.nameAr),
         meal.weightG.toStringAsFixed(1),
+        (meal.leftover?.grams ?? 0).toStringAsFixed(1),
         safeCell(meal.portionSource.name),
         safeCell(meal.verificationStatus),
         n.calories.toStringAsFixed(0),

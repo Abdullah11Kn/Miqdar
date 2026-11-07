@@ -54,6 +54,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
     );
 
     final dailyAvg = periodTotals.scaledBy(1.0 / loggedDaysCount);
+    final notEaten = MiqdarController.notEaten(periodMeals);
     final goals = controller.goals;
 
     final content = ListView(
@@ -142,6 +143,37 @@ class _TrendsScreenState extends State<TrendsScreen> {
         MiqdarSectionHeader(title: s.tr('Where your calories come from', 'مصدر سعراتك')),
         MacroDonutChart(values: periodTotals),
         const SizedBox(height: 40),
+
+        if (notEaten.grams > 0) ...[
+          MiqdarSectionHeader(title: s.tr('Food not eaten', 'طعام لم يؤكل')),
+          Row(
+            children: [
+              Expanded(
+                child: _InsightMetricTile(
+                  label: s.tr('Left on plates', 'متبقٍ في الأطباق'),
+                  value: notEaten.grams.toStringAsFixed(0),
+                  unit: s.unitG,
+                  detail: s.tr(
+                    '${notEaten.meals} ${notEaten.meals == 1 ? 'meal' : 'meals'} weighed after eating',
+                    '${notEaten.meals} وجبة وُزن متبقيها',
+                  ),
+                  color: context.mq.nCalories,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _InsightMetricTile(
+                  label: s.tr('Calories not eaten', 'سعرات لم تؤكل'),
+                  value: notEaten.values.calories.toStringAsFixed(0),
+                  unit: s.unitKcal,
+                  detail: s.tr('Not counted in your totals', 'غير محسوبة في مجاميعك'),
+                  color: context.mq.nCalories,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 40),
+        ],
 
         // Daily average per nutrient; tap one to see which meals contributed most
         MiqdarSectionHeader(title: s.tr('Daily averages', 'المتوسطات اليومية')),

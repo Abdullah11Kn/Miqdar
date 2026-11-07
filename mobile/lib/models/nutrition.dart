@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -638,14 +639,15 @@ class MealEntry {
     required this.mealType,
     required this.weightG,
     required this.confidence,
-    required this.nutrients,
+    required NutritionValues nutrients,
     this.portionSource = PortionSource.scale,
     this.verificationStatus = 'reference_seed',
     this.syncStatus = 'synced',
     this.notes = '',
     this.basisPer100g,
     this.items = const [],
-  });
+    this.leftover,
+  }) : servedNutrients = nutrients;
 
   final String id;
   final String foodId;
@@ -655,7 +657,9 @@ class MealEntry {
   final String mealType;
   final double weightG;
   final double confidence;
-  final NutritionValues nutrients;
+
+  /// What was served: the values stored for the meal. Leftovers never change these.
+  final NutritionValues servedNutrients;
   final PortionSource portionSource;
   final String verificationStatus;
   final String syncStatus; // 'synced' | 'pending_sync' | 'saved_locally'
@@ -663,12 +667,20 @@ class MealEntry {
   final NutritionValues? basisPer100g;
   final List<MealItemEntry> items;
 
+  /// Food weighed after eating, if any. Everything the app totals uses [nutrients], what was eaten.
+  final MealLeftover? leftover;
+
+  /// What was eaten: served values less the leftovers.
+  NutritionValues get nutrients => eatenNutrients(this);
+
+  double get eatenWeightG => max(0.0, weightG - (leftover?.grams ?? 0));
+
   String displayName(bool isAr) => isAr && nameAr.isNotEmpty ? nameAr : nameEn;
   String secondaryName(bool isAr) => isAr ? nameEn : nameAr;
 
   /// Immutable per-100g basis so repeated weight edits never accumulate rounding drift (CALC-04).
   NutritionValues get resolvedBasisPer100g =>
-      basisPer100g ?? (weightG > 0 ? nutrients.scaledBy(100.0 / weightG) : nutrients);
+      basisPer100g ?? (weightG > 0 ? servedNutrients.scaledBy(100.0 / weightG) : servedNutrients);
 
   MealEntry copyWith({
     String? mealType,
@@ -681,6 +693,8 @@ class MealEntry {
     String? notes,
     NutritionValues? basisPer100g,
     List<MealItemEntry>? items,
+    MealLeftover? leftover,
+    bool clearLeftover = false,
   }) =>
       MealEntry(
         id: id,
@@ -691,13 +705,14 @@ class MealEntry {
         mealType: mealType ?? this.mealType,
         weightG: weightG ?? this.weightG,
         confidence: confidence,
-        nutrients: nutrients ?? this.nutrients,
+        nutrients: nutrients ?? servedNutrients,
         portionSource: portionSource ?? this.portionSource,
         verificationStatus: verificationStatus ?? this.verificationStatus,
         syncStatus: syncStatus ?? this.syncStatus,
         notes: notes ?? this.notes,
         basisPer100g: basisPer100g ?? this.basisPer100g,
         items: items ?? this.items,
+        leftover: clearLeftover ? null : (leftover ?? this.leftover),
       );
 
   /// Recalculates nutrients from the immutable source basis for [newWeightG].
@@ -1087,3 +1102,46 @@ class UserAccount {
         authenticated: authenticated ?? this.authenticated,
       );
 }
+
+
+/// Food weighed after a meal. [itemIndex] names the plate food that was left; null means the
+/// whole meal, or Mixed on a plate, where the leftovers come off each food by its share.
+class MealLeftover {
+  const MealLeftover({required this.grams, required this.weighedAt, this.itemIndex});
+
+  final double grams;
+  final int? itemIndex;
+  final DateTime weighedAt;
+}
+
+/// Why a leftover weight cannot be applied, or null when it can.
+String? leftoverProblem(MealEntry meal, double grams, {int? itemIndex}) {
+  if (grams <= 0) return 'empty';
+  if (itemIndex != null) {
+    if (itemIndex < 0 || itemIndex >= meal.items.length) return 'no_food';
+    if (grams > meal.items[itemIndex].weightG) return 'too_heavy';
+    return null;
+  }
+  if (grams > meal.weightG) return 'too_heavy';
+  return null;
+}
+
+/// Served values less the leftovers. A chosen plate food loses its own share; otherwise the whole
+/// meal is scaled by what was eaten. Missing values stay missing.
+NutritionValues eatenNutrients(MealEntry meal) {
+  final left = meal.leftover;
+  final served = meal.servedNutrients;
+  if (left == null || left.grams <= 0) return served;
+  final index = left.itemIndex;
+  if (index != null && index >= 0 && index < meal.items.length) {
+    final item = meal.items[index];
+    if (item.weightG <= 0) return served;
+    final share = min(1.0, left.grams / item.weightG);
+    return served + item.nutrients.scaledBy(-share);
+  }
+  if (meal.weightG <= 0) return served;
+  return served.scaledBy(max(0.0, (meal.weightG - left.grams) / meal.weightG));
+}
+
+/// The leftover values themselves, for the "food not eaten" total.
+NutritionValues leftoverNutrients(MealEntry meal) => meal.servedNutrients + meal.nutrients.scaledBy(-1);
