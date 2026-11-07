@@ -96,8 +96,9 @@ where it went, never to decorate. Abdullah asked on 2026-11-08 for it to help us
   takes taps at once; nothing waits for an animation to end.
 - **Screens** arrive from the trailing edge (the left in Arabic) and the one beneath slides back a quarter and dims.
   The iOS edge swipe still goes back, from the right edge in Arabic. `motion_test.dart` checks it.
-- **Add Meal** grows out of what was tapped: the scale bar, or the green Add Meal circle (also the default from other
-  buttons), and shrinks back into it when another tab opens.
+- **Add Meal** grows out of the scale bar when the bar is tapped, and shrinks back into it when another tab opens.
+  From the green Add Meal circle, or any other button, it fades in with a small rise. Abdullah did not like it growing
+  out of the circle (2026-11-08), so do not bring that back.
 - **Tabs** fade through: the old tab fades out, then the new one fades in from the side of its tab. The tab pill slides.
 - **A meal's photo** flies between its row and Meal Detail.
 - **Home's calorie number** counts up with its ring.

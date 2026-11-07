@@ -218,6 +218,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-08: Add Meal button opens with a quiet fade (commit COMMIT_ID)
+- Decided: Abdullah did not like the motion when tapping the camera button on the bottom bar: the green circle growing into Add Meal.
+- Changed: the button, and every other way into Add Meal except the scale bar, now fades Add Meal in with a 12 px rise, and leaving fades it out. Only a tap on the scale bar still grows it out of the bar. The code that grew it from the button is removed.
+- Tested: `flutter analyze`; 157 unit tests; a temporary filmed tap on the throwaway simulator, frames looked at, opening and closing; deleted afterwards.
+- Not tested / risks: not on a real iPhone. He has not said whether he likes the scale bar's growth; if not, it can take the same fade.
+
 ### 2026-11-08: Motion between screens (commit 817ad97)
 - Decided: Abdullah ran `/frontend-design` asking for the movement between pages to be beautiful, to impress. While it was being built he added that it must be usable and enhance the experience, not look salesy, and that this was a comment, not criticism. Recorded under Decisions. Timings were cut after that.
 - Changed: new `mobile/lib/ui/motion.dart` with the timings and curves, and a page transition set in `theme.dart` for every screen: in from the trailing edge, the screen beneath slides back and dims, with our own iOS edge swipe to go back (Flutter's is private), from the right in Arabic. On the phone layout `MainShell` replaces its IndexedStack with a tab stage: Add Meal grows out of the scale bar or the green circle and shrinks back into it, other tabs fade through, the tab pill slides. A meal photo flies between its row and Meal Detail (`MealPhotoHero`; `MealPhoto` now shows a photo already in memory on the first frame, through the new `cachedMealPhoto`). Home's calorie number counts up with the ring. The demo's sample kabsa, jareesh, hummus and roast chicken now show the matching photos the app already ships, so the demo is not all letters. Reduce Motion gives plain cuts and fades. `docs/DESIGN.md` has a Motion section; `docs/APP_SCREENS.md` mentions it.

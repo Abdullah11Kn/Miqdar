@@ -40,12 +40,11 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   late int index = widget.initialIndex;
 
-  // How the phone layout moves between tabs. Add Meal grows out of what was tapped, the
-  // scale bar or the Add Meal button, and shrinks back into it; other tabs cross-fade.
+  // How the phone layout moves between tabs. Add Meal grows out of the scale bar when the bar
+  // is tapped, and shrinks back into it; every other change, the Add Meal button included,
+  // is a quiet fade.
   final _stageKey = GlobalKey();
   final _barKey = GlobalKey();
-  final _addButtonKey = GlobalKey();
-  GlobalKey? _growFrom;
   Rect? _growRect;
   bool _sidebar = false;
 
@@ -77,8 +76,9 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     }
   }
 
-  /// Opens tab [next]. [from] is what Add Meal grows out of; the Add Meal button by default.
-  void _go(int next, {GlobalKey? from}) {
+  /// Opens tab [next]. Add Meal grows out of the scale bar when that is what was tapped
+  /// ([fromBar]); from the Add Meal button or anywhere else it fades in like a tab.
+  void _go(int next, {bool fromBar = false}) {
     if (next == index) return;
     if (_sidebar || MiqdarMotion.reduced(context)) {
       setState(() {
@@ -92,11 +92,11 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
       _leaving = index;
       index = next;
     });
-    if (next == 1) {
-      _growFrom = from ?? _addButtonKey;
-      _growRect = _measure(_growFrom!);
+    if (next == 1 && fromBar) {
+      _growRect = _measure(_barKey);
       _grow.forward();
-    } else if (_leaving == 1) {
+    } else if (_leaving == 1 && _grow.value > 0) {
+      // It grew out of the bar, so it goes back into it.
       _grow.reverse();
     } else {
       _fade.forward(from: 0);
@@ -277,9 +277,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
           bottomNavigationBar: _FloatingBars(
             selectedIndex: index,
             onSelected: _go,
-            onOpenAddMealFromBar: () => _go(1, from: _barKey),
+            onOpenAddMealFromBar: () => _go(1, fromBar: true),
             barKey: _barKey,
-            addButtonKey: _addButtonKey,
             growth: _growCurve,
           ),
         );
@@ -309,13 +308,12 @@ extension on _MainShellState {
 
           final p = _growCurve.value;
           final full = Offset.zero & constraints.biggest;
-          final fromButton = _growFrom == _addButtonKey;
           if (growing && _grow.status == AnimationStatus.reverse) {
             // The scale bar comes back as Add Meal closes, so follow where it really is.
-            _growRect = _measure(_growFrom ?? _barKey) ?? _growRect;
+            _growRect = _measure(_barKey) ?? _growRect;
           }
           final origin = _growRect ?? Rect.fromCenter(center: full.bottomCenter, width: 64, height: 64);
-          final originColor = fromButton ? c.primary : Color.alphaBlend(c.surfaceFloat, c.bg);
+          final originColor = Color.alphaBlend(c.surfaceFloat, c.bg);
 
           // Fade-through: the old tab goes first, then the new one arrives from the side it is on.
           final f = _fade.value;
@@ -328,6 +326,7 @@ extension on _MainShellState {
             final visible = i == top || i == under;
             var opacity = 1.0;
             var dx = 0.0;
+            var dy = 0.0;
             Rect? clip;
             var radius = 0.0;
             Color? shadow;
@@ -336,7 +335,7 @@ extension on _MainShellState {
             var content = 1.0;
             if (growing && i == 1) {
               clip = Rect.lerp(origin, full, p);
-              radius = ui.lerpDouble(fromButton ? origin.shortestSide / 2 : 16, 0, p)!;
+              radius = ui.lerpDouble(16, 0, p)!;
               fill = Color.lerp(originColor, c.bg, const Interval(0, 0.6).transform(p))!;
               // Opening shows the screen once it has room; closing keeps it in view until it is small.
               content = _grow.status == AnimationStatus.reverse
@@ -350,7 +349,12 @@ extension on _MainShellState {
               opacity = 1 - const Interval(0, 0.35).transform(f);
             } else if (fading && i == index) {
               opacity = arrive;
-              dx = (1 - arrive) * 16 * side;
+              // Add Meal is not in the tab row, so it rises a little instead of coming from a side.
+              if (i == 1) {
+                dy = (1 - arrive) * 12;
+              } else {
+                dx = (1 - arrive) * 16 * side;
+              }
             }
             return KeyedSubtree(
               key: ValueKey(i),
@@ -365,7 +369,7 @@ extension on _MainShellState {
                       child: Opacity(
                         opacity: opacity,
                         child: Transform.translate(
-                          offset: Offset(dx, 0),
+                          offset: Offset(dx, dy),
                           child: CustomPaint(
                             painter: clip == null || shadow == null ? null : _GrowShadow(clip, radius, shadow),
                             child: ClipPath(
@@ -586,7 +590,6 @@ class _FloatingBars extends StatelessWidget {
     required this.onSelected,
     required this.onOpenAddMealFromBar,
     required this.barKey,
-    required this.addButtonKey,
     required this.growth,
   });
 
@@ -594,7 +597,6 @@ class _FloatingBars extends StatelessWidget {
   final ValueChanged<int> onSelected;
   final VoidCallback onOpenAddMealFromBar;
   final GlobalKey barKey;
-  final GlobalKey addButtonKey;
 
   /// How far Add Meal has grown. The scale bar shows again as Add Meal shrinks back into it.
   final Animation<double> growth;
@@ -655,7 +657,6 @@ class _FloatingBars extends StatelessWidget {
                       label: s.navAdd,
                       excludeSemantics: true,
                       child: Container(
-                        key: addButtonKey,
                         decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: c.floatShadow),
                         child: Material(
                           key: const ValueKey('addMealButton'),
