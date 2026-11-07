@@ -95,5 +95,6 @@ the files anywhere, and forbids changing them, which includes cutting them down.
 - The logo is Abdullah's bowl and star, with the wordmark "Miqdar" (2026-11-07). The source files and how to rebuild the
   vectors are in `mobile/assets/branding/logo/`; the app paints it from `MiqdarMarkPainter` and `MiqdarWordmarkPainter`
   in `mobile/lib/ui/widgets/miqdar_logo.dart`. Bowl and wordmark are `ink`, the star is `logoGreen`, never `primary`.
-- The splash is always black, in both themes, so it follows the black launch screen with no white flash. It is the only
-  screen that ignores the theme.
+- The splash and Welcome are always black, in both themes, so they follow the black launch screen with no white flash.
+  They are the only screens that ignore the theme. Welcome's photo wall is the one place photos sit behind content, under a
+  dark scrim.

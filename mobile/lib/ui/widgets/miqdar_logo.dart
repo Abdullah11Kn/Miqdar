@@ -220,3 +220,59 @@ class MiqdarWordmarkPainter extends CustomPainter {
   @override
   bool shouldRepaint(MiqdarWordmarkPainter old) => true;
 }
+
+/// The mark above the Latin wordmark, the way the splash and Welcome show it.
+/// Everything is sized from [markWidth], so the two screens line up exactly.
+class MiqdarLockup extends StatelessWidget {
+  const MiqdarLockup({
+    super.key,
+    required this.markWidth,
+    required this.ink,
+    required this.green,
+    this.frame = MiqdarMarkFrame.done,
+    this.letters,
+  });
+
+  final double markWidth;
+  final Color ink;
+  final Color green;
+  final MiqdarMarkFrame frame;
+
+  /// Each letter's entrance, or null for all letters shown.
+  final List<double>? letters;
+
+  static double _gap(double w) => w * 0.15;
+  static double _wordWidth(double w) => w * 0.86;
+
+  static Size sizeFor(double markWidth) => Size(
+        markWidth,
+        MiqdarMarkPainter.heightFor(markWidth) +
+            _gap(markWidth) +
+            MiqdarWordmarkPainter.heightFor(_wordWidth(markWidth)),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final wordWidth = _wordWidth(markWidth);
+    return Semantics(
+      label: 'Miqdar',
+      image: true,
+      child: SizedBox.fromSize(
+        size: sizeFor(markWidth),
+        child: Column(
+          children: [
+            CustomPaint(
+              size: Size(markWidth, MiqdarMarkPainter.heightFor(markWidth)),
+              painter: MiqdarMarkPainter(frame: frame, ink: ink, green: green),
+            ),
+            SizedBox(height: _gap(markWidth)),
+            CustomPaint(
+              size: Size(wordWidth, MiqdarWordmarkPainter.heightFor(wordWidth)),
+              painter: MiqdarWordmarkPainter(letters: letters, ink: ink),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

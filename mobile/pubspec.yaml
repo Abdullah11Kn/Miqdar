@@ -44,6 +44,19 @@ flutter:
     - assets/demo/jareesh.jpeg
     - assets/demo/pizza.jpeg
     - assets/demo/burger.jpg
+    # Welcome photo wall. Sources and licences: assets/welcome/CREDITS.md
+    - assets/welcome/falafel-pita.jpg
+    - assets/welcome/fattoush-bowl.jpg
+    - assets/welcome/fattoush-plate.jpg
+    - assets/welcome/grilled-chicken.jpg
+    - assets/welcome/harees.jpg
+    - assets/welcome/hummus-falafel.jpg
+    - assets/welcome/hummus.jpg
+    - assets/welcome/kabsa-eggs.jpg
+    - assets/welcome/kabsa-raisins.jpg
+    - assets/welcome/mandi-plate.jpg
+    - assets/welcome/mandi-pot.jpg
+    - assets/welcome/mezze-plate.jpg
   fonts:
     - family: MiqdarSymbols
       fonts:

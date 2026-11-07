@@ -110,26 +110,23 @@ at the bottom. Home adds a plain scale card beside Nutrition.
 
 ### Splash
 
-Shown for about a second, then fades out. No controls. Centered: scale icon, "Miqdar • مقدار", and the tagline "Weigh it.
-Snap it. Know what you ate."
+Always black, in both themes. About 2.5 seconds; a tap skips it. The logo (bowl, green star, and the wordmark "Miqdar")
+draws itself dead center: the outline is traced, the bowl fills, the star lands with a sparkle and a light haptic, the
+bowl dips and settles, and the letters arrive one by one. No text besides the wordmark. A returning user then fades to
+the app; a new user goes on to Welcome with the logo still in place.
 
 ### Welcome
 
-Shown until the user starts. The layout fills the screen without scrolling.
+Shown until the user starts, and after Delete All My Data or leaving the demo. Always black. The logo glides up from the
+splash's spot and shrinks, while the photos and actions fade in.
 
-1. **Top row:** scale icon and name on one side. On the other, a language pill (`العربية` or `EN`, switches at once) and a
-   round button that switches light and dark.
-2. **Large food photo card**, filling the free space, with sample data on top of it:
-   - A white pill: green dot and "380 g • Smart Scale".
-   - A dark pill with three small buttons, Kabsa, Shawarma and Jareesh. Each switches the photo and numbers.
-   - Thin camera focus corners in the center (decoration).
-   - A floating summary card: dish name, sparkle icon, "Sample meal • 380 g", a calories badge, and three pills for
-     protein, carbs and fat.
-3. **Headline:** "Know what's on your plate, down to the gram."
-4. **Text:** "Put your food on the Miqdar scale. It weighs and photographs it, and Gemini estimates the calories and
-   nutrients."
-5. **Get Started** (dark, full width, arrow): opens Body Profile, then the app with the user's real, empty diary.
-6. **Try with Sample Data** (outlined, full width): opens the demo.
+1. **Photo wall:** three columns of real Gulf and Middle Eastern food photos drifting slowly, under a dark scrim that turns
+   to plain black behind the actions. Photos and their sources: `mobile/assets/welcome/`.
+2. **Top row:** a language pill (`العربية` or `English`) and **Try with Sample Data**, which opens the demo.
+3. **Logo** and the headline "Weigh it. Snap it. Know what you ate."
+4. **Get Started** (white pill): opens Body Profile, then the app with the user's real, empty diary.
+5. **Sign Up** (outlined) and **Log In** (text): placeholders for accounts Abdullah will build. Both open a sheet saying
+   accounts are coming soon, with Get Started and Not Now.
 
 ### Body Profile
 

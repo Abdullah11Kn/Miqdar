@@ -57,7 +57,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
   overloaded and the last fallback was out of quota.
 - **Next work (after the code review, all fixed):** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
 - **Agent skills setup:** done. See Agent skills below.
-- **Logo and splash (2026-11-07):** the app has Abdullah's logo, drawn from vectors, and an animated splash on black. Seen on his simulator; not yet on a real iPhone or Android.
+- **Logo, splash and Welcome (2026-11-07):** the app has Abdullah's logo, drawn from vectors, an animated splash on black, and a new Welcome with a food photo wall and Sign Up and Log In placeholders. Seen on simulators; not yet on a real iPhone or Android.
 - **Spec #14 built (2026-11-07):** Weigh What's Left, diabetes mode, the doctor's PDF report and Ramadan mode, tickets #15 to #25. Database v7. Not yet tried on the real scale or a real iPhone.
 
 ## Where things live
@@ -137,7 +137,9 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
 - Restart the simulated scale between test runs, or the last capture reopens as a new review.
 
 **App honesty**
-- Do not add a screen that looks like sign-in, pairing or sync unless it really does that. No fake numbers
+- Do not add a screen that looks like sign-in, pairing or sync unless it really does that. The one exception is Welcome's
+  Sign Up and Log In, which Abdullah asked for on 2026-11-07 ahead of the accounts he will build; they must keep saying
+  accounts are not ready until they work. No fake numbers
   (there is no battery sensor, so never show a battery level).
 - The default diary holds only real meals. Sample meals exist only in the demo (`account.isDemo`), which must never
   write to the database.
@@ -193,6 +195,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the root, created only when
 - 2026-11-05: he asked for the black and white version of his design system to be implemented as the app's UI and UX, in the Thmanyah fonts. It replaces the deep green look of 2026-11-04.
 
 - 2026-11-07: through `/grill-me` he chose four features, in issue #14: Weigh What's Left (container method only), diabetes mode (question in the Body Profile and Food Preferences; a suggested carb number he researched, which the user accepts or not), a doctor's PDF report (worked out by the app, no AI), and Ramadan mode (a Settings switch the app suggests near Ramadan; Iftar, Suhoor, Snack; no times). The confidence display stays until he removes it himself.
+- 2026-11-07: he gave the logo and liked the animated splash. He then asked for no Arabic name on the splash, the logo dead center, and after it a Welcome like a reference he sent (photo wall, logo, headline, Get Started, Sign Up, Log In), "as a reference, not a copy". He wants Sign Up and Log In as buttons only for now: he will build the accounts and backend himself later.
 - 2026-11-05: on the scale, a single food goes from Capture straight to one Analyzing screen with Cancel, then to a result with Save. No "Photo sent" screen and no Capture on the result. Add Next Food is a separate flow and keeps its own screens.
 
 ## Open decisions
@@ -212,6 +215,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-07: Welcome redesigned after the splash; splash centered (commit pending)
+- Decided: see Decisions, 2026-11-07. Asked whether Sign Up and Log In should be real accounts or Get Started with the demo; he chose buttons only, to be wired up when he builds auth. Tapping them opens a sheet saying accounts are coming soon, with Get Started, so no button pretends to sign in.
+- Changed: the splash shows only the logo and wordmark, dead center of the screen, with no Arabic name or tagline. For a new user it hands over to Welcome with no transition, and Welcome moves the same logo from the center to its place above the headline. Welcome is rebuilt: a slow three-column wall of real food photos under a dark scrim, a language pill and Try with Sample Data at the top, the headline, Get Started, Sign Up and Log In. The old sample-meal card is gone. Shared `MiqdarLockup` in `miqdar_logo.dart`. 12 photos from Wikimedia Commons, all CC0 or public domain, in `mobile/assets/welcome/` with `CREDITS.md`; Unsplash's search needed a login.
+- Tested: `flutter analyze`; 152 unit tests. On a throwaway simulator, deleted afterwards: the whole first run from splash to Welcome, in screenshots. A temporary widget test with Thmanyah loaded rendered Welcome in English and Arabic and both sheets, and checked that Get Started in the sheet opens Body Profile. His simulator rebuilt; splash centered and Home reached, his data kept.
+- Not tested / risks: no integration test was rerun; they find and tap "Get Started", which is unchanged. Not on a real iPhone or Android. The photo wall runs a slow animation for as long as Welcome is open. Small phones were not checked; the column has no scroll, so a very short screen could squeeze the logo slot.
+- Next: when Abdullah builds accounts, replace `_accountsComingSoon` in `auth_screens.dart` and update Privacy & Data, which says the diary stays on the phone.
 
 ### 2026-11-07: The logo, and an animated splash screen (commit 83978bd)
 - Decided: Abdullah gave his logo (the mark in black, white and color, and the wordmark) and asked for it in the app's assets and a "very beautiful" splash to show his colleagues and instructor, with free choice of means.
