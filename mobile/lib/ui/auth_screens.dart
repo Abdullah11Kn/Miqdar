@@ -54,7 +54,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 /// The logo draws itself: the bowl's outline is traced, food fills it from the foot, the star
-/// lands and the bowl dips and settles like a weighed plate, then the name arrives letter by
+/// lands and the bowl presses down once like a weighed plate, then the name arrives letter by
 /// letter. A first-time user then goes on to Welcome with the logo where it is; everyone else
 /// fades to the app. A tap skips it. With reduced motion the finished logo shows at once.
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
@@ -136,9 +136,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       curve.transform(((t - from) / (to - from)).clamp(0.0, 1.0));
 
   static MiqdarMarkFrame _markAt(double t) {
-    // After the star lands the bowl dips and settles, a damped spring like a scale reading.
+    // After the star lands the bowl presses down once and eases back, like a plate set on a
+    // scale. One movement, no bounce.
     final since = (t - _starLands) * _length.inMilliseconds / 1000;
-    final dip = since <= 0 ? 0.0 : 22 * math.exp(-since * 5.5) * math.sin(since * 22);
+    final press = (since / 0.45).clamp(0.0, 1.0);
+    final dip = 9 * math.sin(math.pi * Curves.easeOut.transform(press));
     return MiqdarMarkFrame(
       outline: _part(t, 0.00, 0.42, Curves.easeInOutCubic),
       fill: _part(t, 0.25, 0.56, Curves.easeInOutSine),

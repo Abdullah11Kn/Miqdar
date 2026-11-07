@@ -216,6 +216,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-08: Splash settle without the bounce
+- Decided: Abdullah watched the first run on a fresh simulator, said everything is good, but the shaking at the end looked "a bit AI slop".
+- Changed: after the star lands, the bowl no longer bounces up and down like a spring (about three wobbles). It presses down once by a few logo units and eases back in 0.45 s. `_markAt` in `auth_screens.dart`.
+- Tested: `flutter analyze`; 152 unit tests; hot restarted on a throwaway simulator ("Miqdar Welcome Demo") for him to watch.
+- Not tested / risks: not on a real iPhone. The star's small overshoot and the sparkle are unchanged; if he still finds the end busy, those are next.
+
 ### 2026-11-07: Welcome redesigned after the splash; splash centered (commit 05bc2d8)
 - Decided: see Decisions, 2026-11-07. Asked whether Sign Up and Log In should be real accounts or Get Started with the demo; he chose buttons only, to be wired up when he builds auth. Tapping them opens a sheet saying accounts are coming soon, with Get Started, so no button pretends to sign in.
 - Changed: the splash shows only the logo and wordmark, dead center of the screen, with no Arabic name or tagline. For a new user it hands over to Welcome with no transition, and Welcome moves the same logo from the center to its place above the headline. Welcome is rebuilt: a slow three-column wall of real food photos under a dark scrim, a language pill and Try with Sample Data at the top, the headline, Get Started, Sign Up and Log In. The old sample-meal card is gone. Shared `MiqdarLockup` in `miqdar_logo.dart`. 12 photos from Wikimedia Commons, all CC0 or public domain, in `mobile/assets/welcome/` with `CREDITS.md`; Unsplash's search needed a login.
