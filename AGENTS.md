@@ -218,7 +218,7 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
-### 2026-11-08: Add Meal button opens with a quiet fade (commit COMMIT_ID)
+### 2026-11-08: Add Meal button opens with a quiet fade (commit 0f505d7)
 - Decided: Abdullah did not like the motion when tapping the camera button on the bottom bar: the green circle growing into Add Meal.
 - Changed: the button, and every other way into Add Meal except the scale bar, now fades Add Meal in with a 12 px rise, and leaving fades it out. Only a tap on the scale bar still grows it out of the bar. The code that grew it from the button is removed.
 - Tested: `flutter analyze`; 157 unit tests; a temporary filmed tap on the throwaway simulator, frames looked at, opening and closing; deleted afterwards.
