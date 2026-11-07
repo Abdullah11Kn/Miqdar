@@ -814,24 +814,31 @@ class MealPhoto extends StatefulWidget {
 
 class _MealPhotoState extends State<MealPhoto> {
   Future<Uint8List?>? photo;
+  // A photo already in memory shows on the first frame, which lets it fly between screens.
+  Uint8List? cached;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    photo ??= MiqdarScope.of(context).mealPhoto(widget.mealId);
+    if (photo == null) _load();
   }
 
   @override
   void didUpdateWidget(covariant MealPhoto oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.mealId != widget.mealId) {
-      photo = MiqdarScope.of(context).mealPhoto(widget.mealId);
-    }
+    if (oldWidget.mealId != widget.mealId) _load();
+  }
+
+  void _load() {
+    final controller = MiqdarScope.of(context);
+    cached = controller.cachedMealPhoto(widget.mealId);
+    photo = controller.mealPhoto(widget.mealId);
   }
 
   @override
   Widget build(BuildContext context) => FutureBuilder<Uint8List?>(
         future: photo,
+        initialData: cached,
         builder: (context, snapshot) {
           final bytes = snapshot.data;
           return bytes == null ? widget.fallback : widget.builder(bytes);
@@ -863,7 +870,7 @@ class MealRowCard extends StatelessWidget {
                 dimension: 64,
                 child: MealPhoto(
                   mealId: meal.id,
-                  builder: (bytes) => Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 200),
+                  builder: (bytes) => MealPhotoHero(mealId: meal.id, bytes: bytes, radius: 12, cacheWidth: 200),
                   fallback: ColoredBox(
                     color: c.surface,
                     child: Center(

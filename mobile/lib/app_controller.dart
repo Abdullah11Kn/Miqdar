@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
@@ -161,6 +162,7 @@ class MiqdarController extends ChangeNotifier {
     if (isDemo) {
       // Sample meals stay in memory and never mix with a real diary.
       meals = localDatabase.demoHistory();
+      unawaited(_loadDemoPhotos());
     } else {
       if (!onboarded) {
         bodyProfileIsFirstRun = true;
@@ -308,6 +310,35 @@ class MiqdarController extends ChangeNotifier {
   final Map<String, Uint8List> _sessionPhotos = {};
   final Map<String, Uint8List?> _photoCache = {};
   static const _photoCacheSize = 60;
+
+  /// Photos the app already ships with, shown on the sample meals that match them. Foods
+  /// with no photo here keep the plain letter, as a real meal without a photo does.
+  static const _demoPhotoAssets = {
+    'food_chicken_kabsa': 'assets/demo/kabsa.jpg',
+    'food_jareesh': 'assets/demo/jareesh.jpeg',
+    'food_hummus_prepared': 'assets/welcome/hummus.jpg',
+    'food_chicken_breast_roasted': 'assets/welcome/grilled-chicken.jpg',
+  };
+
+  Future<void> _loadDemoPhotos() async {
+    final byFood = <String, Uint8List>{};
+    for (final entry in _demoPhotoAssets.entries) {
+      try {
+        byFood[entry.key] = (await rootBundle.load(entry.value)).buffer.asUint8List();
+      } catch (_) {
+        // A missing sample photo leaves that sample meal without one.
+      }
+    }
+    if (!account.isDemo) return;
+    for (final meal in meals) {
+      final bytes = byFood[meal.foodId];
+      if (bytes != null) _sessionPhotos[meal.id] = bytes;
+    }
+    notifyListeners();
+  }
+
+  /// A meal's photo if it is already in memory, so a screen can show it on its first frame.
+  Uint8List? cachedMealPhoto(String mealId) => _sessionPhotos[mealId] ?? _photoCache[mealId];
 
   Future<Uint8List?> mealPhoto(String mealId) async {
     if (_sessionPhotos.containsKey(mealId)) return _sessionPhotos[mealId];

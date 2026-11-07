@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'ui/motion.dart';
+
 export 'miqdar_icons.dart';
 
 /// Every color in the app, for the current light or dark theme. Use `context.mq`.
@@ -347,6 +349,14 @@ ThemeData miqdarTheme({bool isDark = false}) {
     extensions: [c],
     scaffoldBackgroundColor: c.bg,
     canvasColor: c.bg,
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.iOS: MiqdarPageTransitionsBuilder(),
+        TargetPlatform.macOS: MiqdarPageTransitionsBuilder(),
+        // Android's own back gesture and button take a screen back there.
+        TargetPlatform.android: MiqdarPageTransitionsBuilder(backSwipe: false),
+      },
+    ),
     dividerColor: c.border,
     dividerTheme: DividerThemeData(color: c.border, thickness: 1, space: 1),
     textTheme: textTheme,

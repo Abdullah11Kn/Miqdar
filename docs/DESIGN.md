@@ -84,6 +84,27 @@ the files anywhere, and forbids changing them, which includes cutting them down.
 - Use gradients other than the fade under the floating bars and dark scrims over photos, colored left borders, or
   illustrations of food. Food photos are real photos.
 
+## Motion
+
+All of it lives in `mobile/lib/ui/motion.dart` (`MiqdarMotion`). Motion is there to show where something came from and
+where it went, never to decorate. Abdullah asked on 2026-11-08 for it to help use the app, not to show off.
+
+- **Curves:** `travel` for anything that crosses the screen (screens, photos, Add Meal), the same both ways so things
+  that move together stay together; `settle` for small things (the tab pill, numbers). No bounce or overshoot: he
+  rejected the splash's spring shake.
+- **Short:** tabs 220 ms, screens 400 ms in and 340 ms back, Add Meal 440 ms open and 360 ms closed. The new screen
+  takes taps at once; nothing waits for an animation to end.
+- **Screens** arrive from the trailing edge (the left in Arabic) and the one beneath slides back a quarter and dims.
+  The iOS edge swipe still goes back, from the right edge in Arabic. `motion_test.dart` checks it.
+- **Add Meal** grows out of what was tapped: the scale bar, or the green Add Meal circle (also the default from other
+  buttons), and shrinks back into it when another tab opens.
+- **Tabs** fade through: the old tab fades out, then the new one fades in from the side of its tab. The tab pill slides.
+- **A meal's photo** flies between its row and Meal Detail.
+- **Home's calorie number** counts up with its ring.
+- **Reduce Motion** turns all of it into plain cuts or fades.
+- **Do not** add entrance animations to lists or cards, or motion nobody asked for by tapping. Transitions must never
+  rebuild the screen they wrap: keep the same widgets at rest and in motion, or the screen loses its state.
+
 ## Differences from the design system
 
 - A field's label sits inside its filled ground and floats up when typing, rather than above the field.

@@ -194,12 +194,9 @@ class MealDetailScreen extends StatelessWidget {
                   mealId: currentMeal.id,
                   builder: (bytes) => Padding(
                     padding: const EdgeInsets.only(bottom: 16),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: AspectRatio(
-                        aspectRatio: 4 / 3,
-                        child: Image.memory(bytes, fit: BoxFit.cover),
-                      ),
+                    child: AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: MealPhotoHero(mealId: currentMeal.id, bytes: bytes, radius: 24),
                     ),
                   ),
                 ),

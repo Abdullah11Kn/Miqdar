@@ -94,10 +94,11 @@ Main app: floating tab capsule with 4 tabs, and a separate Add Meal circle
 **Floating bars, at the bottom of every tab, over content that fades out beneath them:**
 
 - **Tab capsule:** Home (house), Diary (calendar), Insights (rising line), Profile (person). The current tab has a pale pill
-  and a filled icon. Beside it, the round green **Add Meal** circle (camera with plus) opens the Add Meal tab.
+  and a filled icon, which slides to the next tab. Beside it, the round green **Add Meal** circle (camera with plus)
+  opens the Add Meal tab, which grows out of the circle. How screens move is in `docs/DESIGN.md`, Motion.
 - **Scale bar,** above the capsule, on every tab except Add Meal:
   - Connected: the weight, a green dot with "Ready to capture", "On the scale" or "Put your food on the plate", and a round
-    **Capture** button, faded while there is nothing to capture. Tapping the bar opens Add Meal.
+    **Capture** button, faded while there is nothing to capture. Tapping the bar opens Add Meal, which grows out of the bar.
   - Working: a spinner in the button, the status such as "Gemini is analyzing your food…", and a green progress line along the bottom edge.
   - A plate in progress: "Add the next food, or Finish." and a **+** button that opens Add Meal, where a plate is finished.
   - Simulated: "Simulated scale, not real food" in orange.

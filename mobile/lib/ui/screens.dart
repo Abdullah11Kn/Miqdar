@@ -11,6 +11,7 @@ import 'describe_meal_sheet.dart';
 import 'diary_and_detail_screen.dart';
 import 'home_screen.dart';
 import 'insights_and_goals_screen.dart';
+import 'motion.dart';
 import 'profile_and_device_screen.dart';
 import 'scan_and_add_screen.dart';
 import 'widgets/charts_and_gauges.dart';
@@ -21,6 +22,7 @@ export 'describe_meal_sheet.dart';
 export 'diary_and_detail_screen.dart';
 export 'home_screen.dart';
 export 'insights_and_goals_screen.dart';
+export 'motion.dart';
 export 'profile_and_device_screen.dart';
 export 'reminders_screen.dart';
 export 'scan_and_add_screen.dart';
@@ -35,8 +37,79 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   late int index = widget.initialIndex;
+
+  // How the phone layout moves between tabs. Add Meal grows out of what was tapped, the
+  // scale bar or the Add Meal button, and shrinks back into it; other tabs cross-fade.
+  final _stageKey = GlobalKey();
+  final _barKey = GlobalKey();
+  final _addButtonKey = GlobalKey();
+  GlobalKey? _growFrom;
+  Rect? _growRect;
+  bool _sidebar = false;
+
+  /// The tab still on screen while the next one arrives.
+  int? _leaving;
+
+  late final AnimationController _fade = AnimationController(vsync: this, duration: MiqdarMotion.quick)
+    ..addStatusListener(_settled);
+  late final AnimationController _grow = AnimationController(
+    vsync: this,
+    duration: MiqdarMotion.open,
+    reverseDuration: MiqdarMotion.close,
+    value: widget.initialIndex == 1 ? 1 : 0,
+  )..addStatusListener(_settled);
+  late final CurvedAnimation _growCurve =
+      CurvedAnimation(parent: _grow, curve: MiqdarMotion.travel, reverseCurve: MiqdarMotion.travel.flipped);
+
+  @override
+  void dispose() {
+    _growCurve.dispose();
+    _fade.dispose();
+    _grow.dispose();
+    super.dispose();
+  }
+
+  void _settled(AnimationStatus status) {
+    if (!status.isAnimating && !_fade.isAnimating && !_grow.isAnimating && _leaving != null && mounted) {
+      setState(() => _leaving = null);
+    }
+  }
+
+  /// Opens tab [next]. [from] is what Add Meal grows out of; the Add Meal button by default.
+  void _go(int next, {GlobalKey? from}) {
+    if (next == index) return;
+    if (_sidebar || MiqdarMotion.reduced(context)) {
+      setState(() {
+        index = next;
+        _leaving = null;
+      });
+      _grow.value = next == 1 ? 1 : 0;
+      return;
+    }
+    setState(() {
+      _leaving = index;
+      index = next;
+    });
+    if (next == 1) {
+      _growFrom = from ?? _addButtonKey;
+      _growRect = _measure(_growFrom!);
+      _grow.forward();
+    } else if (_leaving == 1) {
+      _grow.reverse();
+    } else {
+      _fade.forward(from: 0);
+    }
+  }
+
+  /// Where [key]'s widget sits on the tab stage, or null when it is not on screen.
+  Rect? _measure(GlobalKey key) {
+    final box = key.currentContext?.findRenderObject() as RenderBox?;
+    final stage = _stageKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || stage == null || !box.attached || !box.hasSize || !stage.hasSize) return null;
+    return stage.globalToLocal(box.localToGlobal(Offset.zero)) & box.size;
+  }
   /// Every scale capture lands here and is consumed, so one capture opens one screen
   /// even though saving a meal rebuilds this shell.
   void _checkExternalCapture(MiqdarController controller) {
@@ -91,7 +164,7 @@ class _MainShellState extends State<MainShell> {
             hostContext: context,
             failure: failure,
             onRetry: () => controller.retryScaleAnalysis(failure),
-            onChooseFood: () => setState(() => index = 1),
+            onChooseFood: () => _go(1),
           ),
         );
       });
@@ -113,11 +186,11 @@ class _MainShellState extends State<MainShell> {
     // 4: Profile
     final pages = [
       HomeScreen(
-        onScan: () => setState(() => index = 1),
-        onOpenTab: (newIdx) => setState(() => index = newIdx),
+        onScan: () => _go(1),
+        onOpenTab: _go,
       ),
       const ScanScreen(),
-      HistoryScreen(onAddMeal: () => setState(() => index = 1)),
+      HistoryScreen(onAddMeal: () => _go(1)),
       const TrendsScreen(embedded: true),
       const ProfileScreen(),
     ];
@@ -125,6 +198,7 @@ class _MainShellState extends State<MainShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isDesktopSidebar = constraints.maxWidth >= 780;
+        _sidebar = isDesktopSidebar;
         final c = context.mq;
 
         if (isDesktopSidebar) {
@@ -198,16 +272,173 @@ class _MainShellState extends State<MainShell> {
           extendBody: true,
           body: SafeArea(
             bottom: false,
-            child: IndexedStack(index: index, children: pages),
+            child: _stage(pages),
           ),
           bottomNavigationBar: _FloatingBars(
             selectedIndex: index,
-            onSelected: (value) => setState(() => index = value),
+            onSelected: _go,
+            onOpenAddMealFromBar: () => _go(1, from: _barKey),
+            barKey: _barKey,
+            addButtonKey: _addButtonKey,
+            growth: _growCurve,
           ),
         );
       },
     );
   }
+}
+
+/// The phone layout's tabs. Every tab stays built, as in an IndexedStack, so each keeps its
+/// scroll and state; only the tab on screen and, for a moment, the one leaving are painted.
+extension on _MainShellState {
+  static const _tabOrder = [0, 2, 3, 4];
+
+  Widget _stage(List<Widget> pages) {
+    return LayoutBuilder(
+      key: _stageKey,
+      builder: (context, constraints) => AnimatedBuilder(
+        animation: Listenable.merge([_fade, _grow]),
+        builder: (context, _) {
+          final c = context.mq;
+          final rtl = Directionality.of(context) == TextDirection.rtl;
+          final growing = _grow.isAnimating;
+          final fading = !growing && _fade.isAnimating;
+          // During Add Meal's growth it is on top, over the tab it leaves or returns to.
+          final top = growing ? 1 : index;
+          final under = growing ? (index == 1 ? _leaving : index) : (fading ? _leaving : null);
+
+          final p = _growCurve.value;
+          final full = Offset.zero & constraints.biggest;
+          final fromButton = _growFrom == _addButtonKey;
+          if (growing && _grow.status == AnimationStatus.reverse) {
+            // The scale bar comes back as Add Meal closes, so follow where it really is.
+            _growRect = _measure(_growFrom ?? _barKey) ?? _growRect;
+          }
+          final origin = _growRect ?? Rect.fromCenter(center: full.bottomCenter, width: 64, height: 64);
+          final originColor = fromButton ? c.primary : Color.alphaBlend(c.surfaceFloat, c.bg);
+
+          // Fade-through: the old tab goes first, then the new one arrives from the side it is on.
+          final f = _fade.value;
+          final fromPos = _tabOrder.indexOf(_leaving ?? index);
+          final toPos = _tabOrder.indexOf(index);
+          final side = (toPos >= fromPos ? 1.0 : -1.0) * (rtl ? -1 : 1);
+          final arrive = MiqdarMotion.settle.transform(const Interval(0.3, 1).transform(f));
+
+          Widget frame(int i) {
+            final visible = i == top || i == under;
+            var opacity = 1.0;
+            var dx = 0.0;
+            Rect? clip;
+            var radius = 0.0;
+            Color? shadow;
+            var fill = Colors.transparent;
+            var scrim = 0.0;
+            var content = 1.0;
+            if (growing && i == 1) {
+              clip = Rect.lerp(origin, full, p);
+              radius = ui.lerpDouble(fromButton ? origin.shortestSide / 2 : 16, 0, p)!;
+              fill = Color.lerp(originColor, c.bg, const Interval(0, 0.6).transform(p))!;
+              // Opening shows the screen once it has room; closing keeps it in view until it is small.
+              content = _grow.status == AnimationStatus.reverse
+                  ? const Interval(0.1, 0.55).transform(p)
+                  : const Interval(0.3, 0.85).transform(p);
+              // An edge to see it by, white over white, gone as it fills the screen.
+              shadow = Colors.black.withValues(alpha: (1 - p) * (c.isDark ? 0.7 : 0.22));
+            } else if (growing && i == under) {
+              scrim = p * (c.isDark ? 0.45 : 0.12);
+            } else if (fading && i == _leaving) {
+              opacity = 1 - const Interval(0, 0.35).transform(f);
+            } else if (fading && i == index) {
+              opacity = arrive;
+              dx = (1 - arrive) * 16 * side;
+            }
+            return KeyedSubtree(
+              key: ValueKey(i),
+              child: Offstage(
+                offstage: !visible,
+                child: TickerMode(
+                  enabled: visible,
+                  child: HeroMode(
+                    enabled: i == index,
+                    child: IgnorePointer(
+                      ignoring: i != index,
+                      child: Opacity(
+                        opacity: opacity,
+                        child: Transform.translate(
+                          offset: Offset(dx, 0),
+                          child: CustomPaint(
+                            painter: clip == null || shadow == null ? null : _GrowShadow(clip, radius, shadow),
+                            child: ClipPath(
+                              clipper: _GrowClip(clip, radius),
+                              clipBehavior: clip == null ? Clip.none : Clip.antiAlias,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(color: fill),
+                                child: DecoratedBox(
+                                  position: DecorationPosition.foreground,
+                                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: scrim)),
+                                  child: Opacity(opacity: content, child: pages[i]),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
+          // A fixed order, never reshuffled: Add Meal is last, so it paints over the tab it grows
+          // from or shrinks into. Between other tabs the old one fades out before the new one
+          // shows, so their order does not matter.
+          final order = [for (var i = 0; i < pages.length; i++) if (i != 1) i, 1];
+          return Stack(fit: StackFit.expand, children: [for (final i in order) frame(i)]);
+        },
+      ),
+    );
+  }
+}
+
+/// The soft shadow under Add Meal while it grows or shrinks.
+class _GrowShadow extends CustomPainter {
+  const _GrowShadow(this.rect, this.radius, this.color);
+
+  final Rect rect;
+  final double radius;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, Radius.circular(radius)).shift(const Offset(0, 6)),
+      Paint()
+        ..color = color
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GrowShadow old) => old.rect != rect || old.radius != radius || old.color != color;
+}
+
+/// Add Meal's outline while it grows: from the scale bar or the button to the whole screen.
+class _GrowClip extends CustomClipper<Path> {
+  const _GrowClip(this.rect, this.radius);
+
+  final Rect? rect;
+  final double radius;
+
+  @override
+  Path getClip(Size size) {
+    final r = rect;
+    if (r == null) return Path()..addRect(Offset.zero & size);
+    return Path()..addRRect(RRect.fromRectAndRadius(r, Radius.circular(radius)));
+  }
+
+  @override
+  bool shouldReclip(_GrowClip old) => old.rect != rect || old.radius != radius;
 }
 
 /// The photo from the scale, shown the moment it arrives while Gemini analyzes it.
@@ -350,10 +581,23 @@ class _CaptureFailureSheet extends StatelessWidget {
 
 /// What floats at the bottom of the phone layout, over content that fades out beneath it.
 class _FloatingBars extends StatelessWidget {
-  const _FloatingBars({required this.selectedIndex, required this.onSelected});
+  const _FloatingBars({
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.onOpenAddMealFromBar,
+    required this.barKey,
+    required this.addButtonKey,
+    required this.growth,
+  });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback onOpenAddMealFromBar;
+  final GlobalKey barKey;
+  final GlobalKey addButtonKey;
+
+  /// How far Add Meal has grown. The scale bar shows again as Add Meal shrinks back into it.
+  final Animation<double> growth;
 
   @override
   Widget build(BuildContext context) {
@@ -383,7 +627,10 @@ class _FloatingBars extends StatelessWidget {
             children: [
               // Add Meal already has the weight and Capture, as its whole screen.
               if (selectedIndex != 1) ...[
-                _ScaleBar(onOpenAddMeal: () => onSelected(1)),
+                FadeTransition(
+                  opacity: growth.drive(CurveTween(curve: const Interval(0, 0.25))).drive(Tween(begin: 1.0, end: 0.0)),
+                  child: _ScaleBar(key: barKey, onOpenAddMeal: onOpenAddMealFromBar),
+                ),
                 const SizedBox(height: 12),
               ],
               Row(
@@ -408,6 +655,7 @@ class _FloatingBars extends StatelessWidget {
                       label: s.navAdd,
                       excludeSemantics: true,
                       child: Container(
+                        key: addButtonKey,
                         decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: c.floatShadow),
                         child: Material(
                           key: const ValueKey('addMealButton'),
@@ -458,7 +706,7 @@ class _FloatingGlass extends StatelessWidget {
   }
 }
 
-class _TabCapsule extends StatelessWidget {
+class _TabCapsule extends StatefulWidget {
   const _TabCapsule({required this.selectedIndex, required this.onSelected, required this.items});
 
   final int selectedIndex;
@@ -466,53 +714,90 @@ class _TabCapsule extends StatelessWidget {
   final List<({int index, IconData icon, String label})> items;
 
   @override
+  State<_TabCapsule> createState() => _TabCapsuleState();
+}
+
+/// The pill under the selected tab slides to the next one. On Add Meal no tab is selected,
+/// so it fades where it stands.
+class _TabCapsuleState extends State<_TabCapsule> {
+  int _lastSlot = 0;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.mq;
+    final items = widget.items;
+    final slot = items.indexWhere((item) => item.index == widget.selectedIndex);
+    if (slot >= 0) _lastSlot = slot;
+    final duration = MiqdarMotion.reduced(context) ? Duration.zero : MiqdarMotion.quick;
     return _FloatingGlass(
       radius: 32,
       child: Container(
         height: 64,
         padding: const EdgeInsets.all(4),
-        child: Row(
-          children: [
-            for (final item in items)
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  selected: item.index == selectedIndex,
-                  child: Material(
-                    color: item.index == selectedIndex ? c.surfaceSunken : Colors.transparent,
-                    shape: const StadiumBorder(),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => onSelected(item.index),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            item.icon,
-                            fill: item.index == selectedIndex ? 1 : 0,
-                            color: item.index == selectedIndex ? c.ink : c.inkMuted,
-                          ),
-                          const SizedBox(height: 2),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              item.label,
-                              maxLines: 1,
-                              style: MiqdarType.caption.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: item.index == selectedIndex ? c.ink : c.inkMuted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth / items.length;
+            return Stack(
+              children: [
+                AnimatedPositionedDirectional(
+                  duration: duration,
+                  curve: MiqdarMotion.settle,
+                  start: _lastSlot * width,
+                  top: 0,
+                  bottom: 0,
+                  width: width,
+                  child: AnimatedOpacity(
+                    duration: duration,
+                    opacity: slot >= 0 ? 1 : 0,
+                    child: DecoratedBox(
+                      decoration: ShapeDecoration(color: c.surfaceSunken, shape: const StadiumBorder()),
                     ),
                   ),
                 ),
-              ),
-          ],
+                Row(
+                  children: [
+                    for (final item in items)
+                      Expanded(
+                        child: Semantics(
+                          button: true,
+                          selected: item.index == widget.selectedIndex,
+                          child: Material(
+                            type: MaterialType.transparency,
+                            shape: const StadiumBorder(),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap: () => widget.onSelected(item.index),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    item.icon,
+                                    fill: item.index == widget.selectedIndex ? 1 : 0,
+                                    color: item.index == widget.selectedIndex ? c.ink : c.inkMuted,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      item.label,
+                                      maxLines: 1,
+                                      style: MiqdarType.caption.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: item.index == widget.selectedIndex ? c.ink : c.inkMuted,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -522,7 +807,7 @@ class _TabCapsule extends StatelessWidget {
 /// The scale on every tab, the way a music app shows what is playing: weight, one line of
 /// status and a round Capture button. A plate in progress finishes on Add Meal.
 class _ScaleBar extends StatelessWidget {
-  const _ScaleBar({required this.onOpenAddMeal});
+  const _ScaleBar({super.key, required this.onOpenAddMeal});
 
   final VoidCallback onOpenAddMeal;
 

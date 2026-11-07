@@ -39,7 +39,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 
 ## Current state
 
-*Update this section whenever it stops being true. Last updated 2026-11-07.*
+*Update this section whenever it stops being true. Last updated 2026-11-08.*
 
 - **Branch:** `feature/scale-live-flow` holds all current work, and the Pi is on it. `main` is well behind and
   `origin/usb` is an older copy. Do not merge to `main` until Abdullah says so.
@@ -58,6 +58,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Next work (after the code review, all fixed):** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
 - **Agent skills setup:** done. See Agent skills below.
 - **Logo, splash and Welcome (2026-11-07):** the app has Abdullah's logo, drawn from vectors, an animated splash on black, and a new Welcome with a food photo wall and Sign Up and Log In placeholders. Seen on simulators; not yet on a real iPhone or Android.
+- **Motion (2026-11-08):** screens, tabs, Add Meal and meal photos move as `docs/DESIGN.md`, Motion, describes. Seen on a throwaway simulator, filmed, in English light and Arabic dark; not yet on a real iPhone.
 - **Spec #14 built (2026-11-07):** Weigh What's Left, diabetes mode, the doctor's PDF report and Ramadan mode, tickets #15 to #25. Database v7. Not yet tried on the real scale or a real iPhone.
 
 ## Where things live
@@ -196,6 +197,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the root, created only when
 
 - 2026-11-07: through `/grill-me` he chose four features, in issue #14: Weigh What's Left (container method only), diabetes mode (question in the Body Profile and Food Preferences; a suggested carb number he researched, which the user accepts or not), a doctor's PDF report (worked out by the app, no AI), and Ramadan mode (a Settings switch the app suggests near Ramadan; Iftar, Suhoor, Snack; no times). The confidence display stays until he removes it himself.
 - 2026-11-07: he gave the logo and liked the animated splash. He then asked for no Arabic name on the splash, the logo dead center, and after it a Welcome like a reference he sent (photo wall, logo, headline, Get Started, Sign Up, Log In), "as a reference, not a copy". He wants Sign Up and Log In as buttons only for now: he will build the accounts and backend himself later.
+- 2026-11-08: he asked for the movement between screens to be made beautiful, then added that it must help use the app and not show off or look salesy. Motion stays short, answers a tap, and shows where something came from.
 - 2026-11-05: on the scale, a single food goes from Capture straight to one Analyzing screen with Cancel, then to a result with Save. No "Photo sent" screen and no Capture on the result. Add Next Food is a separate flow and keeps its own screens.
 
 ## Open decisions
@@ -215,6 +217,14 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-08: Motion between screens (commit COMMIT_ID)
+- Decided: Abdullah ran `/frontend-design` asking for the movement between pages to be beautiful, to impress. While it was being built he added that it must be usable and enhance the experience, not look salesy, and that this was a comment, not criticism. Recorded under Decisions. Timings were cut after that.
+- Changed: new `mobile/lib/ui/motion.dart` with the timings and curves, and a page transition set in `theme.dart` for every screen: in from the trailing edge, the screen beneath slides back and dims, with our own iOS edge swipe to go back (Flutter's is private), from the right in Arabic. On the phone layout `MainShell` replaces its IndexedStack with a tab stage: Add Meal grows out of the scale bar or the green circle and shrinks back into it, other tabs fade through, the tab pill slides. A meal photo flies between its row and Meal Detail (`MealPhotoHero`; `MealPhoto` now shows a photo already in memory on the first frame, through the new `cachedMealPhoto`). Home's calorie number counts up with the ring. The demo's sample kabsa, jareesh, hummus and roast chicken now show the matching photos the app already ships, so the demo is not all letters. Reduce Motion gives plain cuts and fades. `docs/DESIGN.md` has a Motion section; `docs/APP_SCREENS.md` mentions it.
+- Careful: a transition must keep the same widgets at rest and in motion. The first version did not, which rebuilt the screen beneath on every push and lost its state (a swipe test found it); fixed, with a test. Reordering the tab stage's layers set off a framework semantics error in Arabic; the order is now fixed.
+- Tested: `flutter analyze`; 157 unit tests, five new in `motion_test.dart` (swipe back in both directions, a short swipe stays, a swipe away from the edge does nothing, the screen beneath keeps its state). A temporary filmed tour on the throwaway simulator "Miqdar Welcome Demo" with the simulated scale, run in English light and in Arabic dark, frames looked at: tab switches, Add Meal from the circle and from the bar and back, Meal Detail with the photo flight and back. Deleted afterwards.
+- Not tested / risks: no real iPhone (feel, speed, the edge swipe with a real finger). The swipe was tested only by widget tests, not on the simulator. Android has not been built. The wide sidebar layout has no motion, by choice. Integration tests were not rerun; they find screens by type and text, which did not change. Small changes on screens underneath, such as the scale bar's height when Add Meal opens, may shift a little under the dim layer.
+- Next: Abdullah tries it and says what feels slow or too much; the timings are all in `MiqdarMotion`.
 
 ### 2026-11-08: Splash settle without the bounce (commit 273a903)
 - Decided: Abdullah watched the first run on a fresh simulator, said everything is good, but the shaking at the end looked "a bit AI slop".

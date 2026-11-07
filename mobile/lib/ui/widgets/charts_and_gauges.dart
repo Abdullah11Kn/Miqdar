@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../l10n/strings.dart';
 import '../../models/nutrition.dart';
 import '../../theme.dart';
+import '../motion.dart';
 
 class SurfaceCard extends StatelessWidget {
   const SurfaceCard({
@@ -610,60 +611,63 @@ class RadialCalorieMeter extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = S.of(context);
     final c = context.mq;
-    final ratio = (target > 0 && !trackingOnly) ? (consumed / target) : 0.0;
-    final clampedRatio = ratio.isNaN || ratio.isInfinite ? 0.0 : ratio.clamp(0.0, 1.0);
     final isOver = !trackingOnly && target > 0 && consumed > target;
     final diff = (target - consumed).abs();
 
+    // The number and the ring come to rest together, like the scale's reading.
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: clampedRatio),
-      duration: const Duration(milliseconds: 650),
-      curve: Curves.easeOutCubic,
-      builder: (context, animatedRatio, _) => SizedBox(
-        width: size,
-        height: size,
-        child: CustomPaint(
-          painter: _RadialCaloriePainter(
-            progress: animatedRatio,
-            progressColor: isOver ? c.accent : c.nCalories,
-            trackColor: c.surfaceSunken,
-            clockwise: !s.isAr,
-          ),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      consumed.toStringAsFixed(0),
-                      textDirection: ui.TextDirection.ltr,
-                      style: MiqdarType.numberXl.copyWith(fontSize: 40, height: 44 / 40, color: c.ink),
-                    ),
-                    Text(
-                      trackingOnly || target <= 0
-                          ? s.unitKcal
-                          : '/ ${target.toStringAsFixed(0)} ${s.unitKcal}',
-                      style: MiqdarType.label.copyWith(color: c.inkMuted),
-                    ),
-                    if (!trackingOnly && target > 0) ...[
-                      const SizedBox(height: 6),
+      tween: Tween<double>(begin: 0, end: consumed),
+      duration: MiqdarMotion.reduced(context) ? Duration.zero : const Duration(milliseconds: 700),
+      curve: MiqdarMotion.settle,
+      builder: (context, shown, _) {
+        final ratio = (target > 0 && !trackingOnly) ? (shown / target) : 0.0;
+        final animatedRatio = ratio.isNaN || ratio.isInfinite ? 0.0 : ratio.clamp(0.0, 1.0);
+        return SizedBox(
+          width: size,
+          height: size,
+          child: CustomPaint(
+            painter: _RadialCaloriePainter(
+              progress: animatedRatio,
+              progressColor: isOver ? c.accent : c.nCalories,
+              trackColor: c.surfaceSunken,
+              clockwise: !s.isAr,
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Text(
-                        isOver
-                            ? '+${diff.toStringAsFixed(0)} ${s.tr("above", "فوق الهدف")}'
-                            : '${diff.toStringAsFixed(0)} ${s.tr("left", "متبقٍ")}',
-                        style: MiqdarType.label.copyWith(color: isOver ? c.accentInk : c.ink),
+                        shown.toStringAsFixed(0),
+                        textDirection: ui.TextDirection.ltr,
+                        style: MiqdarType.numberXl.copyWith(fontSize: 40, height: 44 / 40, color: c.ink),
                       ),
+                      Text(
+                        trackingOnly || target <= 0
+                            ? s.unitKcal
+                            : '/ ${target.toStringAsFixed(0)} ${s.unitKcal}',
+                        style: MiqdarType.label.copyWith(color: c.inkMuted),
+                      ),
+                      if (!trackingOnly && target > 0) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          isOver
+                              ? '+${diff.toStringAsFixed(0)} ${s.tr("above", "فوق الهدف")}'
+                              : '${diff.toStringAsFixed(0)} ${s.tr("left", "متبقٍ")}',
+                          style: MiqdarType.label.copyWith(color: isOver ? c.accentInk : c.ink),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
