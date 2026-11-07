@@ -6,6 +6,7 @@ import '../l10n/strings.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
 import 'screens.dart';
+import 'diabetes_widgets.dart';
 import 'widgets/charts_and_gauges.dart';
 
 /// Server text may be English only, so Arabic screens show it only when it is translated.
@@ -330,6 +331,15 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
+                SurfaceCard(
+                  padding: const EdgeInsets.all(16),
+                  child: DiabetesQuestion(controller: controller),
+                ),
+                if (controller.diabetes.hasDiabetes) ...[
+                  const SizedBox(height: 12),
+                  CarbPlanCard(controller: controller),
+                ],
+                const SizedBox(height: 12),
                 SurfaceCard(
                   padding: EdgeInsets.zero,
                   child: Theme(
@@ -663,8 +673,8 @@ class PrivacyAndDataScreen extends StatelessWidget {
                         icon: MiqdarIcons.phoneIphone,
                         title: s.tr('This phone', 'هذا الهاتف'),
                         body: s.tr(
-                          'Your meals, meal photos, goals, preferences and body profile are stored here. There is no Miqdar account or cloud copy, so removing the app removes them. Your body profile is not sent to Gemini.',
-                          'تُحفظ هنا وجباتك وصورها وأهدافك وتفضيلاتك وبياناتك الجسدية. لا يوجد حساب أو نسخة سحابية لمقدار، لذا فإن حذف التطبيق يحذفها. لا تُرسل بياناتك الجسدية إلى Gemini.',
+                          'Your meals, meal photos, goals, preferences, body profile and diabetes answers are stored here. There is no Miqdar account or cloud copy, so removing the app removes them. Your body profile and diabetes answers are not sent to Gemini.',
+                          'تُحفظ هنا وجباتك وصورها وأهدافك وتفضيلاتك وبياناتك الجسدية وإجاباتك عن السكري. لا يوجد حساب أو نسخة سحابية لمقدار، لذا فإن حذف التطبيق يحذفها. لا تُرسل بياناتك الجسدية ولا إجاباتك عن السكري إلى Gemini.',
                         ),
                       ),
                       _PrivacyRow(

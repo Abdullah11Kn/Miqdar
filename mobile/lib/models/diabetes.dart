@@ -1,4 +1,5 @@
 import 'body_profile.dart';
+import 'nutrition.dart';
 
 enum DiabetesType { type1, type2, other, notSure }
 
@@ -103,3 +104,19 @@ CarbAdviceBlock? carbAdviceBlock(
 /// 15 g a snack. Without a body profile the lower number is used.
 ({double meal, double snack}) suggestedCarbs(BodyProfile? profile) =>
     (meal: profile?.sex == BodySex.male ? 60 : 45, snack: 15);
+
+/// Average carbs at each meal type, over the days that had that meal. [dayOf] gives a meal's diary
+/// day, so Ramadan's noon-to-noon day can be passed in. Meals with unknown carbs are left out.
+Map<String, double> averageCarbsByMealType(Iterable<MealEntry> meals, DateTime Function(DateTime) dayOf) {
+  final perDay = <String, Map<DateTime, double>>{};
+  for (final meal in meals) {
+    if (meal.nutrients.isMissing('carbohydrate_g')) continue;
+    final days = perDay.putIfAbsent(meal.mealType, () => {});
+    final day = dayOf(meal.eatenAt);
+    days[day] = (days[day] ?? 0) + meal.nutrients.carbohydrates;
+  }
+  return {
+    for (final entry in perDay.entries)
+      entry.key: entry.value.values.fold(0.0, (a, b) => a + b) / entry.value.length,
+  };
+}

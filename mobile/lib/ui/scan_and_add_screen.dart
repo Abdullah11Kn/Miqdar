@@ -12,6 +12,7 @@ import '../l10n/strings.dart';
 import '../models/nutrition.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
+import 'diabetes_widgets.dart';
 import 'screens.dart';
 import 'widgets/charts_and_gauges.dart';
 
@@ -2367,6 +2368,10 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                     ),
                   ],
                 ),
+                if (controller.diabetes.carbsFirst) ...[
+                  const SizedBox(height: 10),
+                  CarbLine(values: totalNutrients, target: controller.carbTargetFor(selectedMealType)),
+                ],
                 const SizedBox(height: 16),
                 // Where these numbers came from is never hidden.
                 AiVerificationBadge(

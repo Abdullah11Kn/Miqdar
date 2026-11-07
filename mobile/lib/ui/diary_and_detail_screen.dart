@@ -7,6 +7,7 @@ import '../l10n/strings.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
 import 'screens.dart';
+import 'diabetes_widgets.dart';
 import 'leftovers_sheet.dart';
 import 'widgets/charts_and_gauges.dart';
 
@@ -236,6 +237,10 @@ class MealDetailScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (controller.diabetes.carbsFirst) ...[
+                  const SizedBox(height: 10),
+                  CarbLine(values: currentMeal.nutrients, target: controller.carbTargetFor(currentMeal.mealType)),
+                ],
                 const SizedBox(height: 14),
                 AiVerificationBadge(
                   verificationStatus: currentMeal.verificationStatus,

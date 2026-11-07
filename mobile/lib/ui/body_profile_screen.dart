@@ -8,6 +8,7 @@ import '../models/body_profile.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
 import 'screens.dart';
+import 'diabetes_widgets.dart';
 import 'widgets/charts_and_gauges.dart';
 
 /// The required profile and the goal it suggests. As a gate it leads into the app;
@@ -341,6 +342,8 @@ class _BodyProfileScreenState extends State<BodyProfileScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 12),
+        SurfaceCard(child: DiabetesQuestion(controller: MiqdarScope.of(context))),
       ],
     );
   }

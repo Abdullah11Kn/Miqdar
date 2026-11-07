@@ -5,6 +5,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import '../app.dart';
 import '../app_controller.dart';
 import '../l10n/strings.dart';
+import '../models/diabetes.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
 import 'body_weight_card.dart';
@@ -143,6 +144,49 @@ class _TrendsScreenState extends State<TrendsScreen> {
         MiqdarSectionHeader(title: s.tr('Where your calories come from', 'مصدر سعراتك')),
         MacroDonutChart(values: periodTotals),
         const SizedBox(height: 40),
+
+        if (controller.diabetes.carbsFirst) ...[
+          MiqdarSectionHeader(title: s.tr('Carbs by meal', 'الكربوهيدرات حسب الوجبة')),
+          SurfaceCard(
+            padding: const EdgeInsets.all(16),
+            child: Builder(builder: (context) {
+              final byType = averageCarbsByMealType(periodMeals, controller.diaryDayOf);
+              const order = ['Breakfast', 'Lunch', 'Dinner', 'Iftar', 'Suhoor', 'Snack', 'Meal'];
+              final types = [...order.where(byType.containsKey), ...byType.keys.where((t) => !order.contains(t))];
+              if (types.isEmpty) {
+                return Text(s.tr('No carbs recorded in this period.', 'لا توجد كربوهيدرات مسجلة في هذه الفترة.'));
+              }
+              return Column(
+                children: [
+                  for (final type in types)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(s.mealTypeLabel(type), style: MiqdarType.body.copyWith(color: context.mq.ink)),
+                          ),
+                          Text(
+                            s.tr(
+                              '${byType[type]!.toStringAsFixed(0)} g · ${formatPortions(carbPortions(byType[type]!))} portions',
+                              '${byType[type]!.toStringAsFixed(0)} غ · ${formatPortions(carbPortions(byType[type]!))} حصص',
+                            ),
+                            style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    s.tr('Average for each meal, on the days it was logged', 'متوسط كل وجبة في الأيام التي سُجلت فيها'),
+                    style: MiqdarType.caption.copyWith(color: context.mq.inkMuted),
+                  ),
+                ],
+              );
+            }),
+          ),
+          const SizedBox(height: 40),
+        ],
 
         if (notEaten.grams > 0) ...[
           MiqdarSectionHeader(title: s.tr('Food not eaten', 'طعام لم يؤكل')),

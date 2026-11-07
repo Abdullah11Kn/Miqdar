@@ -422,6 +422,12 @@ class MiqdarController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The diary day a moment belongs to: its local calendar date.
+  DateTime diaryDayOf(DateTime moment) {
+    final local = moment.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
+
   static bool isSameLocalDay(DateTime a, DateTime b) {
     final la = a.toLocal();
     final lb = b.toLocal();

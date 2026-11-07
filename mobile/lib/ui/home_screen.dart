@@ -6,6 +6,7 @@ import '../app.dart';
 import '../app_controller.dart';
 import '../data/food_catalog.dart';
 import '../l10n/strings.dart';
+import '../models/diabetes.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
 import 'screens.dart';
@@ -191,7 +192,7 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     flex: 7,
-                    child: _DailySummaryCard(totals: totals, goals: goals),
+                    child: _DailySummaryCard(totals: totals, goals: goals, carbsFirst: controller.diabetes.carbsFirst),
                   ),
                   const SizedBox(width: 18),
                   Expanded(
@@ -201,7 +202,7 @@ class HomeScreen extends StatelessWidget {
                 ],
               )
             else ...[
-              _DailySummaryCard(totals: totals, goals: goals),
+              _DailySummaryCard(totals: totals, goals: goals, carbsFirst: controller.diabetes.carbsFirst),
             ],
 
             const SizedBox(height: 40),
@@ -304,10 +305,14 @@ class _DailySummaryCard extends StatelessWidget {
   const _DailySummaryCard({
     required this.totals,
     required this.goals,
+    this.carbsFirst = false,
   });
 
   final NutritionValues totals;
   final NutritionGoals goals;
+
+  /// Diabetes mode: today's carbs lead the card, in grams and portions.
+  final bool carbsFirst;
 
   @override
   Widget build(BuildContext context) {
@@ -330,6 +335,19 @@ class _DailySummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
+          if (carbsFirst) ...[
+            Text(s.tr('Carbs today', 'كربوهيدرات اليوم'), style: MiqdarType.label.copyWith(color: c.inkMuted)),
+            Text.rich(
+              TextSpan(children: [
+                TextSpan(text: totals.carbohydrates.toStringAsFixed(0), style: MiqdarType.numberLg.copyWith(color: c.ink)),
+                TextSpan(
+                  text: ' ${s.unitG} · ${s.tr('${formatPortions(carbPortions(totals.carbohydrates))} portions', '${formatPortions(carbPortions(totals.carbohydrates))} حصص')}',
+                  style: MiqdarType.bodyStrong.copyWith(color: c.inkMuted),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               RadialCalorieMeter(
@@ -828,6 +846,22 @@ class MealRowCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
+            if (MiqdarScope.of(context).diabetes.carbsFirst)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    meal.nutrients.isMissing('carbohydrate_g')
+                        ? s.tr('Unknown', 'غير معروف')
+                        : s.tr('${meal.nutrients.carbohydrates.toStringAsFixed(0)} g carbs',
+                            '${meal.nutrients.carbohydrates.toStringAsFixed(0)} غ كربوهيدرات'),
+                    style: MiqdarType.titleCard.copyWith(fontSize: 16, color: c.ink),
+                  ),
+                  Text('${meal.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
+                      style: MiqdarType.caption.copyWith(color: c.inkMuted)),
+                ],
+              )
+            else
             Text.rich(
               TextSpan(
                 children: [

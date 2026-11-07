@@ -134,6 +134,25 @@ void main() {
     });
   });
 
+  test('average carbs by meal time counts only days that had that meal', () {
+    MealEntry m(String type, DateTime at, double carbs, {bool unknown = false}) => MealEntry(
+          id: '$type$at', foodId: 'f', nameEn: 'x', nameAr: '', eatenAt: at, mealType: type, weightG: 100, confidence: 1,
+          nutrients: NutritionValues(calories: 100, protein: 0, carbohydrates: carbs, fat: 0, sugar: 0, fiber: 0, sodium: 0, potassium: 0,
+              missingKeys: unknown ? const {'carbohydrate_g'} : const {}),
+        );
+    DateTime day(DateTime t) => DateTime(t.year, t.month, t.day);
+    final result = averageCarbsByMealType([
+      m('Lunch', DateTime(2026, 11, 1, 13), 60),
+      m('Lunch', DateTime(2026, 11, 1, 14), 20),
+      m('Lunch', DateTime(2026, 11, 2, 13), 40),
+      m('Dinner', DateTime(2026, 11, 2, 20), 90),
+      m('Dinner', DateTime(2026, 11, 3, 20), 0, unknown: true),
+    ], day);
+    expect(result['Lunch'], 60);
+    expect(result['Dinner'], 90);
+    expect(result.containsKey('Breakfast'), isFalse);
+  });
+
   test('carbs total includes leftovers already taken off', () {
     final meal = MealEntry(
       id: 'm', foodId: 'f', nameEn: 'Rice', nameAr: '', eatenAt: DateTime.now(), mealType: 'Lunch',
