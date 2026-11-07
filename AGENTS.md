@@ -216,7 +216,7 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
-### 2026-11-07: Welcome redesigned after the splash; splash centered (commit pending)
+### 2026-11-07: Welcome redesigned after the splash; splash centered (commit 05bc2d8)
 - Decided: see Decisions, 2026-11-07. Asked whether Sign Up and Log In should be real accounts or Get Started with the demo; he chose buttons only, to be wired up when he builds auth. Tapping them opens a sheet saying accounts are coming soon, with Get Started, so no button pretends to sign in.
 - Changed: the splash shows only the logo and wordmark, dead center of the screen, with no Arabic name or tagline. For a new user it hands over to Welcome with no transition, and Welcome moves the same logo from the center to its place above the headline. Welcome is rebuilt: a slow three-column wall of real food photos under a dark scrim, a language pill and Try with Sample Data at the top, the headline, Get Started, Sign Up and Log In. The old sample-meal card is gone. Shared `MiqdarLockup` in `miqdar_logo.dart`. 12 photos from Wikimedia Commons, all CC0 or public domain, in `mobile/assets/welcome/` with `CREDITS.md`; Unsplash's search needed a login.
 - Tested: `flutter analyze`; 152 unit tests. On a throwaway simulator, deleted afterwards: the whole first run from splash to Welcome, in screenshots. A temporary widget test with Thmanyah loaded rendered Welcome in English and Arabic and both sheets, and checked that Get Started in the sheet opens Body Profile. His simulator rebuilt; splash centered and Home reached, his data kept.
