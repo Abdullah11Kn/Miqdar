@@ -92,4 +92,8 @@ the files anywhere, and forbids changing them, which includes cutting them down.
 - The Scale bar hides on the Add Meal tab, which already has the live weight and Capture as its whole screen.
 - A locked digit is 0.66 em wide, not the design system's 0.62: Thmanyah Sans Bold's 0 has a 0.696 em advance and would touch its neighbor.
 - The Home card keeps sugar as a fourth bar beside protein, carbs and fat, so no nutrient is lost from the day's view.
-- There is no logo yet. The name is set in type, as the design system says.
+- The logo is Abdullah's bowl and star, with the wordmark "Miqdar" (2026-11-07). The source files and how to rebuild the
+  vectors are in `mobile/assets/branding/logo/`; the app paints it from `MiqdarMarkPainter` and `MiqdarWordmarkPainter`
+  in `mobile/lib/ui/widgets/miqdar_logo.dart`. Bowl and wordmark are `ink`, the star is `logoGreen`, never `primary`.
+- The splash is always black, in both themes, so it follows the black launch screen with no white flash. It is the only
+  screen that ignores the theme.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app_controller.dart';
@@ -42,9 +43,14 @@ class MiqdarApp extends StatelessWidget {
               theme: miqdarTheme(isDark: false),
               darkTheme: miqdarTheme(isDark: true),
               builder: (context, child) {
-                final directionalChild = Directionality(
-                  textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-                  child: child ?? const SizedBox.shrink(),
+                // Status bar icons follow the app's theme, not the phone's. Screens that need
+                // otherwise, like the always-black splash, set their own region inside this one.
+                final directionalChild = AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+                  child: Directionality(
+                    textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 );
                 if (!controller.forceMobileFrameOnDesktop) {
                   return directionalChild;

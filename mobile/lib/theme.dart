@@ -66,6 +66,9 @@ class MiqdarTokens extends ThemeExtension<MiqdarTokens> {
   Color get focus => primary;
   Color get nCalories => primary;
 
+  /// The star in the logo: the brand green, a little deeper on white so it holds its own there.
+  Color get logoGreen => isDark ? const Color(0xFF3ECB7F) : const Color(0xFF22A862);
+
   /// Only floating things cast a shadow: the tab bar, Add Meal, the scale bar.
   List<BoxShadow> get floatShadow => [
         BoxShadow(

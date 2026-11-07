@@ -1,10 +1,15 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app.dart';
 import '../l10n/strings.dart';
 import '../theme.dart';
 import 'screens.dart';
 import 'widgets/charts_and_gauges.dart';
+import 'widgets/miqdar_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,64 +18,168 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _anim = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 750),
-  )..forward();
+/// The logo draws itself: the bowl's outline is traced, food fills it from the foot, the star
+/// lands and the bowl dips and settles like a weighed plate, then the name arrives letter by
+/// letter. A tap skips it. With reduced motion the finished logo shows at once.
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  static const _length = Duration(milliseconds: 2600);
+  static const _hold = Duration(milliseconds: 450);
+
+  late final AnimationController _anim = AnimationController(vsync: this, duration: _length);
+  Timer? _leaveTimer;
+  bool _left = false;
+  bool _buzzed = false;
 
   @override
-  void initState() {
-    super.initState();
-    Future<void>.delayed(const Duration(milliseconds: 950), () {
-      if (!mounted) return;
-      final controller = MiqdarScope.of(context);
-      final returning = controller.onboarded;
-      final needsProfile = controller.needsBodyProfile;
-      final firstRun = controller.bodyProfileIsFirstRun;
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 400),
-          pageBuilder: (_, __, ___) => !returning
-              ? const WelcomeScreen()
-              : needsProfile
-                  ? BodyProfileScreen(firstRun: firstRun)
-                  : const MainShell(),
-          transitionsBuilder: (_, animation, __, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
-      );
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_anim.isAnimating || _anim.isCompleted || _leaveTimer != null) return;
+    if (MediaQuery.of(context).disableAnimations) {
+      _anim.value = 1;
+      _leaveTimer = Timer(const Duration(milliseconds: 900), _leave);
+      return;
+    }
+    _anim.addListener(_onTick);
+    _anim.forward().whenComplete(() {
+      if (mounted) _leaveTimer ??= Timer(_hold, _leave);
     });
+  }
+
+  void _onTick() {
+    if (!_buzzed && _anim.value >= _starLands) {
+      _buzzed = true;
+      HapticFeedback.lightImpact();
+    }
+  }
+
+  void _leave() {
+    if (_left || !mounted) return;
+    _left = true;
+    final controller = MiqdarScope.of(context);
+    final returning = controller.onboarded;
+    final needsProfile = controller.needsBodyProfile;
+    final firstRun = controller.bodyProfileIsFirstRun;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 500),
+        pageBuilder: (_, __, ___) => !returning
+            ? const WelcomeScreen()
+            : needsProfile
+                ? BodyProfileScreen(firstRun: firstRun)
+                : const MainShell(),
+        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: child,
+        ),
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _leaveTimer?.cancel();
     _anim.dispose();
     super.dispose();
+  }
+
+  // The timeline, as parts of the whole animation.
+  static const _starLands = 0.60;
+
+  static double _part(double t, double from, double to, [Curve curve = Curves.linear]) =>
+      curve.transform(((t - from) / (to - from)).clamp(0.0, 1.0));
+
+  static MiqdarMarkFrame _markAt(double t) {
+    // After the star lands the bowl dips and settles, a damped spring like a scale reading.
+    final since = (t - _starLands) * _length.inMilliseconds / 1000;
+    final dip = since <= 0 ? 0.0 : 22 * math.exp(-since * 5.5) * math.sin(since * 22);
+    return MiqdarMarkFrame(
+      outline: _part(t, 0.00, 0.40, Curves.easeInOutCubic),
+      fill: _part(t, 0.24, 0.54, Curves.easeInOutSine),
+      outlineFade: _part(t, 0.46, 0.60),
+      star: _part(t, 0.46, _starLands + 0.06, Curves.easeOutBack),
+      burst: _part(t, _starLands - 0.02, 0.88),
+      dip: dip,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final c = context.mq;
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: FadeTransition(
-            opacity: CurvedAnimation(parent: _anim, curve: Curves.easeOut),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // The name, set in type until the app has a logo.
-                Text('Miqdar • مقدار', style: MiqdarType.titleScreen.copyWith(color: c.ink)),
-                const SizedBox(height: 8),
-                Text(
-                  s.tagline,
-                  textAlign: TextAlign.center,
-                  style: MiqdarType.body.copyWith(color: c.inkMuted),
-                ),
-              ],
+    // Always on black, whatever the theme: the launch screen before it is black too, so the
+    // logo appears with no white flash, and the colored logo is the white-on-black version.
+    const c = MiqdarTokens.dark;
+    final width = MediaQuery.sizeOf(context).width;
+    final markWidth = math.min(width * 0.5, 240.0);
+    final wordWidth = markWidth * 0.86;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: c.bg,
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _leave,
+          child: SafeArea(
+            child: AnimatedBuilder(
+              animation: _anim,
+              builder: (context, _) {
+                final t = _anim.value;
+                final arabic = _part(t, 0.70, 0.90, Curves.easeOutCubic);
+                final tagline = _part(t, 0.80, 1.00, Curves.easeOut);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Spacer(flex: 5),
+                    Semantics(
+                      label: 'Miqdar · مقدار',
+                      image: true,
+                      child: Column(
+                        children: [
+                          CustomPaint(
+                            size: Size(markWidth, MiqdarMarkPainter.heightFor(markWidth)),
+                            painter: MiqdarMarkPainter(frame: _markAt(t), ink: c.ink, green: c.logoGreen),
+                          ),
+                          const SizedBox(height: 36),
+                          CustomPaint(
+                            size: Size(wordWidth, MiqdarWordmarkPainter.heightFor(wordWidth)),
+                            painter: MiqdarWordmarkPainter(
+                              ink: c.ink,
+                              letters: [
+                                for (var i = 0; i < 6; i++)
+                                  _part(t, 0.56 + i * 0.035, 0.76 + i * 0.035, Curves.easeOutCubic),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Opacity(
+                            opacity: arabic,
+                            child: Transform.translate(
+                              offset: Offset(0, 10 * (1 - arabic)),
+                              child: Text(
+                                'مقدار',
+                                textDirection: TextDirection.rtl,
+                                style: MiqdarType.titleScreen.copyWith(color: c.ink, height: 1.2),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(flex: 6),
+                    Opacity(
+                      opacity: tagline,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(32, 0, 32, 28),
+                        child: Text(
+                          s.tagline,
+                          textAlign: TextAlign.center,
+                          style: MiqdarType.body.copyWith(color: c.inkMuted),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
