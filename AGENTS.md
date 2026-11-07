@@ -216,7 +216,7 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
-### 2026-11-08: Splash settle without the bounce
+### 2026-11-08: Splash settle without the bounce (commit 273a903)
 - Decided: Abdullah watched the first run on a fresh simulator, said everything is good, but the shaking at the end looked "a bit AI slop".
 - Changed: after the star lands, the bowl no longer bounces up and down like a spring (about three wobbles). It presses down once by a few logo units and eases back in 0.45 s. `_markAt` in `auth_screens.dart`.
 - Tested: `flutter analyze`; 152 unit tests; hot restarted on a throwaway simulator ("Miqdar Welcome Demo") for him to watch.
