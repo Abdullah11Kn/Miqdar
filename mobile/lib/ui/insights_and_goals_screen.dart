@@ -26,18 +26,17 @@ class _TrendsScreenState extends State<TrendsScreen> {
   Widget build(BuildContext context) {
     final controller = MiqdarScope.of(context);
     final s = S.of(context);
-    final now = DateTime.now();
-    final cutoff = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: periodDays - 1));
+    final today = controller.today;
+    final cutoff = DateTime(today.year, today.month, today.day - (periodDays - 1));
 
     final periodMeals = controller.meals
-        .where((m) => !m.eatenAt.toLocal().isBefore(cutoff))
+        .where((m) => !controller.diaryDayOf(m.eatenAt).isBefore(cutoff))
         .toList();
 
     // Group by calendar date for accurate daily aggregation (TREND-01, TREND-02)
     final byDate = <String, List<MealEntry>>{};
     for (final meal in periodMeals) {
-      final key = DateFormat('yyyy-MM-dd').format(meal.eatenAt.toLocal());
+      final key = DateFormat('yyyy-MM-dd').format(controller.diaryDayOf(meal.eatenAt));
       byDate.putIfAbsent(key, () => []).add(meal);
     }
 

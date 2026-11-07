@@ -105,7 +105,10 @@ class S {
       };
 
   String mealTypeLabel(String type) => switch (type) {
-        'Breakfast' => isAr ? 'الإفطار' : 'Breakfast',
+        // Not الإفطار, which is Ramadan's Iftar.
+        'Breakfast' => isAr ? 'الفطور' : 'Breakfast',
+        'Iftar' => isAr ? 'الإفطار' : 'Iftar',
+        'Suhoor' => isAr ? 'السحور' : 'Suhoor',
         'Lunch' => isAr ? 'الغداء' : 'Lunch',
         'Dinner' => isAr ? 'العشاء' : 'Dinner',
         'Snack' => isAr ? 'وجبة خفيفة' : 'Snack',

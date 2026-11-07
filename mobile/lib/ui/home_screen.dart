@@ -3,11 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
-import '../app_controller.dart';
 import '../data/food_catalog.dart';
 import '../l10n/strings.dart';
 import '../models/diabetes.dart';
 import '../models/nutrition.dart';
+import '../models/ramadan.dart';
 import '../theme.dart';
 import 'screens.dart';
 import 'widgets/charts_and_gauges.dart';
@@ -34,7 +34,7 @@ class HomeScreen extends StatelessWidget {
     final controller = MiqdarScope.of(context);
     final s = S.of(context);
     final selectedDate = controller.selectedDate;
-    final isToday = MiqdarController.isSameLocalDay(selectedDate, DateTime.now());
+    final isToday = controller.isToday(selectedDate);
     final totals = controller.selectedDateTotals;
     final dayMeals = controller.mealsForDate(selectedDate);
     final goals = controller.goals;
@@ -179,6 +179,56 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                         child: Text(s.tr('Resume', 'متابعة')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            if (controller.ramadanPrompt case final prompt?)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: SurfaceCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        prompt.kind == RamadanPromptKind.turnOn
+                            ? s.tr('Ramadan is near. Turn on Ramadan mode?', 'اقترب رمضان. هل تريد تفعيل وضع رمضان؟')
+                            : s.tr('Ramadan has ended. Turn off Ramadan mode?', 'انتهى رمضان. هل تريد إيقاف وضع رمضان؟'),
+                        style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        prompt.kind == RamadanPromptKind.turnOn
+                            ? s.tr(
+                                'Meals become Iftar, Suhoor and Snack, the day runs from noon to noon, and timed reminders pause. You can change it in Profile.',
+                                'تصبح الوجبات إفطاراً وسحوراً ووجبة خفيفة، ويمتد اليوم من الظهر إلى الظهر، وتتوقف التذكيرات المؤقتة. يمكنك تغييره من ملفي.',
+                              )
+                            : s.tr(
+                                'Meals and days go back to normal, and your reminders come back.',
+                                'تعود الوجبات والأيام إلى وضعها المعتاد، وتعود تذكيراتك.',
+                              ),
+                        style: MiqdarType.body.copyWith(fontSize: 13, height: 18 / 13, color: context.mq.inkMuted),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                                minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 16)),
+                            onPressed: () => controller.answerRamadanPrompt(prompt, accept: true),
+                            child: Text(prompt.kind == RamadanPromptKind.turnOn
+                                ? s.tr('Turn On', 'تفعيل')
+                                : s.tr('Turn Off', 'إيقاف')),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: () => controller.answerRamadanPrompt(prompt, accept: false),
+                            child: Text(s.tr('Not Now', 'ليس الآن')),
+                          ),
+                        ],
                       ),
                     ],
                   ),

@@ -13,6 +13,7 @@ import 'l10n/strings.dart';
 import 'models/body_profile.dart';
 import 'models/diabetes.dart';
 import 'models/nutrition.dart';
+import 'models/ramadan.dart';
 import 'services/alert_service.dart';
 import 'services/api_service.dart';
 import 'services/gemini_service.dart';
@@ -219,6 +220,9 @@ class MiqdarController extends ChangeNotifier {
     }
     reminderSettings = const ReminderSettings();
     diabetes = const DiabetesSettings();
+    ramadanPeriods = [];
+    answeredRamadanPrompts = {};
+    selectedDate = today;
     meals = [];
     alerts = [];
     goals = await localDatabase.loadGoals();
@@ -252,6 +256,10 @@ class MiqdarController extends ChangeNotifier {
     goalBasisWeightKg = double.tryParse(await localDatabase.getSetting('goal_weight_kg') ?? '');
     reminderSettings = ReminderSettings.decode(await localDatabase.getSetting('reminders'));
     diabetes = _decodeDiabetes(await localDatabase.getSetting('diabetes'));
+    ramadanPeriods = _decodeRamadan(await localDatabase.getSetting('ramadan_periods'));
+    answeredRamadanPrompts =
+        (await localDatabase.getSetting('ramadan_prompts') ?? '').split(',').where((k) => k.isNotEmpty).toSet();
+    selectedDate = today;
     _lastSeenCaptureEventId = await localDatabase.getSetting('last_capture_event');
     final name = await localDatabase.getSetting('account_name');
     if (name != null && name.isNotEmpty) {
@@ -422,10 +430,89 @@ class MiqdarController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The diary day a moment belongs to: its local calendar date.
+  /// The diary day a moment belongs to: its local calendar date. While Ramadan mode was on, the day
+  /// runs from noon to noon, so an iftar and the suhoor after it fall on one day.
   DateTime diaryDayOf(DateTime moment) {
     final local = moment.toLocal();
-    return DateTime(local.year, local.month, local.day);
+    final date = DateTime(local.year, local.month, local.day);
+    if (local.hour < 12 && _inRamadanPeriod(moment)) return DateTime(date.year, date.month, date.day - 1);
+    return date;
+  }
+
+  DateTime get today => diaryDayOf(DateTime.now());
+
+  bool isToday(DateTime day) => DateTime(day.year, day.month, day.day) == today;
+
+  // Ramadan mode
+  /// When Ramadan mode was on: start and end, with no end while it is on. Earlier days keep midnight.
+  List<({DateTime start, DateTime? end})> ramadanPeriods = [];
+
+  bool get ramadanMode => ramadanPeriods.isNotEmpty && ramadanPeriods.last.end == null;
+
+  bool _inRamadanPeriod(DateTime moment) => ramadanPeriods.any((p) =>
+      !moment.isBefore(p.start) && (p.end == null || moment.isBefore(p.end!)));
+
+  static List<({DateTime start, DateTime? end})> _decodeRamadan(String? raw) {
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      return [
+        for (final item in (jsonDecode(raw) as List).cast<Map<String, dynamic>>())
+          (
+            start: DateTime.parse(item['start'] as String),
+            end: item['end'] == null ? null : DateTime.parse(item['end'] as String),
+          ),
+      ];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> setRamadanMode(bool on) async {
+    if (on == ramadanMode) return;
+    final now = DateTime.now();
+    if (on) {
+      ramadanPeriods = [...ramadanPeriods, (start: now, end: null)];
+    } else {
+      ramadanPeriods = [...ramadanPeriods.sublist(0, ramadanPeriods.length - 1), (start: ramadanPeriods.last.start, end: now)];
+    }
+    selectedDate = today;
+    notifyListeners();
+    if (!account.isDemo) {
+      await localDatabase.saveSetting(
+        'ramadan_periods',
+        jsonEncode([
+          for (final p in ramadanPeriods) {'start': p.start.toUtc().toIso8601String(), 'end': p.end?.toUtc().toIso8601String()},
+        ]),
+      );
+      if (reminderSettings.enabled) await _applyReminders().catchError((Object _) {});
+    }
+  }
+
+  /// Suggestions to turn Ramadan mode on or off that were answered, so each is shown once.
+  Set<String> answeredRamadanPrompts = {};
+
+  RamadanPrompt? get ramadanPrompt => account.isDemo
+      ? null
+      : ramadanPromptFor(DateTime.now(), modeOn: ramadanMode, dismissed: answeredRamadanPrompts);
+
+  /// Answers the suggestion: [accept] switches the mode as suggested; either way it is not shown again.
+  Future<void> answerRamadanPrompt(RamadanPrompt prompt, {required bool accept}) async {
+    answeredRamadanPrompts = {...answeredRamadanPrompts, prompt.key};
+    _remember('ramadan_prompts', answeredRamadanPrompts.join(','));
+    if (accept) {
+      await setRamadanMode(prompt.kind == RamadanPromptKind.turnOn);
+    } else {
+      notifyListeners();
+    }
+  }
+
+  /// The meal types to choose from. Ramadan has Iftar, Suhoor and Snack.
+  List<String> get mealTypes => ramadanMode ? const ['Iftar', 'Suhoor', 'Snack'] : const ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+
+  /// The meal type picked for a meal logged at [time].
+  String mealTypeFor(DateTime time) {
+    if (!ramadanMode) return defaultMealType(time);
+    return time.toLocal().hour >= 12 ? 'Iftar' : 'Suhoor';
   }
 
   static bool isSameLocalDay(DateTime a, DateTime b) {
@@ -434,13 +521,15 @@ class MiqdarController extends ChangeNotifier {
     return la.year == lb.year && la.month == lb.month && la.day == lb.day;
   }
 
-  List<MealEntry> mealsForDate(DateTime date) =>
-      meals.where((meal) => isSameLocalDay(meal.eatenAt, date)).toList();
+  List<MealEntry> mealsForDate(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    return meals.where((meal) => diaryDayOf(meal.eatenAt) == day).toList();
+  }
 
   NutritionValues totalsForDate(DateTime date) =>
       mealsForDate(date).fold(NutritionValues.zero(), (total, meal) => total + meal.nutrients);
 
-  NutritionValues get todayTotals => totalsForDate(DateTime.now());
+  NutritionValues get todayTotals => totalsForDate(today);
 
   NutritionValues get selectedDateTotals => totalsForDate(selectedDate);
 
@@ -906,7 +995,8 @@ class MiqdarController extends ChangeNotifier {
   }
 
   Future<void> _applyReminders() => reminderScheduler.replaceAll([
-        if (reminderSettings.enabled)
+        // Timed reminders pause in Ramadan and come back unchanged after it.
+        if (reminderSettings.enabled && !ramadanMode)
           for (var i = 0; i < reminderSettings.meals.length; i++)
             if (reminderSettings.meals[i].on)
               DailyReminder(
@@ -1033,7 +1123,7 @@ class MiqdarController extends ChangeNotifier {
         await handler();
       } else {
         final now = DateTime.now();
-        await saveLastRecognition(mealType: defaultMealType(now), eatenAt: now);
+        await saveLastRecognition(mealType: mealTypeFor(now), eatenAt: now);
       }
     } catch (_) {
       // The meal is still on the phone; the scale must not keep waiting or say Saved.
@@ -1523,7 +1613,7 @@ class MiqdarController extends ChangeNotifier {
   }
 
   /// Fasting in Ramadan. Ramadan mode sets it.
-  bool get fasting => false;
+  bool get fasting => ramadanMode;
 
   /// Why no carb number is suggested to this user, or null when one can be.
   CarbAdviceBlock? get carbBlock => carbAdviceBlock(
@@ -1558,7 +1648,7 @@ class MiqdarController extends ChangeNotifier {
   }
 
   /// Leftovers can be weighed until the end of the meal's diary day.
-  bool canWeighLeftovers(MealEntry meal) => isSameLocalDay(meal.eatenAt, DateTime.now());
+  bool canWeighLeftovers(MealEntry meal) => diaryDayOf(meal.eatenAt) == today;
 
   /// Records food weighed after eating. Returns why it was refused, or null once saved.
   Future<String?> saveLeftover(MealEntry meal, double grams, {int? itemIndex}) async {

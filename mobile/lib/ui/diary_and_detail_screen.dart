@@ -47,7 +47,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     // Group meals by local diary date (YYYY-MM-DD)
     final grouped = <String, List<MealEntry>>{};
     for (final meal in filtered) {
-      final key = DateFormat('yyyy-MM-dd').format(meal.eatenAt.toLocal());
+      final key = DateFormat('yyyy-MM-dd').format(controller.diaryDayOf(meal.eatenAt));
       grouped.putIfAbsent(key, () => []).add(meal);
     }
     final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -101,7 +101,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,
             child: Row(
-              children: ['All', 'Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) {
+              children: ['All', ...controller.mealTypes].map((type) {
                 return Padding(
                   padding: const EdgeInsetsDirectional.only(end: 8),
                   child: ChoiceChip(
@@ -124,7 +124,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               final dayMeals = grouped[dateKey]!;
               final dayDate = DateTime.parse(dateKey);
               final dayCalories = dayMeals.fold(0.0, (sum, m) => sum + m.nutrients.calories);
-              final isToday = MiqdarController.isSameLocalDay(dayDate, DateTime.now());
+              final isToday = controller.isToday(dayDate);
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 32),
@@ -425,14 +425,11 @@ class MealDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  initialValue: ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Meal']
-                          .contains(selectedType)
-                      ? selectedType
-                      : 'Meal',
+                  initialValue: selectedType,
                   decoration: InputDecoration(
                     labelText: s.tr('Meal', 'الوجبة'),
                   ),
-                  items: ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Meal']
+                  items: {...controller.mealTypes, 'Meal', currentMeal.mealType}
                       .map((type) => DropdownMenuItem(
                             value: type,
                             child: Text(s.mealTypeLabel(type)),

@@ -2030,7 +2030,9 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
   late RecognitionResult currentResult = widget.result;
   bool correcting = false;
   MiqdarController? _controller;
-  String selectedMealType = 'Lunch';
+  String? _mealTypeChosen;
+  String get selectedMealType => _mealTypeChosen ?? 'Lunch';
+  set selectedMealType(String value) => _mealTypeChosen = value;
   DateTime consumedAt = DateTime.now();
   final notesCtrl = TextEditingController();
   late final TextEditingController weightEditCtrl = TextEditingController(
@@ -2038,15 +2040,10 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
   );
 
   @override
-  void initState() {
-    super.initState();
-    selectedMealType = MiqdarController.defaultMealType(DateTime.now());
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _controller = MiqdarScope.of(context)..reviewSaveHandler = _save;
+    _mealTypeChosen ??= _controller!.mealTypeFor(DateTime.now());
   }
 
   @override
@@ -2612,7 +2609,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: ['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) {
+                            children: controller.mealTypes.map((type) {
                               return ChoiceChip(
                                 label: Text(s.mealTypeLabel(type)),
                                 selected: selectedMealType == type,

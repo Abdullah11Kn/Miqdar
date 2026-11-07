@@ -142,11 +142,22 @@ class ProfileScreen extends StatelessWidget {
               MiqdarSettingsRow(
                 icon: MiqdarIcons.notifications,
                 title: s.tr('Meal Reminders', 'تذكير الوجبات'),
-                value: controller.reminderSettings.enabled ? s.tr('On', 'مفعّل') : s.tr('Off', 'متوقف'),
+                value: !controller.reminderSettings.enabled
+                    ? s.tr('Off', 'متوقف')
+                    : controller.ramadanMode
+                        ? s.tr('Paused for Ramadan', 'متوقف في رمضان')
+                        : s.tr('On', 'مفعّل'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const RemindersScreen()),
                 ),
               ),
+            MiqdarSettingsRow(
+              icon: MiqdarIcons.calendarMonth,
+              title: s.tr('Ramadan Mode', 'وضع رمضان'),
+              subtitle: s.tr('Iftar, Suhoor and Snack; the day runs noon to noon', 'إفطار وسحور ووجبة خفيفة، واليوم من الظهر إلى الظهر'),
+              toggle: controller.ramadanMode,
+              onTap: () => controller.setRamadanMode(!controller.ramadanMode),
+            ),
             MiqdarSettingsRow(
               icon: MiqdarIcons.scale,
               title: s.navDevices,
