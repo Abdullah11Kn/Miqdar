@@ -12,6 +12,7 @@ import 'data/local_database.dart';
 import 'l10n/strings.dart';
 import 'models/body_profile.dart';
 import 'models/diabetes.dart';
+import 'models/doctor_report.dart';
 import 'models/nutrition.dart';
 import 'models/ramadan.dart';
 import 'services/alert_service.dart';
@@ -1646,6 +1647,21 @@ class MiqdarController extends ChangeNotifier {
     if (diabetes.source == CarbPlanSource.suggested && carbBlock != null) return null;
     return diabetes.carbTargetFor(mealType);
   }
+
+  /// The doctor's report for the last [days] diary days, worked out from the user's own numbers.
+  DoctorReport doctorReport(int days, {required bool isAr}) => buildDoctorReport(
+        meals: meals,
+        goals: goals,
+        weights: weightEntries,
+        today: today,
+        periodDays: days,
+        dayOf: diaryDayOf,
+        // The placeholder name is not a person's name, so a report never shows it.
+        name: account.displayName == UserAccount.defaultName
+            ? ''
+            : (isAr && account.displayNameAr.isNotEmpty ? account.displayNameAr : account.displayName),
+        carbsFirst: diabetes.carbsFirst,
+      );
 
   /// Leftovers can be weighed until the end of the meal's diary day.
   bool canWeighLeftovers(MealEntry meal) => diaryDayOf(meal.eatenAt) == today;

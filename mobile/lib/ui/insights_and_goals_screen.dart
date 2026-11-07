@@ -9,6 +9,7 @@ import '../models/diabetes.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
 import 'body_weight_card.dart';
+import 'doctor_report_screen.dart';
 import 'widgets/charts_and_gauges.dart';
 
 class TrendsScreen extends StatefulWidget {
@@ -340,6 +341,24 @@ void showExportSheet(BuildContext context, {required int days}) {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            s.tr("Doctor's Report", 'تقرير للطبيب'),
+            style: Theme.of(ctx).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            s.tr('A PDF to share with your doctor or dietitian.', 'ملف PDF تشاركه مع طبيبك أو أخصائي التغذية.'),
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 10),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DoctorReportScreen()));
+            },
+            child: Text(s.tr("Make a Doctor's Report", 'إعداد تقرير للطبيب')),
+          ),
+          const SizedBox(height: 24),
           Text(
             s.tr('Export Meals', 'تصدير الوجبات'),
             style: Theme.of(ctx).textTheme.titleLarge,
