@@ -436,7 +436,9 @@ class MiqdarController extends ChangeNotifier {
   DateTime diaryDayOf(DateTime moment) {
     final local = moment.toLocal();
     final date = DateTime(local.year, local.month, local.day);
-    if (local.hour < 12 && _inRamadanPeriod(moment)) return DateTime(date.year, date.month, date.day - 1);
+    // A morning meal joins the night before only if the mode was already on by that midnight, so a
+    // meal soon after switching on never moves into a day that ran midnight to midnight.
+    if (local.hour < 12 && _inRamadanPeriod(moment, onBy: date)) return DateTime(date.year, date.month, date.day - 1);
     return date;
   }
 
@@ -450,8 +452,8 @@ class MiqdarController extends ChangeNotifier {
 
   bool get ramadanMode => ramadanPeriods.isNotEmpty && ramadanPeriods.last.end == null;
 
-  bool _inRamadanPeriod(DateTime moment) => ramadanPeriods.any((p) =>
-      !moment.isBefore(p.start) && (p.end == null || moment.isBefore(p.end!)));
+  bool _inRamadanPeriod(DateTime moment, {required DateTime onBy}) => ramadanPeriods.any((p) =>
+      p.start.isBefore(onBy) && (p.end == null || moment.isBefore(p.end!)));
 
   static List<({DateTime start, DateTime? end})> _decodeRamadan(String? raw) {
     if (raw == null || raw.isEmpty) return [];
@@ -499,7 +501,7 @@ class MiqdarController extends ChangeNotifier {
   /// Answers the suggestion: [accept] switches the mode as suggested; either way it is not shown again.
   Future<void> answerRamadanPrompt(RamadanPrompt prompt, {required bool accept}) async {
     answeredRamadanPrompts = {...answeredRamadanPrompts, prompt.key};
-    _remember('ramadan_prompts', answeredRamadanPrompts.join(','));
+    if (!account.isDemo) _remember('ramadan_prompts', answeredRamadanPrompts.join(','));
     if (accept) {
       await setRamadanMode(prompt.kind == RamadanPromptKind.turnOn);
     } else {
@@ -1667,7 +1669,7 @@ class MiqdarController extends ChangeNotifier {
   bool canWeighLeftovers(MealEntry meal) => diaryDayOf(meal.eatenAt) == today;
 
   /// Records food weighed after eating. Returns why it was refused, or null once saved.
-  Future<String?> saveLeftover(MealEntry meal, double grams, {int? itemIndex}) async {
+  Future<LeftoverProblem?> saveLeftover(MealEntry meal, double grams, {int? itemIndex}) async {
     final problem = leftoverProblem(meal, grams, itemIndex: itemIndex);
     if (problem != null) return problem;
     await updateMeal(meal.copyWith(

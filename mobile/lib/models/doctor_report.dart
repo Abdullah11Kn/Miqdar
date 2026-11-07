@@ -13,24 +13,40 @@ class ReportDay {
   bool get logged => totals != null;
 }
 
-/// How many logged days were within, over and under one goal. Sugar and salt are limits, so they
-/// have no "under".
+enum ReportGoal {
+  calories('calories_kcal'),
+  protein('protein_g'),
+  carbohydrates('carbohydrate_g'),
+  fat('fat_g'),
+  fiber('fiber_g'),
+  sugar('sugar_g'),
+  sodium('sodium_mg');
+
+  const ReportGoal(this.nutrientKey);
+
+  /// The key [NutritionValues] uses, to tell when the value is unknown.
+  final String nutrientKey;
+
+  /// Sugar and salt are limits, so they have no "under".
+  bool get isLimit => this == sugar || this == sodium;
+}
+
+/// How many logged days were within, over and under one goal. Days where the value is unknown are
+/// left out.
 class GoalDays {
   const GoalDays({
-    required this.key,
     required this.goal,
+    required this.target,
     required this.within,
     required this.over,
     required this.under,
-    required this.isLimit,
   });
 
-  final String key;
-  final double goal;
+  final ReportGoal goal;
+  final double target;
   final int within;
   final int over;
   final int under;
-  final bool isLimit;
 }
 
 enum ReportPatternKind { highestCarbMeal, daysOverSugar, daysOverSalt, weekendCalories, loggedDays }
@@ -133,30 +149,34 @@ DoctorReport buildDoctorReport({
       ? NutritionValues.zero()
       : logged.fold<NutritionValues>(NutritionValues.zero(), (a, d) => a + d.totals!).scaledBy(1 / logged.length);
 
-  GoalDays goalDaysFor(String key, double goal, double Function(NutritionValues) read, {bool isLimit = false}) {
+  GoalDays goalDaysFor(ReportGoal goal, double target, double Function(NutritionValues) read) {
     var within = 0, over = 0, under = 0;
     for (final day in logged) {
+      if (day.totals!.isMissing(goal.nutrientKey)) continue;
       final value = read(day.totals!);
-      if (isLimit) {
-        value > goal ? over++ : within++;
-      } else if (value > goal * 1.1) {
+      if (goal.isLimit) {
+        value > target ? over++ : within++;
+      } else if (value > target * 1.1) {
         over++;
-      } else if (value < goal * 0.9) {
+      } else if (value < target * 0.9) {
         under++;
       } else {
         within++;
       }
     }
-    return GoalDays(key: key, goal: goal, within: within, over: over, under: under, isLimit: isLimit);
+    return GoalDays(goal: goal, target: target, within: within, over: over, under: under);
   }
 
   final goalDays = goals.trackingOnly || logged.isEmpty
       ? <GoalDays>[]
       : [
-          goalDaysFor('calories', goals.calories, (v) => v.calories),
-          goalDaysFor('carbohydrates', goals.carbohydrates, (v) => v.carbohydrates),
-          goalDaysFor('sugar', goals.sugar, (v) => v.sugar, isLimit: true),
-          goalDaysFor('sodium', goals.sodium, (v) => v.sodium, isLimit: true),
+          goalDaysFor(ReportGoal.calories, goals.calories, (v) => v.calories),
+          goalDaysFor(ReportGoal.carbohydrates, goals.carbohydrates, (v) => v.carbohydrates),
+          goalDaysFor(ReportGoal.sugar, goals.sugar, (v) => v.sugar),
+          goalDaysFor(ReportGoal.sodium, goals.sodium, (v) => v.sodium),
+          goalDaysFor(ReportGoal.protein, goals.protein, (v) => v.protein),
+          goalDaysFor(ReportGoal.fat, goals.fat, (v) => v.fat),
+          goalDaysFor(ReportGoal.fiber, goals.fiber, (v) => v.fiber),
         ];
 
   final patterns = <ReportPattern>[
@@ -174,19 +194,19 @@ DoctorReport buildDoctorReport({
     }
     if (carbsByType.length < 2) continue;
     comparedDays++;
-    final top = carbsByType.entries.reduce((a, b) => b.value > a.value ? b : a).key;
+    final top = _largest(carbsByType).key;
     topMeal[top] = (topMeal[top] ?? 0) + 1;
   }
   if (comparedDays >= 3) {
-    final top = topMeal.entries.reduce((a, b) => b.value > a.value ? b : a);
+    final top = _largest(topMeal);
     if (top.value * 2 > comparedDays) {
       patterns.add(ReportPattern(ReportPatternKind.highestCarbMeal,
           mealType: top.key, count: top.value, ofDays: comparedDays));
     }
   }
   if (!goals.trackingOnly) {
-    final sugarDays = goalDays.where((g) => g.key == 'sugar').firstOrNull?.over ?? 0;
-    final saltDays = goalDays.where((g) => g.key == 'sodium').firstOrNull?.over ?? 0;
+    final sugarDays = goalDays.where((g) => g.goal == ReportGoal.sugar).firstOrNull?.over ?? 0;
+    final saltDays = goalDays.where((g) => g.goal == ReportGoal.sodium).firstOrNull?.over ?? 0;
     if (sugarDays > 0) {
       patterns.add(ReportPattern(ReportPatternKind.daysOverSugar, count: sugarDays, ofDays: logged.length));
     }
@@ -235,3 +255,6 @@ DoctorReport buildDoctorReport({
     carbsFirst: carbsFirst,
   );
 }
+
+MapEntry<String, T> _largest<T extends num>(Map<String, T> map) =>
+    map.entries.reduce((a, b) => b.value > a.value ? b : a);

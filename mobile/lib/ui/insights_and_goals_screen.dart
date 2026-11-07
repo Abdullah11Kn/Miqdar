@@ -343,12 +343,12 @@ void showExportSheet(BuildContext context, {required int days}) {
         children: [
           Text(
             s.tr("Doctor's Report", 'تقرير للطبيب'),
-            style: Theme.of(ctx).textTheme.titleLarge,
+            style: MiqdarType.titleSection.copyWith(color: ctx.mq.ink),
           ),
           const SizedBox(height: 6),
           Text(
             s.tr('A PDF to share with your doctor or dietitian.', 'ملف PDF تشاركه مع طبيبك أو أخصائي التغذية.'),
-            style: const TextStyle(fontSize: 13),
+            style: MiqdarType.body.copyWith(color: ctx.mq.inkMuted),
           ),
           const SizedBox(height: 10),
           FilledButton(

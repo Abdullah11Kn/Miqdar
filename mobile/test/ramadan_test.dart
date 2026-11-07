@@ -80,6 +80,12 @@ void main() {
     expect(controller.diaryDayOf(DateTime(2027, 2, 9, 3)), DateTime(2027, 2, 8));
   });
 
+  test('a morning meal soon after switching on stays on its own day', () {
+    controller.ramadanPeriods = [(start: DateTime(2027, 2, 8, 10), end: null)];
+    expect(controller.diaryDayOf(DateTime(2027, 2, 8, 11)), DateTime(2027, 2, 8));
+    expect(controller.diaryDayOf(DateTime(2027, 2, 9, 4)), DateTime(2027, 2, 8));
+  });
+
   test('days after it ended go back to midnight, and Ramadan nights stay together', () {
     controller.ramadanPeriods = [(start: DateTime(2027, 2, 8), end: DateTime(2027, 3, 10, 12))];
     expect(controller.ramadanMode, isFalse);

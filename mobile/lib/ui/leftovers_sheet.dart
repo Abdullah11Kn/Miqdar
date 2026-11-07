@@ -31,7 +31,8 @@ class _LeftoversSheetState extends State<_LeftoversSheet> {
 
   /// The plate food that was left; null is the whole meal, or Mixed on a plate.
   int? itemIndex;
-  String? problem;
+  LeftoverProblem? problem;
+  bool zeroFailed = false;
   bool saving = false;
 
   @override
@@ -113,13 +114,20 @@ class _LeftoversSheetState extends State<_LeftoversSheet> {
                     final ok = await widget.controller.tareScale();
                     if (!mounted) return;
                     setState(() {
-                      problem = ok ? null : 'zero_failed';
+                      zeroFailed = !ok;
+                      problem = null;
                       if (ok) step = _Step.leftovers;
                     });
                   },
             child: Text(s.tr('Zero', 'تصفير')),
           ),
-          if (problem != null) ...[const SizedBox(height: 10), _problemText(context, s)],
+          if (zeroFailed) ...[
+            const SizedBox(height: 10),
+            Text(
+              s.tr('The scale did not zero. Try again.', 'لم يتم تصفير الميزان. حاول مرة أخرى.'),
+              style: MiqdarType.body.copyWith(color: context.mq.danger),
+            ),
+          ],
         ];
       case _Step.leftovers:
         final grams = scale.liveWeightG;
@@ -168,13 +176,13 @@ class _LeftoversSheetState extends State<_LeftoversSheet> {
       );
 
   Widget _problemText(BuildContext context, S s) => Text(
-        switch (problem) {
-          'too_heavy' => s.tr(
+        switch (problem!) {
+          LeftoverProblem.tooHeavy => s.tr(
               'That is more than was served. Check the container was zeroed, then try again.',
               'هذا أكثر مما قُدّم. تأكد من تصفير الوعاء ثم حاول مرة أخرى.',
             ),
-          'zero_failed' => s.tr('The scale did not zero. Try again.', 'لم يتم تصفير الميزان. حاول مرة أخرى.'),
-          _ => s.tr('Nothing is on the scale yet.', 'لا يوجد شيء على الميزان بعد.'),
+          LeftoverProblem.noSuchFood => s.tr('That food is no longer on this meal.', 'هذا الطعام لم يعد في هذه الوجبة.'),
+          LeftoverProblem.empty => s.tr('Nothing is on the scale yet.', 'لا يوجد شيء على الميزان بعد.'),
         },
         style: MiqdarType.body.copyWith(color: context.mq.danger),
       );

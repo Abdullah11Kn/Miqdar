@@ -1114,16 +1114,30 @@ class MealLeftover {
   final DateTime weighedAt;
 }
 
+enum LeftoverProblem { empty, noSuchFood, tooHeavy }
+
 /// Why a leftover weight cannot be applied, or null when it can.
-String? leftoverProblem(MealEntry meal, double grams, {int? itemIndex}) {
-  if (grams <= 0) return 'empty';
+LeftoverProblem? leftoverProblem(MealEntry meal, double grams, {int? itemIndex}) {
+  if (grams <= 0) return LeftoverProblem.empty;
   if (itemIndex != null) {
-    if (itemIndex < 0 || itemIndex >= meal.items.length) return 'no_food';
-    if (grams > meal.items[itemIndex].weightG) return 'too_heavy';
+    if (itemIndex < 0 || itemIndex >= meal.items.length) return LeftoverProblem.noSuchFood;
+    if (grams > meal.items[itemIndex].weightG) return LeftoverProblem.tooHeavy;
     return null;
   }
-  if (grams > meal.weightG) return 'too_heavy';
+  if (grams > meal.weightG) return LeftoverProblem.tooHeavy;
   return null;
+}
+
+/// The share of plate food [index] that was eaten, from 0 to 1.
+double eatenShareOfItem(MealEntry meal, int index) {
+  final left = meal.leftover;
+  if (left == null || left.grams <= 0) return 1;
+  final item = meal.items[index];
+  if (left.itemIndex != null) {
+    if (left.itemIndex != index || item.weightG <= 0) return 1;
+    return max(0.0, (item.weightG - left.grams) / item.weightG);
+  }
+  return meal.weightG <= 0 ? 1 : max(0.0, (meal.weightG - left.grams) / meal.weightG);
 }
 
 /// Served values less the leftovers. A chosen plate food loses its own share; otherwise the whole

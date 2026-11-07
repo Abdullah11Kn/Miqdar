@@ -55,11 +55,12 @@ void main() {
     final r = build();
     expect(r.carbsByMeal['Dinner'], 90);
     expect(r.carbsByMeal['Lunch'], 40);
-    final sugar = r.goalDays.firstWhere((g) => g.key == 'sugar');
+    final sugar = r.goalDays.firstWhere((g) => g.goal == ReportGoal.sugar);
     expect(sugar.over, 3);
     expect(sugar.within, 7);
-    final sodium = r.goalDays.firstWhere((g) => g.key == 'sodium');
-    expect(sodium.over, 10 * 2500 > goals.sodium * 10 ? 10 : 0);
+    final sodium = r.goalDays.firstWhere((g) => g.goal == ReportGoal.sodium);
+    expect(sodium.over, 10);
+    expect(r.goalDays.map((g) => g.goal), containsAll(ReportGoal.values));
     expect(r.weighedMeals, 15);
     expect(r.estimatedMeals, 5);
     expect(r.enteredMeals, 0);
@@ -78,6 +79,17 @@ void main() {
       meals: meals, goals: goals.copyWith(trackingOnly: true), weights: const [], today: today, periodDays: 14, dayOf: _day);
     expect(r.goalDays, isEmpty);
     expect(r.patterns.any((p) => p.kind == ReportPatternKind.daysOverSugar), isFalse);
+  });
+
+  test('an unknown value reads Unknown, never 0', () {
+    final m = MealEntry(
+      id: 'u', foodId: 'f', nameEn: 'x', nameAr: '', eatenAt: DateTime(2026, 11, 3, 13), mealType: 'Lunch', weightG: 100, confidence: 1,
+      nutrients: const NutritionValues(calories: 300, protein: 0, carbohydrates: 0, fat: 0, sugar: 0, fiber: 0, sodium: 0, potassium: 0,
+          missingKeys: {'sugar_g'}),
+    );
+    final html = doctorReportHtml(build(list: [m]), const S(false));
+    expect(html, contains('Unknown'));
+    expect(build(list: [m]).goalDays.firstWhere((g) => g.goal == ReportGoal.sugar).within, 0);
   });
 
   test('a period with no meals is empty', () {

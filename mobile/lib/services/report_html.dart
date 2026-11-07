@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../l10n/strings.dart';
 import '../models/diabetes.dart';
 import '../models/doctor_report.dart';
+import '../models/nutrition.dart';
 
 const _mealOrder = ['Breakfast', 'Lunch', 'Dinner', 'Iftar', 'Suhoor', 'Snack', 'Meal'];
 
@@ -13,6 +14,10 @@ String _esc(String text) => const HtmlEscape().convert(text);
 String doctorReportHtml(DoctorReport r, S s, {String? fontRegular, String? fontBold}) {
   final b = StringBuffer();
   String n0(double v) => v.toStringAsFixed(0);
+  final unknown = s.tr('Unknown', 'غير معروف');
+  // A value missing from any meal is unknown for that day, never shown as 0.
+  String known(NutritionValues v, String key, double value, [String unit = '']) =>
+      v.isMissing(key) ? unknown : '${n0(value)}${unit.isEmpty ? '' : ' $unit'}';
   String n1(double v) => v.toStringAsFixed(1);
   String day(DateTime d) => s.date(d, 'EEE d MMM');
   final range = '${s.date(r.from, 'd MMM yyyy')} – ${s.date(r.to, 'd MMM yyyy')}';
@@ -74,11 +79,11 @@ tr{page-break-inside:avoid}
     b.write('<h2>${s.tr('Overview', 'نظرة عامة')}</h2><div class="grid">');
     void tile(String label, String value) => b.write('<div class="tile"><span class="small muted">$label</span><b>$value</b></div>');
     tile(s.tr('Days logged', 'الأيام المسجلة'), '${r.loggedDays} / ${r.days.length}');
-    tile(s.tr('Calories a day', 'السعرات في اليوم'), '${n0(a.calories)} ${s.unitKcal}');
-    tile(s.tr('Carbs a day', 'الكربوهيدرات في اليوم'), '${n0(a.carbohydrates)} ${s.unitG}');
-    tile(s.tr('Sugar a day', 'السكر في اليوم'), '${n0(a.sugar)} ${s.unitG}');
-    tile(s.tr('Salt (sodium) a day', 'الملح (الصوديوم) في اليوم'), '${n0(a.sodium)} ${s.unitMg}');
-    tile(s.tr('Protein a day', 'البروتين في اليوم'), '${n0(a.protein)} ${s.unitG}');
+    tile(s.tr('Calories a day', 'السعرات في اليوم'), known(a, 'calories_kcal', a.calories, s.unitKcal));
+    tile(s.tr('Carbs a day', 'الكربوهيدرات في اليوم'), known(a, 'carbohydrate_g', a.carbohydrates, s.unitG));
+    tile(s.tr('Sugar a day', 'السكر في اليوم'), known(a, 'sugar_g', a.sugar, s.unitG));
+    tile(s.tr('Salt (sodium) a day', 'الملح (الصوديوم) في اليوم'), known(a, 'sodium_mg', a.sodium, s.unitMg));
+    tile(s.tr('Protein a day', 'البروتين في اليوم'), known(a, 'protein_g', a.protein, s.unitG));
     b.write('</div><p class="small muted">${s.tr('Averages over logged days only.', 'المتوسطات على الأيام المسجلة فقط.')}</p>');
   }
 
@@ -89,13 +94,19 @@ tr{page-break-inside:avoid}
   if (r.goalDays.isNotEmpty) {
     b.write('<h2>${s.tr('Days within goals', 'الأيام ضمن الأهداف')}</h2><table><tr><th>${s.tr('Goal', 'الهدف')}</th><th class="num">${s.tr('Within', 'ضمن')}</th><th class="num">${s.tr('Over', 'أعلى')}</th><th class="num">${s.tr('Under', 'أقل')}</th></tr>');
     for (final g in r.goalDays) {
-      final label = switch (g.key) {
-        'calories' => '${s.calories} (${n0(g.goal)} ${s.unitKcal})',
-        'carbohydrates' => '${s.carbs} (${n0(g.goal)} ${s.unitG})',
-        'sugar' => '${s.sugar} (${s.tr('up to', 'حتى')} ${n0(g.goal)} ${s.unitG})',
-        _ => '${s.sodium} (${s.tr('up to', 'حتى')} ${n0(g.goal)} ${s.unitMg})',
+      final (name, unit) = switch (g.goal) {
+        ReportGoal.calories => (s.calories, s.unitKcal),
+        ReportGoal.protein => (s.protein, s.unitG),
+        ReportGoal.carbohydrates => (s.carbs, s.unitG),
+        ReportGoal.fat => (s.fat, s.unitG),
+        ReportGoal.fiber => (s.fiber, s.unitG),
+        ReportGoal.sugar => (s.sugar, s.unitG),
+        ReportGoal.sodium => (s.sodium, s.unitMg),
       };
-      b.write('<tr><td>$label</td><td class="num">${g.within}</td><td class="num">${g.over}</td><td class="num">${g.isLimit ? '–' : g.under}</td></tr>');
+      final label = g.goal.isLimit
+          ? '$name (${s.tr('up to', 'حتى')} ${n0(g.target)} $unit)'
+          : '$name (${n0(g.target)} $unit)';
+      b.write('<tr><td>$label</td><td class="num">${g.within}</td><td class="num">${g.over}</td><td class="num">${g.goal.isLimit ? '–' : g.under}</td></tr>');
     }
     b.write('</table><p class="small muted">${s.tr('Within means within 10% of the goal. Sugar and salt are limits.', 'ضمن تعني في حدود 10% من الهدف. السكر والملح حدود عليا.')}</p>');
   }
@@ -146,9 +157,9 @@ tr{page-break-inside:avoid}
     if (t == null) {
       b.write('<tr><td>${day(d.day)}</td><td class="num muted" colspan="6">${s.tr('Not logged', 'غير مسجل')}</td></tr>');
     } else {
-      b.write('<tr><td>${day(d.day)}</td><td class="num">${d.meals}</td><td class="num">${n0(t.calories)}</td>'
-          '<td class="num">${n0(t.carbohydrates)}</td><td class="num">${n0(t.sugar)}</td>'
-          '<td class="num">${n0(t.sodium)}</td><td class="num">${n0(t.protein)}</td></tr>');
+      b.write('<tr><td>${day(d.day)}</td><td class="num">${d.meals}</td><td class="num">${known(t, 'calories_kcal', t.calories)}</td>'
+          '<td class="num">${known(t, 'carbohydrate_g', t.carbohydrates)}</td><td class="num">${known(t, 'sugar_g', t.sugar)}</td>'
+          '<td class="num">${known(t, 'sodium_mg', t.sodium)}</td><td class="num">${known(t, 'protein_g', t.protein)}</td></tr>');
     }
   }
   b.write('</table>');

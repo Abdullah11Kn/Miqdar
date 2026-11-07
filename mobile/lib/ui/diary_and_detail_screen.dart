@@ -318,7 +318,7 @@ class MealDetailScreen extends StatelessWidget {
                       children: [
                         Text(s.tr('On this plate', 'في هذا الطبق'), style: MiqdarType.bodyStrong.copyWith(color: context.mq.ink)),
                         const SizedBox(height: 8),
-                        for (final item in currentMeal.items)
+                        for (final (index, item) in currentMeal.items.indexed)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Row(
@@ -333,7 +333,8 @@ class MealDetailScreen extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  '${item.weightG.toStringAsFixed(0)} ${s.unitG} · ${item.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
+                                  // What was eaten of this food, so the rows add up to the meal's total.
+                                  '${(item.weightG * eatenShareOfItem(currentMeal, index)).toStringAsFixed(0)} ${s.unitG} · ${(item.nutrients.calories * eatenShareOfItem(currentMeal, index)).toStringAsFixed(0)} ${s.unitKcal}',
                                   style: MiqdarType.label.copyWith(color: context.mq.inkMuted),
                                 ),
                               ],

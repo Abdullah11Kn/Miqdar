@@ -57,7 +57,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
   overloaded and the last fallback was out of quota.
 - **Next work (after the code review, all fixed):** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
 - **Agent skills setup:** done. See Agent skills below.
-- **Planned next:** spec #14 (Weigh What's Left, diabetes mode, doctor's report, Ramadan mode), not yet split into tickets or built.
+- **Spec #14 built (2026-11-07):** Weigh What's Left, diabetes mode, the doctor's PDF report and Ramadan mode, tickets #15 to #25. Database v7. Not yet tried on the real scale or a real iPhone.
 
 ## Where things live
 
@@ -80,9 +80,12 @@ run_checks.sh             Rebuilds the database, then runs all tests
 mobile/lib/
   app_controller.dart     App state; capture flow; saving
   services/               gemini_service (prompt, model order), api_service (scale), alert_service, reminder_service
-  data/                   local_database (SQLite v6, meal photos, meal_items, body_weights), food_catalog
+  data/                   local_database (SQLite v7, meal photos, meal_items, body_weights, leftover columns on meals), food_catalog
   models/nutrition.dart   Data models
   models/body_profile.dart  Body profile and the goal calculation
+  models/diabetes.dart    Diabetes settings, carb portions, when a carb number is offered
+  models/ramadan.dart     Ramadan dates (Umm al-Qura, hijri package) and when to suggest the mode
+  models/doctor_report.dart  The doctor's report, worked out from the user's meals; services/report_html.dart draws it
   theme.dart              All colors (context.mq) and text styles (MiqdarType)
   miqdar_icons.dart       Icons from mobile/assets/fonts, generated; see the README there
 mobile/assets/fonts/thmanyah/  The text fonts. Not in git, by licence; install_thmanyah.sh beside it puts them there; install_thmanyah_pi.sh copies them to the Pi for its touchscreen
@@ -187,6 +190,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the root, created only when
 - 2026-11-04: features that do not use the scale need no hardware testing. He will come back to agents when he is ready for a real-meal accuracy test.
 - 2026-11-05: he asked for the black and white version of his design system to be implemented as the app's UI and UX, in the Thmanyah fonts. It replaces the deep green look of 2026-11-04.
 
+- 2026-11-07: through `/grill-me` he chose four features, in issue #14: Weigh What's Left (container method only), diabetes mode (question in the Body Profile and Food Preferences; a suggested carb number he researched, which the user accepts or not), a doctor's PDF report (worked out by the app, no AI), and Ramadan mode (a Settings switch the app suggests near Ramadan; Iftar, Suhoor, Snack; no times). The confidence display stays until he removes it himself.
 - 2026-11-05: on the scale, a single food goes from Capture straight to one Analyzing screen with Cancel, then to a result with Save. No "Photo sent" screen and no Capture on the result. Add Next Food is a separate flow and keeps its own screens.
 
 ## Open decisions
@@ -207,12 +211,20 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-07: Built spec #14: leftovers, diabetes mode, doctor's report, Ramadan mode (commits 4a11b7c to the next one)
+- Decided: Abdullah ran `/implement all` on the tickets #15 to #25 without commenting on the breakdown, taken as approval. Ramadan was built before the report, because the report needs its noon-to-noon day.
+- Changed: meals keep what was served, with leftovers in new v7 columns; every total uses what was eaten (`MealEntry.nutrients` is now the eaten value, `servedNutrients` the stored one). Weigh What's Left on Meal Detail, Food not eaten in Insights, a Left column in the CSV. Diabetes settings and Ramadan periods are JSON in `settings`, so no table. Diabetes mode puts carbs first on Home, meal rows, Meal Detail, Review and Insights; the carb card offers 45/60/15 g or says the care team should set it. Ramadan mode changes meal types and the diary day (`diaryDayOf`), pauses timed reminders, and is suggested from the `hijri` package. The doctor's report is HTML turned into a PDF by `Printing.convertHtml` (deprecated in `printing`, still built in): the `pdf` package cannot use Thmanyah's CFF outlines, and converting the font is forbidden. Breakfast in Arabic is now الفطور, so it differs from Iftar (الإفطار).
+- Careful: the Thmanyah licence text inside the font allows "Embed the Font Software in documents ... you create", so the PDF embeds it; it forbids making the font extractable as files. The simulated scale resets its zero on each simulated weight; the real scale keeps it.
+- Tested: `flutter analyze`; 152 unit tests; `leftovers_flow_test` on a throwaway simulator with the simulated scale (passed after the review fixes). A temporary tour on a throwaway simulator, looked at in English and Arabic: the diabetes question and carb card, Meal Detail with leftovers, the leftovers sheet, Insights, the PDF report (Thmanyah, Arabic shaped correctly), the fasting card and Home in Ramadan mode. A code review on both standards and spec; its fixes: unknown values read Unknown in the report, plate rows show what was eaten, the report counts every goal, a meal soon after switching Ramadan on no longer moves to the day before, leftover errors use an enum.
+- Not tested / risks: not on the real scale (leftovers) or a real iPhone (share sheet, PDF on device). Android not built. The upgrade test passes through v6 to v7 from v3; there is no test that starts at v6. Leftovers rely on the live `is_stable` flag, not the Pi's settling routine. `MiqdarController` grew by about 250 lines. Not looked at: the Body Profile with the diabetes question, the Ramadan suggestion card, dark mode for the new screens.
+- Next: Abdullah tries leftovers on the real scale and the report's Share on a real iPhone.
+
 ### 2026-11-07: Planned four new features; spec published as issue #14
 - Decided: through `/grill-me`, Abdullah chose Weigh What's Left (container method only), diabetes mode, a doctor's PDF report and Ramadan mode, in that order. Cook-once recipe weighing was rejected. The confidence display stays as it is until he removes it himself. The report summary is worked out by the app, with no AI. Ramadan mode is a Settings switch the app suggests near Ramadan, with Iftar, Suhoor and Snack, a noon-to-noon day, and no times. He asked for the carb numbers to be researched. He ran `/to-spec` with five questions unanswered (the numbers, when no number is offered, no suhoor and iftar split, per-meal number separate from the daily goal, and what "nothing" referred to); the spec takes the recommended answers and says so.
 - Changed: added `docs/research/diabetes-carb-guidance.md`, listed in `docs/README.md`. Published issue #14. No app or Pi code changed.
 - Tested: nothing to run. The research was checked against primary sources where they could be reached; the Ramadan carb split and ADCES material could not be.
 - Not tested / risks: no current guideline gives a fixed carb number per meal; the 45 g and 60 g defaults are common teaching, offered as a choice. The PDF and Hijri calendar packages are not yet checked to build.
-- Next: `/to-tickets` on issue #14, then build Weigh What's Left first.
+- Next: done, see the entry above.
 
 ### 2026-11-05: Save and Cancel on the touchscreen; full technical record for Report 3 (commits 692e811 and the next one)
 - Decided: from photos of his real capture, Abdullah said Capture on the waiting and result screens made no sense and "Photo sent" was useless, for a single food only. He then asked for the Report 3 file to be a full technical record, not a short summary, still leaving out the artifact's design.

@@ -62,6 +62,14 @@ void main() {
       final meal = _plate().copyWith(leftover: MealLeftover(grams: 150, weighedAt: DateTime.now()));
       expect(meal.nutrients.calories, 300);
       expect(meal.nutrients.carbohydrates, 50);
+      expect(eatenShareOfItem(meal, 0), 0.5);
+      expect(eatenShareOfItem(meal, 1), 0.5);
+    });
+
+    test('each plate food shows what was eaten of it', () {
+      final meal = _plate().copyWith(leftover: MealLeftover(grams: 50, itemIndex: 0, weighedAt: DateTime.now()));
+      expect(eatenShareOfItem(meal, 0), 0.75);
+      expect(eatenShareOfItem(meal, 1), 1);
     });
 
     test('unknown values stay unknown', () {
@@ -74,10 +82,10 @@ void main() {
     });
 
     test('more than was served, or nothing, is refused', () {
-      expect(leftoverProblem(_single(), 201), 'too_heavy');
-      expect(leftoverProblem(_single(), 0), 'empty');
-      expect(leftoverProblem(_plate(), 101, itemIndex: 1), 'too_heavy');
-      expect(leftoverProblem(_plate(), 50, itemIndex: 2), 'no_food');
+      expect(leftoverProblem(_single(), 201), LeftoverProblem.tooHeavy);
+      expect(leftoverProblem(_single(), 0), LeftoverProblem.empty);
+      expect(leftoverProblem(_plate(), 101, itemIndex: 1), LeftoverProblem.tooHeavy);
+      expect(leftoverProblem(_plate(), 50, itemIndex: 2), LeftoverProblem.noSuchFood);
       expect(leftoverProblem(_plate(), 300), isNull);
     });
   });
@@ -125,7 +133,7 @@ void main() {
     test('a refused weight changes nothing', () async {
       final meal = _single();
       controller.meals = [meal];
-      expect(await controller.saveLeftover(meal, 500), 'too_heavy');
+      expect(await controller.saveLeftover(meal, 500), LeftoverProblem.tooHeavy);
       expect(controller.meals.single.leftover, isNull);
     });
 

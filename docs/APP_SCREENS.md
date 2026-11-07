@@ -333,13 +333,19 @@ Top bar: back arrow and the meal type.
 
 1. Photo at 4:3, if there is one.
 2. Name, other-language name, date, time and weight. Calories large (34 px) on the far side.
-3. Source badge.
-4. Note card, if there is a note.
-5. Eight-nutrient grid.
+3. In diabetes mode, a carbs line: grams, 15 g portions and the plan, if any.
+4. Source badge.
+5. **Leftovers card**, once leftovers are weighed: served, left and eaten grams, "Totals count only what was eaten", and
+   **Remove Leftovers**. Plate rows show what was eaten of each food.
+6. **Weigh What's Left** (outlined, **Weigh Again** once weighed), only on the meal's own diary day. A sheet asks which plate
+   food was left or **Mixed**, then: empty container on the scale, **Zero**, add the leftovers, **Save N g Left** once the
+   weight is steady. More than was served is refused.
+7. Note card, if there is a note.
+8. Eight-nutrient grid.
 6. **Edit** (green) and **Log Again** (soft green) side by side. Log Again opens Review Meal with the same food and weight.
 7. **Delete Meal** (red text): a dialog with **Cancel** and **Delete**, then a message with **Undo** for 8 seconds.
 
-**Edit sheet:** "Edit Meal", a meal type dropdown (Breakfast, Lunch, Dinner, Snack, Meal), Weight, Note, the date with
+**Edit sheet:** "Edit Meal", a meal type dropdown (Breakfast, Lunch, Dinner, Snack, Meal; Iftar, Suhoor, Snack, Meal in Ramadan mode), Weight, Note, the date with
 **Change Date**, a live preview of calories and macros, and **Save Changes**.
 
 ## 10. Insights tab
@@ -355,6 +361,8 @@ With data:
    date, the meal count and "1800 / 2200 kcal". It includes only days that have meals.
 6. **"Where your calories come from":** a donut for protein, carbs and fat with a tappable legend of grams, calories and
    percent. Tapping highlights a slice. A small line explains the 4, 4 and 9 kcal per gram.
+   In diabetes mode, **"Carbs by meal"** follows: average carbs and portions per meal type, over the days it was logged.
+   When any leftovers were weighed, **"Food not eaten"** shows grams left on plates and the calories not eaten.
 7. **"Daily averages":** eight tappable cards, one per nutrient: colored dot, amount and goal, progress bar, "82% of your goal".
    Tapping opens the Nutrient sheet.
 
@@ -364,8 +372,8 @@ With data:
 
 **Nutrient sheet:** nutrient name, average and goal, and "Meals with the most": the top five meals.
 
-**Export sheet:** "Export Meals", an explanation, a small scrolling box of text in CSV format, and **Copy**. It copies to the
-clipboard; no file is created.
+**Export sheet:** first "Doctor's Report" with **Make a Doctor's Report**; then "Export Meals", an explanation, a small
+scrolling box of text in CSV format (with a "Left (g)" column), and **Copy**. It copies to the clipboard; no file is created.
 
 ## 11. Profile tab
 
@@ -407,6 +415,12 @@ Top bar "Daily Goals". **Save Goals** stays fixed at the bottom.
 
 One screen, titled "Meal Ideas". From Profile, the preferences section starts open. From Home, it starts closed.
 
+0. **Diabetes question** (also at the end of the Body Profile; both save one setting): "Do you have diabetes?" No / Yes; if
+   yes, the type (Type 1, Type 2, Other, Not sure) and "Do you take insulin?". When yes, carbs lead meal rows, Meal Detail,
+   Review, Home ("Carbs today") and Insights ("Carbs by meal").
+   **Carbs per meal card:** the suggested starting point (45 g a meal for women, 60 g for men, 15 g a snack) with its
+   explanation, **Use This**, **Wait for My Doctor** and **Enter My Doctor's Numbers**. For type 1, insulin, pregnancy,
+   under 18, a kidney diet or Ramadan mode it offers no number and says the care team should set it.
 1. **"Your preferences"** (expandable):
    - "I am" chips, multiple choice: Managing my weight, Watching sugar, Watching salt, Watching fat, Kidney diet, Vegetarian, Vegan.
    - **Allergies** field, **Foods to avoid** field, **Save**.
@@ -444,6 +458,17 @@ a red message if the address does not answer, then **Cancel** and **Connect** (o
 
 A switch, "Remind me to log meals", off by default. Turning it on asks for notification permission. If refused, an orange card explains how to allow it in
 Settings and the switch stays off. When on: Breakfast (8:00), Lunch (13:00) and Dinner (19:00), each with a time button and its own switch.
+
+### Ramadan Mode
+
+A switch in Profile. While on: meals are Iftar, Suhoor and Snack; the diary day runs noon to noon; timed reminders pause
+(Meal Reminders reads "Paused for Ramadan"). Home shows a card three days before 1 Ramadan (Umm al-Qura) with **Turn On**
+and **Not Now**, and after Ramadan one with **Turn Off**; each shows once.
+
+### Doctor's Report
+
+From Export in Insights: **Make a Doctor's Report** opens a screen with 7, 14, 30 or 90 days, **Make Report**, a PDF
+preview and **Share**. The PDF is made on the phone, in the app's language.
 
 ### Notices
 
