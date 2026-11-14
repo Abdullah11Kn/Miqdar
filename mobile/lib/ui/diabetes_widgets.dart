@@ -338,7 +338,7 @@ class SugarLimitCard extends StatelessWidget {
           Text(
             s.tr(
               'Free sugar is added sugar, honey, syrups and juice. Sugar inside whole fruit and milk is not counted.',
-              'السكر الحر هو السكر المضاف والعسل والشراب والعصير. لا يُحسب السكر داخل الفاكهة الكاملة والحليب.',
+              'السكر الحر هو السكر المضاف والعسل والشراب المحلّى والعصير. لا يُحسب السكر داخل الفاكهة الكاملة والحليب.',
             ),
             style: muted,
           ),
