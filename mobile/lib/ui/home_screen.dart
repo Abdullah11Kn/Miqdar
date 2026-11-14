@@ -6,6 +6,7 @@ import '../app.dart';
 import '../app_controller.dart';
 import '../data/food_catalog.dart';
 import '../l10n/strings.dart';
+import '../models/adaptive_goal.dart';
 import '../models/diabetes.dart';
 import '../models/nutrition.dart';
 import '../models/ramadan.dart';
@@ -267,6 +268,10 @@ class HomeScreen extends StatelessWidget {
             ],
             const SizedBox(height: 16),
             _WaterCard(day: controller.selectedDate),
+            if (controller.isToday(controller.selectedDate) && controller.adaptiveGoalOffer != null) ...[
+              const SizedBox(height: 16),
+              _AdaptiveGoalCard(offer: controller.adaptiveGoalOffer!),
+            ],
 
             const SizedBox(height: 40),
 
@@ -1101,5 +1106,64 @@ class _WaterCard extends StatelessWidget {
     final s = S.of(context);
     final ml = await _askMl(context, s.tr('Daily water goal', 'هدف الماء اليومي'), initial: controller.waterGoalMl);
     if (ml != null) await controller.setWaterGoal(ml);
+  }
+}
+
+
+/// A calorie goal learned from real intake and weight. Nothing changes unless the user accepts.
+class _AdaptiveGoalCard extends StatelessWidget {
+  const _AdaptiveGoalCard({required this.offer});
+
+  final AdaptiveGoal offer;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = MiqdarScope.of(context);
+    final s = S.of(context);
+    final c = context.mq;
+    final kcal = offer.suggestedKcal.toStringAsFixed(0);
+    final ate = offer.averageIntakeKcal.toStringAsFixed(0);
+    final change = offer.weightChangeKg.abs().toStringAsFixed(1);
+    final direction = offer.weightChangeKg.abs() < 0.1
+        ? s.tr('stayed about the same', 'بقي كما هو تقريبًا')
+        : offer.weightChangeKg < 0
+            ? s.tr('went down $change kg', 'نقص $change كغ')
+            : s.tr('went up $change kg', 'زاد $change كغ');
+    return SurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.tr('Your goal could be $kcal kcal', 'يمكن أن يكون هدفك $kcal سعرة'),
+              style: MiqdarType.titleCard.copyWith(color: c.ink)),
+          const SizedBox(height: 6),
+          Text(
+            s.tr(
+              'Over ${offer.loggedDays} logged days you ate about $ate kcal a day and your weight $direction. '
+                  'Your body used about ${offer.dailyBurnKcal.toStringAsFixed(0)} kcal a day. Your goal is ${controller.goals.calories.toStringAsFixed(0)} kcal now.',
+              'خلال ${offer.loggedDays} يومًا مسجلًا تناولت نحو $ate سعرة يوميًا، ووزنك $direction. '
+                  'استهلك جسمك نحو ${offer.dailyBurnKcal.toStringAsFixed(0)} سعرة يوميًا. هدفك الآن ${controller.goals.calories.toStringAsFixed(0)} سعرة.',
+            ),
+            style: MiqdarType.body.copyWith(color: c.inkMuted),
+          ),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: FilledButton(
+                onPressed: controller.acceptAdaptiveGoal,
+                child: Text(s.tr('Accept', 'قبول')),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: controller.dismissAdaptiveGoal,
+                child: Text(s.tr('Not Now', 'ليس الآن')),
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
   }
 }

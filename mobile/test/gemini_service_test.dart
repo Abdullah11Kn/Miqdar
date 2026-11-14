@@ -10,6 +10,7 @@ import 'package:miqdar_mobile/data/local_database.dart';
 import 'package:miqdar_mobile/models/nutrition.dart';
 import 'package:miqdar_mobile/services/alert_service.dart';
 import 'package:miqdar_mobile/services/api_service.dart';
+import 'package:miqdar_mobile/services/barcode_reader.dart';
 import 'package:miqdar_mobile/services/gemini_service.dart';
 
 final _photo = Uint8List.fromList([0xFF, 0xD8, 0xFF, 1, 2, 3]);
@@ -265,6 +266,7 @@ void main() {
           gemini: GeminiNutritionService(apiKey: 'test-key', models: const ['m'], client: client),
         ),
         alertService: AlertService(),
+        barcodeReader: const NoBarcodeReader(),
       );
     }
 
@@ -307,6 +309,7 @@ void main() {
           gemini: GeminiNutritionService(apiKey: 'test-key', models: const ['m'], client: client),
         ),
         alertService: AlertService(),
+        barcodeReader: const NoBarcodeReader(),
       );
 
       await controller.syncScaleLive();
@@ -349,6 +352,7 @@ void main() {
           gemini: GeminiNutritionService(apiKey: 'test-key', models: const ['m'], client: client),
         ),
         alertService: AlertService(),
+        barcodeReader: const NoBarcodeReader(),
       );
 
       for (capture = 1; capture <= 3; capture++) {

@@ -12,6 +12,7 @@ import 'data/food_catalog.dart';
 import 'data/local_database.dart';
 import 'l10n/strings.dart';
 import 'models/body_profile.dart';
+import 'models/adaptive_goal.dart';
 import 'models/diabetes.dart';
 import 'models/glucose.dart';
 import 'models/water.dart';
@@ -172,6 +173,7 @@ class MiqdarController extends ChangeNotifier {
     if (isDemo) {
       // Sample meals stay in memory and never mix with a real diary.
       meals = localDatabase.demoHistory();
+      weightEntries = localDatabase.demoWeights();
       unawaited(_loadDemoPhotos());
     } else {
       if (!onboarded) {
@@ -228,6 +230,7 @@ class MiqdarController extends ChangeNotifier {
     weightEntries = [];
     waterEntries = [];
     waterGoalSetMl = null;
+    adaptiveAnsweredAt = null;
     glucoseReadings = [];
     glucoseUnit = GlucoseUnit.mgdl;
     goalBasisWeightKg = null;
@@ -271,6 +274,7 @@ class MiqdarController extends ChangeNotifier {
     bodyProfile = await localDatabase.loadBodyProfile();
     weightEntries = await localDatabase.loadBodyWeights();
     waterEntries = await localDatabase.loadWater();
+    adaptiveAnsweredAt = DateTime.tryParse(await localDatabase.getSetting('adaptive_answered_at') ?? '');
     glucoseReadings = await localDatabase.loadGlucose();
     glucoseUnit = await localDatabase.getSetting('glucose_unit') == 'mmol' ? GlucoseUnit.mmol : GlucoseUnit.mgdl;
     waterGoalSetMl = double.tryParse(await localDatabase.getSetting('water_goal_ml') ?? '');
@@ -1834,6 +1838,63 @@ class MiqdarController extends ChangeNotifier {
         carbsFirst: diabetes.carbsFirst,
         readings: diabetes.hasDiabetes ? glucoseReadings : const [],
       );
+
+  /// Test builds only: 21 days of sample meals and 3 weigh-ins in the real diary, to try the
+  /// adaptive goal without waiting. Written to the database, so use a throwaway simulator.
+  Future<void> loadTestHistory() async {
+    if (account.isDemo) return;
+    final food = createCustomFood(nameEn: 'Test meal', basisGrams: 100, calories: 2300, protein: 90, carbs: 280, fat: 80, sugar: 40);
+    for (var d = 1; d <= 21; d++) {
+      final day = today.subtract(Duration(days: d));
+      await prepareCatalogDraft(food: food, weightG: 100);
+      await saveLastRecognition(mealType: 'Lunch', eatenAt: DateTime(day.year, day.month, day.day, 13), notes: 'Test data');
+    }
+    for (final (d, kg) in [(21, 80.0), (11, 79.6), (1, 79.2)]) {
+      await saveWeightEntry(id: 'test-weight-$d', measuredOn: today.subtract(Duration(days: d)), weightKg: kg);
+    }
+  }
+
+  /// When the user last accepted or dismissed an adaptive goal; the offer waits a week after that.
+  DateTime? adaptiveAnsweredAt;
+
+  /// A new calorie goal from real intake and weight, offered at most once a week. Null when there is
+  /// too little data, in tracking-only mode, or in diabetes mode with a doctor's numbers.
+  AdaptiveGoal? get adaptiveGoalOffer {
+    if (goals.trackingOnly) return null;
+    if (diabetes.hasDiabetes && diabetes.source == CarbPlanSource.doctor) return null;
+    final answered = adaptiveAnsweredAt;
+    if (answered != null && DateTime.now().difference(answered) < const Duration(days: 7)) return null;
+    final profile = bodyProfile;
+    return suggestAdaptiveGoal(
+      meals: meals,
+      weights: weightEntries,
+      today: today,
+      dayOf: diaryDayOf,
+      goal: profile?.goal ?? WeightGoal.maintain,
+      weeklyPaceKg: profile?.weeklyPaceKg,
+      sex: profile?.sex ?? BodySex.male,
+      currentGoalKcal: goals.calories,
+    );
+  }
+
+  /// Sets the offered calories, keeps protein and fat, gives the rest to carbs, and moves the sugar
+  /// limit with the calories (10% of energy, WHO).
+  Future<void> acceptAdaptiveGoal() async {
+    final offer = adaptiveGoalOffer;
+    if (offer == null) return;
+    final kcal = offer.suggestedKcal;
+    final carbs = (((kcal - goals.protein * 4 - goals.fat * 9) / 4).clamp(30.0, 500.0) / 10).round() * 10.0;
+    await updateGoals(goals.copyWith(calories: kcal, carbohydrates: carbs, sugar: freeSugarLimitG(kcal)));
+    await _answerAdaptive();
+  }
+
+  Future<void> dismissAdaptiveGoal() => _answerAdaptive();
+
+  Future<void> _answerAdaptive() async {
+    adaptiveAnsweredAt = DateTime.now();
+    notifyListeners();
+    if (!account.isDemo) await localDatabase.saveSetting('adaptive_answered_at', adaptiveAnsweredAt!.toIso8601String());
+  }
 
   /// The last 7 diary days on one page, checked against the limits the red bars use.
   WeeklySummary weeklySummary() => buildWeeklySummary(

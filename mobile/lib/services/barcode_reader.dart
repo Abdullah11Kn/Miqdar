@@ -33,3 +33,11 @@ class PhotoBarcodeReader implements BarcodeReader {
     }
   }
 }
+
+/// Never finds a barcode: for tests, and anywhere the camera's detector is not wanted.
+class NoBarcodeReader implements BarcodeReader {
+  const NoBarcodeReader();
+
+  @override
+  Future<String?> read(Uint8List jpeg) async => null;
+}

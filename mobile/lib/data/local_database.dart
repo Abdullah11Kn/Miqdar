@@ -220,6 +220,15 @@ class LocalDatabase {
   }
 
   /// Sample history for the clearly labelled demo workspace only. Never stored.
+  /// Sample weigh-ins for the demo, three weeks falling gently, so the adaptive goal can be shown.
+  List<BodyWeightEntry> demoWeights() {
+    final today = DateTime.now();
+    return [
+      for (final (days, kg) in [(21, 78.4), (14, 78.1), (7, 77.9), (1, 77.6)])
+        BodyWeightEntry(id: 'demo-weight-$days', measuredOn: DateTime(today.year, today.month, today.day - days), weightKg: kg),
+    ];
+  }
+
   List<MealEntry> demoHistory() {
     final demo = <MealEntry>[];
     final now = DateTime.now().toUtc();

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 
 import '../app.dart';
@@ -733,6 +734,26 @@ class PrivacyAndDataScreen extends StatelessWidget {
                     icon: const Icon(MiqdarIcons.deleteForever),
                     label: Text(s.tr('Delete All My Data', 'حذف جميع بياناتي')),
                   ),
+                  // Test builds only, never in a release: fills the diary with 3 weeks of fake meals.
+                  if (!kReleaseMode)
+                    TextButton(
+                      onPressed: () async {
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: const Text('Load 3 weeks of test data?'),
+                            content: const Text(
+                                'Test builds only. Adds 21 days of fake meals and 3 weigh-ins to this diary, to try the adaptive goal. Use a throwaway simulator.'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+                              FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Load')),
+                            ],
+                          ),
+                        );
+                        if (ok == true) await controller.loadTestHistory();
+                      },
+                      child: const Text('Test builds: Load 3 Weeks of Test Data'),
+                    ),
                 ],
                 const SizedBox(height: 14),
                 SurfaceCard(
