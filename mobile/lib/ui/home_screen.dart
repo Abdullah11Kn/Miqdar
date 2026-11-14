@@ -8,6 +8,7 @@ import '../l10n/strings.dart';
 import '../models/diabetes.dart';
 import '../models/nutrition.dart';
 import '../models/ramadan.dart';
+import '../services/alert_service.dart';
 import '../theme.dart';
 import 'screens.dart';
 import 'widgets/charts_and_gauges.dart';
@@ -242,7 +243,12 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     flex: 7,
-                    child: _DailySummaryCard(totals: totals, goals: goals, carbsFirst: controller.diabetes.carbsFirst),
+                    child: _DailySummaryCard(
+                totals: totals,
+                goals: goals,
+                carbsFirst: controller.diabetes.carbsFirst,
+                limits: controller.alertContextFor(null),
+              ),
                   ),
                   const SizedBox(width: 18),
                   Expanded(
@@ -252,7 +258,12 @@ class HomeScreen extends StatelessWidget {
                 ],
               )
             else ...[
-              _DailySummaryCard(totals: totals, goals: goals, carbsFirst: controller.diabetes.carbsFirst),
+              _DailySummaryCard(
+                totals: totals,
+                goals: goals,
+                carbsFirst: controller.diabetes.carbsFirst,
+                limits: controller.alertContextFor(null),
+              ),
             ],
 
             const SizedBox(height: 40),
@@ -356,10 +367,14 @@ class _DailySummaryCard extends StatelessWidget {
     required this.totals,
     required this.goals,
     this.carbsFirst = false,
+    this.limits = const AlertContext(),
   });
 
   final NutritionValues totals;
   final NutritionGoals goals;
+
+  /// Decides which bars turn red when passed, and the daily carb limit in diabetes mode.
+  final AlertContext limits;
 
   /// Diabetes mode: today's carbs lead the card, in grams and portions.
   final bool carbsFirst;
@@ -368,6 +383,9 @@ class _DailySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = S.of(context);
     final c = context.mq;
+    bool harmful(String key) => isHarmfulLimit(key, goals, limits);
+    final carbLimit = limits.dayCarbLimitG ?? goals.carbohydrates;
+    final carbsOver = passesHarmfulLimit('carbohydrate_g', totals.carbohydrates, carbLimit, goals: goals, context: limits);
     return SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,7 +407,10 @@ class _DailySummaryCard extends StatelessWidget {
             Text(s.tr('Carbs today', 'كربوهيدرات اليوم'), style: MiqdarType.label.copyWith(color: c.inkMuted)),
             Text.rich(
               TextSpan(children: [
-                TextSpan(text: totals.carbohydrates.toStringAsFixed(0), style: MiqdarType.numberLg.copyWith(color: c.ink)),
+                TextSpan(
+                  text: totals.carbohydrates.toStringAsFixed(0),
+                  style: MiqdarType.numberLg.copyWith(color: carbsOver ? c.danger : c.ink),
+                ),
                 TextSpan(
                   text: ' ${s.unitG} · ${s.tr('${formatPortions(carbPortions(totals.carbohydrates))} portions', '${formatPortions(carbPortions(totals.carbohydrates))} حصص')}',
                   style: MiqdarType.bodyStrong.copyWith(color: c.inkMuted),
@@ -404,6 +425,7 @@ class _DailySummaryCard extends StatelessWidget {
                 consumed: totals.calories,
                 target: goals.calories,
                 trackingOnly: goals.trackingOnly,
+                harmfulWhenOver: harmful('calories_kcal'),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -411,6 +433,7 @@ class _DailySummaryCard extends StatelessWidget {
                   children: [
                     _MacroProgressLine(
                       label: s.protein,
+                      harmfulWhenOver: harmful('protein_g'),
                       value: totals.protein,
                       target: goals.protein,
                       unit: s.unitG,
@@ -419,14 +442,16 @@ class _DailySummaryCard extends StatelessWidget {
                     ),
                     _MacroProgressLine(
                       label: s.carbs,
+                      harmfulWhenOver: harmful('carbohydrate_g'),
                       value: totals.carbohydrates,
-                      target: goals.carbohydrates,
+                      target: carbLimit,
                       unit: s.unitG,
                       color: c.nCarbs,
                       trackingOnly: goals.trackingOnly,
                     ),
                     _MacroProgressLine(
                       label: s.fat,
+                      harmfulWhenOver: harmful('fat_g'),
                       value: totals.fat,
                       target: goals.fat,
                       unit: s.unitG,
@@ -435,6 +460,7 @@ class _DailySummaryCard extends StatelessWidget {
                     ),
                     _MacroProgressLine(
                       label: s.sugar,
+                      harmfulWhenOver: harmful('sugar_g'),
                       value: totals.sugar,
                       target: goals.sugar,
                       unit: s.unitG,
@@ -499,8 +525,11 @@ class _MacroProgressLine extends StatelessWidget {
     required this.color,
     this.trackingOnly = false,
     this.isLast = false,
+    this.harmfulWhenOver = false,
   });
 
+  /// Red, not orange, once passed: a limit that is harmful to pass.
+  final bool harmfulWhenOver;
   final String label;
   final double value;
   final double target;
@@ -555,7 +584,7 @@ class _MacroProgressLine extends StatelessWidget {
                 value: ratio,
                 minHeight: 6,
                 backgroundColor: c.surfaceSunken,
-                color: isOver ? c.accent : color,
+                color: isOver ? (harmfulWhenOver ? c.danger : c.accent) : color,
               ),
             ),
           ],

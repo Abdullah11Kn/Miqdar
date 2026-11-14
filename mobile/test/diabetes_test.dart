@@ -84,6 +84,33 @@ void main() {
       controller.bodyProfile = _profile();
     });
 
+    test('a sweet meal warns before Save, and the warning lands in the bell once saved', () async {
+      await controller.updateDiabetes(_type2);
+      final sweet = controller.createCustomFood(
+        nameEn: 'Kunafa',
+        basisGrams: 100,
+        calories: 400,
+        carbs: 50,
+        sugar: 30,
+      );
+      await controller.prepareCatalogDraft(food: sweet, weightG: 200);
+      expect(controller.projectedAlerts.map((a) => a.nutrientKey), contains('sugar_g'));
+
+      final before = controller.alerts.length;
+      await controller.saveLastRecognition(mealType: 'Lunch');
+      expect(controller.alerts.length, greaterThan(before));
+      expect(controller.alerts.first.nutrientKey, 'sugar_g');
+      expect(controller.alerts.first.read, isFalse);
+    });
+
+    test('the same meal does not warn without diabetes, when it is less than 40% past', () async {
+      final sweet = controller.createCustomFood(nameEn: 'Dates', basisGrams: 100, calories: 280, sugar: 63);
+      await controller.prepareCatalogDraft(food: sweet, weightG: 100);
+      // 63 g against a 50 g limit is 26% past.
+      expect(controller.goals.sugar, 50);
+      expect(controller.projectedAlerts.where((a) => a.nutrientKey == 'sugar_g'), isEmpty);
+    });
+
     test('is off by default, and nothing is offered', () {
       expect(controller.diabetes.carbsFirst, isFalse);
       expect(controller.suggestedCarbPlan, isNull);

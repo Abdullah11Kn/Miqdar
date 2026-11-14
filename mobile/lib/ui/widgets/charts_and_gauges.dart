@@ -600,12 +600,16 @@ class RadialCalorieMeter extends StatelessWidget {
     required this.target,
     this.size = 152,
     this.trackingOnly = false,
+    this.harmfulWhenOver = false,
   });
 
   final double consumed;
   final double target;
   final double size;
   final bool trackingOnly;
+
+  /// Red, not orange, once passed: calories are a limit unless the goal is to gain weight.
+  final bool harmfulWhenOver;
 
   @override
   Widget build(BuildContext context) {
@@ -628,7 +632,7 @@ class RadialCalorieMeter extends StatelessWidget {
           child: CustomPaint(
             painter: _RadialCaloriePainter(
               progress: animatedRatio,
-              progressColor: isOver ? c.accent : c.nCalories,
+              progressColor: isOver ? (harmfulWhenOver ? c.danger : c.accent) : c.nCalories,
               trackColor: c.surfaceSunken,
               clockwise: !s.isAr,
             ),
@@ -657,7 +661,8 @@ class RadialCalorieMeter extends StatelessWidget {
                           isOver
                               ? '+${diff.toStringAsFixed(0)} ${s.tr("above", "فوق الهدف")}'
                               : '${diff.toStringAsFixed(0)} ${s.tr("left", "متبقٍ")}',
-                          style: MiqdarType.label.copyWith(color: isOver ? c.accentInk : c.ink),
+                          style: MiqdarType.label.copyWith(
+                              color: isOver ? (harmfulWhenOver ? c.danger : c.accentInk) : c.ink),
                         ),
                       ],
                     ],

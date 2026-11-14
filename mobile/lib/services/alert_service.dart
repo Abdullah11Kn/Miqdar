@@ -1,4 +1,30 @@
+import '../models/body_profile.dart';
 import '../models/nutrition.dart';
+
+/// The alert key for one meal's carbohydrates passing its carb number (diabetes mode).
+const mealCarbsKey = 'meal_carbohydrate_g';
+
+/// Without diabetes, a warning appears only this far past a limit (Abdullah, 2026-11-14).
+const _farPastRatio = 1.4;
+
+/// What the alert check needs to know about the person, beyond their goals.
+class AlertContext {
+  const AlertContext({
+    this.hasDiabetes = false,
+    this.weightGoal,
+    this.mealCarbLimitG,
+    this.dayCarbLimitG,
+  });
+
+  final bool hasDiabetes;
+  final WeightGoal? weightGoal;
+
+  /// The carb number for the meal being reviewed, or null without a plan.
+  final double? mealCarbLimitG;
+
+  /// The daily carb limit in diabetes mode; the carbohydrate goal is used when null.
+  final double? dayCarbLimitG;
+}
 
 class AlertEvaluation {
   const AlertEvaluation(this.alerts, this.elapsedMs);
@@ -6,79 +32,117 @@ class AlertEvaluation {
   final int elapsedMs;
 }
 
+/// True when [key] is a limit that is harmful to pass for this person, and [value] passes [target].
+/// Drives the red bars: free sugar and calories for everyone (not calories when gaining weight),
+/// carbohydrates only in diabetes mode. Protein, fiber, fat, sodium and potassium are never red.
+bool passesHarmfulLimit(
+  String key,
+  double value,
+  double target, {
+  required NutritionGoals goals,
+  AlertContext context = const AlertContext(),
+}) {
+  if (!isHarmfulLimit(key, goals, context)) return false;
+  return target > 0 && !value.isNaN && value > target;
+}
+
+/// True when [key] is a limit that is harmful to pass for this person (see [passesHarmfulLimit]).
+bool isHarmfulLimit(String key, NutritionGoals goals, AlertContext context) {
+  if (goals.trackingOnly) return false;
+  final type = goals.typeFor(key);
+  if (type == GoalType.trackOnly || type == GoalType.minimum) return false;
+  return switch (key) {
+    'sugar_g' => true,
+    'calories_kcal' => context.weightGoal != WeightGoal.gain,
+    'carbohydrate_g' => context.hasDiabetes,
+    _ => false,
+  };
+}
+
 class AlertService {
   AlertEvaluation evaluate({
     required NutritionValues currentTotals,
     required NutritionValues incoming,
     required NutritionGoals goals,
+    AlertContext context = const AlertContext(),
   }) {
     final watch = Stopwatch()..start();
-    if (goals.trackingOnly) {
-      watch.stop();
-      return AlertEvaluation(const [], watch.elapsedMilliseconds);
-    }
-
     final projected = currentTotals + incoming;
     final alerts = <HealthAlert>[];
+    final now = DateTime.now();
 
-    void addIfExceeded(
-      String key,
-      String labelEn,
-      String labelAr,
-      String unitEn,
-      String unitAr,
-      double value,
-      double threshold,
-    ) {
-      final type = goals.typeFor(key);
-      if (type == GoalType.trackOnly || type == GoalType.minimum) return;
-      if (threshold <= 0 || value <= threshold) return;
+    bool warns(double value, double limit) {
+      if (limit <= 0 || value.isNaN) return false;
+      return context.hasDiabetes ? value > limit : value > limit * _farPastRatio;
+    }
 
-      final incompleteSuffixEn = projected.isMissing(key)
-          ? ' (Known subtotal — 1 or more items have unreported $labelEn).'
-          : '';
-      final incompleteSuffixAr = projected.isMissing(key)
-          ? ' (مجموع جزئي معروف — بعض العناصر غير مكتملة البيانات).'
-          : '';
-
-      final ratio = value / threshold;
+    void add(String key, double value, double limit, ({String en, String ar}) text) {
+      final partial = projected.isMissing(key == mealCarbsKey ? 'carbohydrate_g' : key);
       alerts.add(HealthAlert(
-        id: 'alert-${DateTime.now().microsecondsSinceEpoch}-$key',
+        id: 'alert-${now.microsecondsSinceEpoch}-$key',
         nutrientKey: key,
-        severity: ratio >= 1.25 ? 'critical' : 'warning',
+        severity: value > limit * _farPastRatio ? 'critical' : 'warning',
         currentValue: value,
-        thresholdValue: threshold,
-        message:
-            'Recorded ${labelEn.toLowerCase()} would reach ${value.toStringAsFixed(0)} $unitEn, above your ${threshold.toStringAsFixed(0)} $unitEn daily limit. Review the meal or adjust your target.$incompleteSuffixEn',
-        messageAr:
-            'إجمالي $labelAr المسجل سيصل إلى ${value.toStringAsFixed(0)} $unitAr، وهو أعلى من الحد اليومي المحدد (${threshold.toStringAsFixed(0)} $unitAr). يمكنك مراجعة الوجبة أو تعديل الهدف.$incompleteSuffixAr',
-        createdAt: DateTime.now().toUtc(),
+        thresholdValue: limit,
+        message: '${text.en} To protect your health, try a smaller portion.'
+            '${partial ? ' Some foods have no value for this, so the total may be higher.' : ''} Estimate.',
+        messageAr: '${text.ar} حفاظًا على صحتك، جرّب كمية أصغر.'
+            '${partial ? ' بعض الأطعمة بلا قيمة لهذا، فقد يكون المجموع أعلى.' : ''} تقدير.',
+        createdAt: now.toUtc(),
         evaluationMs: 0,
       ));
     }
 
-    addIfExceeded('calories_kcal', 'Calories', 'السعرات الحرارية', 'kcal', 'سعرة', projected.calories, goals.calories);
-    addIfExceeded('sugar_g', 'Sugar', 'السكريات', 'g', 'غ', projected.sugar, goals.sugar);
-    addIfExceeded('sodium_mg', 'Sodium', 'الصوديوم', 'mg', 'ملغ', projected.sodium, goals.sodium);
-    addIfExceeded('potassium_mg', 'Potassium', 'البوتاسيوم', 'mg', 'ملغ', projected.potassium, goals.potassium);
-    addIfExceeded('carbohydrate_g', 'Carbohydrates', 'الكربوهيدرات', 'g', 'غ', projected.carbohydrates, goals.carbohydrates);
+    String n(double v) => v.toStringAsFixed(0);
+
+    if (isHarmfulLimit('sugar_g', goals, context) && warns(projected.sugar, goals.sugar)) {
+      add('sugar_g', projected.sugar, goals.sugar, (
+        en: "Over your sugar limit. This meal brings today's sugar to ${n(projected.sugar)} of ${n(goals.sugar)} g.",
+        ar: 'تجاوزت حدّ السكر. الوجبة ترفع حد السكر اليومي إلى ${n(projected.sugar)} من ${n(goals.sugar)} غ.',
+      ));
+    }
+
+    if (isHarmfulLimit('calories_kcal', goals, context) && warns(projected.calories, goals.calories)) {
+      add('calories_kcal', projected.calories, goals.calories, (
+        en: "Over your calorie goal. This meal brings today's calories to ${n(projected.calories)} of ${n(goals.calories)} kcal.",
+        ar: 'تجاوزت هدف السعرات. الوجبة ترفع سعرات اليوم إلى ${n(projected.calories)} من ${n(goals.calories)} سعرة.',
+      ));
+    }
+
+    if (context.hasDiabetes) {
+      final mealLimit = context.mealCarbLimitG;
+      if (mealLimit != null && !goals.trackingOnly && warns(incoming.carbohydrates, mealLimit)) {
+        add(mealCarbsKey, incoming.carbohydrates, mealLimit, (
+          en: 'Over your carbs for one meal. This meal has ${n(incoming.carbohydrates)} g of carbs; your number is ${n(mealLimit)} g.',
+          ar: 'تجاوزت كربوهيدرات الوجبة الواحدة. في هذه الوجبة ${n(incoming.carbohydrates)} غ كربوهيدرات، وحدّك ${n(mealLimit)} غ.',
+        ));
+      }
+      final dayLimit = context.dayCarbLimitG ?? goals.carbohydrates;
+      if (isHarmfulLimit('carbohydrate_g', goals, context) && warns(projected.carbohydrates, dayLimit)) {
+        add('carbohydrate_g', projected.carbohydrates, dayLimit, (
+          en: "Over your daily carb limit. This meal brings today's carbs to ${n(projected.carbohydrates)} of ${n(dayLimit)} g.",
+          ar: 'تجاوزت حدّ الكربوهيدرات اليومي. الوجبة ترفع كربوهيدرات اليوم إلى ${n(projected.carbohydrates)} من ${n(dayLimit)} غ.',
+        ));
+      }
+    }
 
     watch.stop();
     final elapsed = watch.elapsedMilliseconds;
     return AlertEvaluation(
-      alerts
-          .map((item) => HealthAlert(
-                id: item.id,
-                nutrientKey: item.nutrientKey,
-                severity: item.severity,
-                currentValue: item.currentValue,
-                thresholdValue: item.thresholdValue,
-                message: item.message,
-                messageAr: item.messageAr,
-                createdAt: item.createdAt,
-                evaluationMs: elapsed,
-              ))
-          .toList(),
+      [
+        for (final a in alerts)
+          HealthAlert(
+            id: a.id,
+            nutrientKey: a.nutrientKey,
+            severity: a.severity,
+            currentValue: a.currentValue,
+            thresholdValue: a.thresholdValue,
+            message: a.message,
+            messageAr: a.messageAr,
+            createdAt: a.createdAt,
+            evaluationMs: elapsed,
+          ),
+      ],
       elapsed,
     );
   }

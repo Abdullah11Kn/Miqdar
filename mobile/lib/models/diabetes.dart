@@ -40,6 +40,13 @@ class DiabetesSettings {
     return mealType == 'Snack' ? (snackCarbsG ?? mealCarbsG) : mealCarbsG;
   }
 
+  /// The day's carb limit: one carb number per main meal plus one snack, or null without a plan.
+  /// Ramadan has two main meals (iftar and suhoor).
+  double? dayCarbLimit({int mainMeals = 3}) {
+    if (!hasPlan) return null;
+    return mealCarbsG! * mainMeals + (snackCarbsG ?? 0);
+  }
+
   DiabetesSettings copyWith({
     bool? hasDiabetes,
     DiabetesType? type,

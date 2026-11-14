@@ -565,6 +565,14 @@ class MiqdarController extends ChangeNotifier {
 
   NutritionValues get todayTotals => totalsForDate(today);
 
+  /// Who the person is, for the red warnings and bars: diabetes mode, weight goal and carb numbers.
+  AlertContext alertContextFor(String? mealType) => AlertContext(
+        hasDiabetes: diabetes.hasDiabetes,
+        weightGoal: bodyProfile?.goal,
+        mealCarbLimitG: mealType == null ? null : diabetes.carbTargetFor(mealType),
+        dayCarbLimitG: diabetes.dayCarbLimit(mainMeals: ramadanMode ? 2 : 3),
+      );
+
   NutritionValues get selectedDateTotals => totalsForDate(selectedDate);
 
   // Scale & Measurement Operations (Section 8)
@@ -1542,6 +1550,7 @@ class MiqdarController extends ChangeNotifier {
       currentTotals: todayTotals,
       incoming: result.totalNutrients,
       goals: goals,
+      context: alertContextFor(mealTypeFor(DateTime.now())),
     );
     projectedAlerts = evaluation.alerts;
     lastRecognition = result;
