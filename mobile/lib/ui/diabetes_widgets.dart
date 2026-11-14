@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_controller.dart';
 import '../l10n/strings.dart';
 import '../models/diabetes.dart';
+import '../models/glucose.dart';
 import '../models/nutrition.dart';
 import '../theme.dart';
 import 'widgets/charts_and_gauges.dart';
@@ -413,5 +414,137 @@ class CarbLine extends StatelessWidget {
             if (target != null) s.tr('plan ${target!.toStringAsFixed(0)} g', 'الخطة ${target!.toStringAsFixed(0)} غ'),
           ].join(' · ');
     return Text(text, style: style ?? MiqdarType.bodyStrong.copyWith(color: context.mq.ink));
+  }
+}
+
+
+/// Blood sugar readings that belong to [meal], with Add Reading. A plain log: no ranges or advice.
+class MealGlucoseSection extends StatelessWidget {
+  const MealGlucoseSection({super.key, required this.controller, required this.meal});
+
+  final MiqdarController controller;
+  final MealEntry meal;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final c = context.mq;
+    if (!controller.diabetes.hasDiabetes) return const SizedBox.shrink();
+    final unit = controller.glucoseUnit;
+    final readings = controller.readingsForMeal(meal);
+    return SurfaceCard(
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.tr('Blood sugar', 'سكر الدم'), style: MiqdarType.titleCard.copyWith(color: c.ink)),
+          for (final r in readings)
+            Row(children: [
+              Icon(MiqdarIcons.bloodtype, size: 18, color: c.inkMuted),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${unit.format(r.mgdl)} ${unit.label(s.isAr)} · ${r.tag.label(s.isAr)} · ${s.date(r.at.toLocal(), 'h:mm a')}'
+                  '${r.fromHealth ? ' · ${s.tr('Apple Health', 'صحة Apple')}' : ''}',
+                  style: MiqdarType.body.copyWith(color: c.ink),
+                ),
+              ),
+              IconButton(
+                tooltip: s.tr('Delete reading', 'حذف القراءة'),
+                onPressed: () => controller.deleteGlucose(r.id),
+                icon: Icon(MiqdarIcons.delete, size: 20, color: c.inkMuted),
+              ),
+            ]),
+          TextButton.icon(
+            onPressed: () => showAddGlucoseDialog(context, controller, meal: meal),
+            icon: const Icon(MiqdarIcons.add),
+            label: Text(s.tr('Add Reading', 'إضافة قراءة')),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Types a reading in the user's unit. From a meal, the time follows the tag so it links to it.
+Future<void> showAddGlucoseDialog(BuildContext context, MiqdarController controller, {MealEntry? meal}) async {
+  final s = S.of(context);
+  final unit = controller.glucoseUnit;
+  final field = TextEditingController();
+  var tag = meal != null && DateTime.now().difference(meal.eatenAt).inMinutes > 30 ? GlucoseTag.afterMeal : GlucoseTag.beforeMeal;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        title: Text(s.tr('Blood sugar reading', 'قراءة سكر الدم')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: field,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(suffixText: unit.label(s.isAr)),
+            ),
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final t in GlucoseTag.values)
+                ChoiceChip(label: Text(t.label(s.isAr)), selected: tag == t, onSelected: (_) => setState(() => tag = t)),
+            ]),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(s.tr('Cancel', 'إلغاء'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(s.tr('Save', 'حفظ'))),
+        ],
+      ),
+    ),
+  );
+  if (ok != true) return;
+  final value = double.tryParse(normalizeDigits(field.text).trim());
+  if (value == null || value <= 0) return;
+  final mgdl = unit.toMgdl(value);
+  if (mgdl < 10 || mgdl > 900) return;
+  DateTime? at;
+  if (meal != null) {
+    at = switch (tag) {
+      GlucoseTag.beforeMeal => meal.eatenAt.subtract(const Duration(minutes: 10)),
+      GlucoseTag.afterMeal => meal.eatenAt.add(const Duration(hours: 2)),
+      GlucoseTag.other => DateTime.now().difference(meal.eatenAt).abs() <= const Duration(hours: 3) ? null : meal.eatenAt,
+    };
+    if (at != null && at.isAfter(DateTime.now())) at = null;
+  }
+  await controller.addGlucose(value, tag: tag, at: at);
+}
+
+/// mg/dL (Saudi practice) or mmol/L, for people with a meter in the other unit.
+class GlucoseUnitCard extends StatelessWidget {
+  const GlucoseUnitCard({super.key, required this.controller});
+
+  final MiqdarController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    if (!controller.diabetes.hasDiabetes) return const SizedBox.shrink();
+    return SurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.tr('Blood sugar unit', 'وحدة سكر الدم'), style: MiqdarType.titleCard.copyWith(color: context.mq.ink)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, children: [
+            for (final u in GlucoseUnit.values)
+              ChoiceChip(
+                label: Text(u.label(s.isAr)),
+                selected: controller.glucoseUnit == u,
+                onSelected: (_) => controller.setGlucoseUnit(u),
+              ),
+          ]),
+        ],
+      ),
+    );
   }
 }

@@ -391,6 +391,10 @@ class MealDetailScreen extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 18),
+                if (controller.diabetes.hasDiabetes) ...[
+                  MealGlucoseSection(controller: controller, meal: currentMeal),
+                  const SizedBox(height: 14),
+                ],
                 if (currentMeal.pieceCount != null) ...[
                   PieceCounter(
                     count: currentMeal.pieceCount!,

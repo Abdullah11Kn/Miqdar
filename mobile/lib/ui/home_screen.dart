@@ -931,6 +931,16 @@ class MealRowCard extends StatelessWidget {
                     '${s.mealTypeLabel(meal.mealType)} · ${s.date(meal.eatenAt.toLocal(), 'h:mm a')} · ${meal.weightG.toStringAsFixed(0)} ${s.unitG}',
                     style: MiqdarType.body.copyWith(fontSize: 13, height: 18 / 13, color: c.inkMuted),
                   ),
+                  if (MiqdarScope.of(context).diabetes.hasDiabetes)
+                    for (final reading in MiqdarScope.of(context).readingsForMeal(meal).take(2))
+                      Row(children: [
+                        Icon(MiqdarIcons.bloodtype, size: 14, color: c.inkMuted),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${MiqdarScope.of(context).glucoseUnit.format(reading.mgdl)} ${MiqdarScope.of(context).glucoseUnit.label(s.isAr)} · ${reading.tag.label(s.isAr)}',
+                          style: MiqdarType.caption.copyWith(color: c.inkMuted),
+                        ),
+                      ]),
                 ],
               ),
             ),

@@ -147,6 +147,22 @@ tr{page-break-inside:avoid}
     b.write('</p>');
   }
 
+  if (r.readings.isNotEmpty) {
+    // As typed or read from Apple Health, beside the meal they belong to. No averages or ranges.
+    b.write('<h2>${s.tr('Blood sugar readings', 'قراءات سكر الدم')}</h2><table><tr>'
+        '<th>${s.tr('When', 'الوقت')}</th><th class="num">${s.tr('Reading', 'القراءة')}</th>'
+        '<th>${s.tr('Timing', 'التوقيت')}</th><th>${s.tr('Meal', 'الوجبة')}</th>'
+        '<th class="num">${s.tr('Meal carbs', 'كربوهيدرات الوجبة')}</th></tr>');
+    for (final reading in r.readings) {
+      b.write('<tr><td>${_esc(s.date(reading.at.toLocal(), 'EEE d MMM, HH:mm'))}</td>'
+          '<td class="num">${n0(reading.mgdl)} ${s.tr('mg/dL', 'ملغ/دسل')} (${(reading.mgdl / 18).toStringAsFixed(1)} ${s.tr('mmol/L', 'مليمول/لتر')})</td>'
+          '<td>${_esc(reading.tag.label(s.isAr))}</td>'
+          '<td>${_esc(reading.mealName ?? '—')}</td>'
+          '<td class="num">${reading.mealCarbsG == null ? '—' : '${n0(reading.mealCarbsG!)} ${s.unitG}'}</td></tr>');
+    }
+    b.write('</table><p class="small muted">${s.tr('As entered by the user. Miqdar does not interpret readings.', 'كما أدخلها المستخدم. لا يفسّر مقدار القراءات.')}</p>');
+  }
+
   b.write('<h2>${s.tr('Daily totals', 'المجاميع اليومية')}</h2><table><tr>'
       '<th>${s.tr('Day', 'اليوم')}</th><th class="num">${s.tr('Meals', 'الوجبات')}</th>'
       '<th class="num">${s.calories} (${s.unitKcal})</th><th class="num">${s.carbs} (${s.unitG})</th>'

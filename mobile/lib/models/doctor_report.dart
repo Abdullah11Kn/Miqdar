@@ -1,5 +1,6 @@
 import 'body_profile.dart';
 import 'diabetes.dart';
+import 'glucose.dart';
 import 'nutrition.dart';
 
 /// A day in the report. [totals] is null when nothing was logged, so it is never read as zero.
@@ -82,7 +83,11 @@ class DoctorReport {
     required this.enteredMeals,
     required this.leftoverMeals,
     required this.carbsFirst,
+    this.readings = const [],
   });
+
+  /// Blood sugar readings in the period beside their meals, as typed: no averages or ranges.
+  final List<ReportReading> readings;
 
   final DateTime from;
   final DateTime to;
@@ -120,6 +125,7 @@ DoctorReport buildDoctorReport({
   required DateTime Function(DateTime) dayOf,
   String name = '',
   bool carbsFirst = false,
+  List<GlucoseReading> readings = const [],
 }) {
   final to = DateTime(today.year, today.month, today.day);
   final from = DateTime(to.year, to.month, to.day - (periodDays - 1));
@@ -253,6 +259,22 @@ DoctorReport buildDoctorReport({
         .length,
     leftoverMeals: inPeriod.where((m) => m.leftover != null).length,
     carbsFirst: carbsFirst,
+    readings: [
+      for (final r in readings.where((r) {
+        final d = dayOf(r.at);
+        return !d.isBefore(from) && !d.isAfter(to);
+      }))
+        () {
+          final meal = mealForReading(r, meals);
+          return ReportReading(
+            at: r.at,
+            mgdl: r.mgdl,
+            tag: r.tag,
+            mealName: meal?.nameEn,
+            mealCarbsG: meal == null || meal.nutrients.isMissing('carbohydrate_g') ? null : meal.nutrients.carbohydrates,
+          );
+        }(),
+    ],
   );
 }
 

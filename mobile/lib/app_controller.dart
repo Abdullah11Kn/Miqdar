@@ -13,6 +13,7 @@ import 'data/local_database.dart';
 import 'l10n/strings.dart';
 import 'models/body_profile.dart';
 import 'models/diabetes.dart';
+import 'models/glucose.dart';
 import 'models/water.dart';
 import 'models/doctor_report.dart';
 import 'models/nutrition.dart';
@@ -219,6 +220,8 @@ class MiqdarController extends ChangeNotifier {
     weightEntries = [];
     waterEntries = [];
     waterGoalSetMl = null;
+    glucoseReadings = [];
+    glucoseUnit = GlucoseUnit.mgdl;
     goalBasisWeightKg = null;
     if (reminderSettings.enabled) {
       reminderSettings = const ReminderSettings();
@@ -260,6 +263,8 @@ class MiqdarController extends ChangeNotifier {
     bodyProfile = await localDatabase.loadBodyProfile();
     weightEntries = await localDatabase.loadBodyWeights();
     waterEntries = await localDatabase.loadWater();
+    glucoseReadings = await localDatabase.loadGlucose();
+    glucoseUnit = await localDatabase.getSetting('glucose_unit') == 'mmol' ? GlucoseUnit.mmol : GlucoseUnit.mgdl;
     waterGoalSetMl = double.tryParse(await localDatabase.getSetting('water_goal_ml') ?? '');
     goalBasisWeightKg = double.tryParse(await localDatabase.getSetting('goal_weight_kg') ?? '');
     reminderSettings = ReminderSettings.decode(await localDatabase.getSetting('reminders'));
@@ -1754,6 +1759,7 @@ class MiqdarController extends ChangeNotifier {
             ? ''
             : (isAr && account.displayNameAr.isNotEmpty ? account.displayNameAr : account.displayName),
         carbsFirst: diabetes.carbsFirst,
+        readings: diabetes.hasDiabetes ? glucoseReadings : const [],
       );
 
   /// Leftovers can be weighed until the end of the meal's diary day.
@@ -1813,6 +1819,40 @@ class MiqdarController extends ChangeNotifier {
     notifyListeners();
     return applied;
   }
+
+  // Blood sugar (diabetes mode). A plain log: no ranges, averages, alerts or advice.
+  List<GlucoseReading> glucoseReadings = [];
+  GlucoseUnit glucoseUnit = GlucoseUnit.mgdl;
+
+  Future<void> setGlucoseUnit(GlucoseUnit unit) async {
+    glucoseUnit = unit;
+    notifyListeners();
+    if (!account.isDemo) await localDatabase.saveSetting('glucose_unit', unit.name);
+  }
+
+  /// [value] is in the user's unit; it is stored in mg/dL.
+  Future<GlucoseReading> addGlucose(double value, {required GlucoseTag tag, DateTime? at}) async {
+    final reading = GlucoseReading(
+      id: 'glucose-${DateTime.now().microsecondsSinceEpoch}',
+      mgdl: glucoseUnit.toMgdl(value),
+      at: at ?? DateTime.now(),
+      tag: tag,
+    );
+    glucoseReadings = [...glucoseReadings, reading]..sort((a, b) => a.at.compareTo(b.at));
+    notifyListeners();
+    if (!account.isDemo) await localDatabase.saveGlucose(reading);
+    return reading;
+  }
+
+  Future<void> deleteGlucose(String id) async {
+    glucoseReadings = glucoseReadings.where((r) => r.id != id).toList();
+    notifyListeners();
+    if (!account.isDemo) await localDatabase.deleteGlucose(id);
+  }
+
+  /// Readings that belong to [meal], oldest first.
+  List<GlucoseReading> readingsForMeal(MealEntry meal) =>
+      glucoseReadings.where((r) => mealForReading(r, meals)?.id == meal.id).toList();
 
   // Water
   List<WaterEntry> waterEntries = [];

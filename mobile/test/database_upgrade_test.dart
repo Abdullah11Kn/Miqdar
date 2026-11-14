@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:miqdar_mobile/data/local_database.dart';
 import 'package:miqdar_mobile/models/body_profile.dart';
+import 'package:miqdar_mobile/models/glucose.dart';
 import 'package:miqdar_mobile/models/nutrition.dart';
 import 'package:miqdar_mobile/models/water.dart';
 import 'package:path/path.dart' as p;
@@ -81,6 +82,10 @@ void main() {
     // Version 11: water is kept.
     await database.saveWater(WaterEntry(id: 'w1', ml: 250, at: DateTime.now()));
     expect((await database.loadWater()).single.ml, 250);
+
+    // Version 12: blood sugar readings are kept.
+    await database.saveGlucose(GlucoseReading(id: 'g1', mgdl: 140, at: DateTime.now(), tag: GlucoseTag.afterMeal));
+    expect((await database.loadGlucose()).single.tag, GlucoseTag.afterMeal);
 
     const profile = BodyProfile(
       sex: BodySex.female, birthYear: 1995, heightCm: 165, weightKg: 62,
