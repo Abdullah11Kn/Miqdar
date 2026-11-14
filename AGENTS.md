@@ -39,7 +39,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 
 ## Current state
 
-*Update this section whenever it stops being true. Last updated 2026-11-14.*
+*Update this section whenever it stops being true. Last updated 2026-11-15.*
 
 - **Branch:** `feature/scale-live-flow` holds all current work, and the Pi is on it. `main` is well behind and
   `origin/usb` is an older copy. Do not merge to `main` until Abdullah says so.
@@ -57,6 +57,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
   overloaded and the last fallback was out of quota.
 - **Next work (after the code review, all fixed):** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
 - **Agent skills setup:** done. See Agent skills below.
+- **App icon (2026-11-15):** the logo on black, on iOS and Android, named Miqdar; installed on his iPhone the same day.
 - **Logo, splash and Welcome (2026-11-07):** the app has Abdullah's logo, drawn from vectors, an animated splash on black, and a new Welcome with a food photo wall and Sign Up and Log In placeholders. Seen on simulators; not yet on a real iPhone or Android.
 - **Motion (2026-11-08):** screens, tabs, Add Meal and meal photos move as `docs/DESIGN.md`, Motion, describes. Seen on a throwaway simulator, filmed, in English light and Arabic dark; not yet on a real iPhone.
 - **Showcase Scenarios (2026-11-14):** Profile → Showcase Scenarios restarts the app from the splash in First Launch, Every Day (Khalid), Diabetes (Noura) or Ramadan (Faisal), each on its own sample database, with an in-app list of what to show. Built for Abdullah's meeting with his instructor. Seen on a throwaway simulator; not on his own simulator's real data or a real iPhone.
@@ -227,6 +228,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-15: The logo as the app icon; new build on his iPhone
+- Decided: Abdullah connected the Mac and the scale to the iPhone hotspot and asked for all the new changes on his iPhone, and for the logo to show "from outside", taken to mean the app icon.
+- Changed: the iOS and Android app icons are now the color mark (white bowl, green star) on black, like the splash, made by the new `mobile/assets/branding/logo/build_app_icon.py` from `mark-color-on-black.jpg`. The name under the icon is "Miqdar" (was "Miqdar Mobile" on iOS and "miqdar_mobile" on Android).
+- Tested: `./run_iphone.sh` built and installed on "iphone A" over Wi-Fi and launched (exit 0); signing with the HealthKit entitlement worked on his free Personal Team. His iPhone 16 Pro simulator rebuilt with his data kept; its home screen shows the new icon named Miqdar (screenshot).
+- Not tested / risks: the Pi was NOT updated: the Mac was on a 192.168.1.x Wi-Fi, not the hotspot, and the Pi did not answer there, so the touchscreen still lacks the red warning line. Not looked at on the real iPhone's home screen by us. Free signing lasts 7 days from this install.
+- Next: with the Mac on the hotspot, `ssh -4 miqdar-pi`, then `cd ~/Miqdar && git pull origin feature/scale-live-flow && ./install_pi_desktop.sh` and restart the scale.
 
 ### 2026-11-14: Showcase Scenarios for presenting the app
 - Decided: Abdullah meets his instructor tomorrow and asked for flows to show "everything we have implemented" without making accounts or logging data during the meeting: one from the splash, one for diabetes, one for everything. He also asked, mid-task, for the Home typing line to be عِش بصحة only (done, commit a84d10c).
