@@ -552,7 +552,7 @@ class _ScanScreenState extends State<ScanScreen> {
         builder: (_) => RecognitionResultScreen(
           result: demo,
           previewBytes: imageBytes,
-          previewAsset: imageBytes == null ? (selectedSampleAsset ?? 'assets/demo/kabsa.jpg') : null,
+          previewAsset: imageBytes == null ? selectedSampleAsset : null,
         ),
       ),
     );
@@ -2174,15 +2174,6 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
     }
   }
 
-  String _guessAssetForFood(String nameEn) {
-    final lower = nameEn.toLowerCase();
-    if (lower.contains('shawarma')) return 'assets/demo/shawarma.jpeg';
-    if (lower.contains('jareesh')) return 'assets/demo/jareesh.jpeg';
-    if (lower.contains('pizza')) return 'assets/demo/pizza.jpeg';
-    if (lower.contains('burger')) return 'assets/demo/burger.jpg';
-    return 'assets/demo/kabsa.jpg';
-  }
-
   @override
   Widget build(BuildContext context) {
     final controller = MiqdarScope.of(context);
@@ -2193,18 +2184,19 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
     final textSecondary = context.mq.inkMuted;
     final confidencePct = (result.confidence * 100).round();
 
-    final ImageProvider previewImage = widget.previewBytes != null
+    // Only a real photo of this meal: the scale's, the phone's, or the pack's from Open Food Facts.
+    // Without one the header shows an icon, never a picture of some other food.
+    final ImageProvider? previewImage = widget.previewBytes != null
         ? MemoryImage(widget.previewBytes!)
         : (result.imageBytes != null
             ? MemoryImage(result.imageBytes!)
-            : (widget.previewAsset != null
-                ? AssetImage(widget.previewAsset!)
-                : AssetImage(_guessAssetForFood(result.nameEn)) as ImageProvider));
+            : (widget.previewAsset != null ? AssetImage(widget.previewAsset!) : null));
 
     final alternatives = result.candidates.where((c) => c.foodId != result.foodId && c.inDatabase).toList();
     final kcalColor = context.mq.ink;
 
     void openPhoto() {
+      if (previewImage == null) return;
       showDialog<void>(
         context: context,
         builder: (ctx) => Dialog(
@@ -2295,7 +2287,21 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image(image: previewImage, fit: BoxFit.cover),
+                          // A pack photo is shown whole, so the product reads; a meal photo fills the frame.
+                          if (previewImage != null && result.verificationStatus == barcodeStatus)
+                            ColoredBox(
+                              color: context.mq.surface,
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Image(image: previewImage, fit: BoxFit.contain),
+                              ),
+                            )
+                          else if (previewImage != null)
+                            Image(image: previewImage, fit: BoxFit.cover)
+                          else
+                            _NoPhoto(verificationStatus: result.verificationStatus),
+                          // How sure Gemini is; barcode, label and hand-entered values have no such number.
+                          if (result.verificationStatus == aiEstimateStatus)
                           PositionedDirectional(
                             top: 10,
                             start: 10,
@@ -3180,4 +3186,33 @@ class _WarnOnceState extends State<_WarnOnce> {
 
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+/// The review header for a meal with no photo of its own: an icon for where its numbers came from.
+class _NoPhoto extends StatelessWidget {
+  const _NoPhoto({required this.verificationStatus});
+
+  final String verificationStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final c = context.mq;
+    final (icon, label) = switch (verificationStatus) {
+      barcodeStatus => (MiqdarIcons.barcodeScanner, s.tr('Packaged food, by its barcode', 'منتج معبأ، بالباركود')),
+      labelStatus => (MiqdarIcons.documentScanner, s.tr('From the nutrition label', 'من ملصق القيم الغذائية')),
+      _ => (MiqdarIcons.restaurant, s.tr('No photo for this meal', 'لا توجد صورة لهذه الوجبة')),
+    };
+    return ColoredBox(
+      color: c.surface,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 56, color: c.inkMuted),
+          const SizedBox(height: 10),
+          Text(label, style: MiqdarType.bodyStrong.copyWith(color: c.inkMuted)),
+        ],
+      ),
+    );
+  }
 }

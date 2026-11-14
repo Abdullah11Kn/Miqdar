@@ -229,6 +229,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-15: No stock food photo on meals without a photo; barcode meals show the pack
+- Decided: Abdullah saw a picture of rice when he scanned any barcode, and asked for the product's picture or an icon instead.
+- Found: Review Meal guessed a stock photo from the food's name for any meal without a photo of its own, falling back to the kabsa photo; barcode, search, hand-entered and described meals all got it.
+- Changed: the guess is gone. A barcode now also asks Open Food Facts for the pack's front photo (`image_front_url`, about 400 px, only from `images.openfoodfacts.org`), which becomes the meal's photo and is shown whole on Review. With no photo, Review shows an icon and a line: barcode, nutrition label, or "No photo for this meal". The "% sure" badge now shows only on Gemini estimates, not on barcode, label or hand-entered values.
+- Tested: `flutter analyze`; 270 unit tests, three new in `barcode_test.dart` (pack photo kept with the saved meal; none when the product has none; a photo address off Open Food Facts is never fetched). On the throwaway simulator with the real Open Food Facts: Coca-Cola (5449000000996) showed its can; a hand-entered food showed the icon. Temporary tour deleted.
+- Not tested / risks: no Saudi product checked; many may have no photo on Open Food Facts and will show the icon. Not checked in Arabic or dark on screen.
+
 ### 2026-11-15: Pi updated to the latest code; its newer calibration saved to git
 - Decided: Abdullah switched the Mac to the iPhone hotspot so the Pi could be updated.
 - Changed: on the Pi (172.20.10.3 on the hotspot), `git pull` to 2b97f38 and `./install_pi_desktop.sh`, then the scale started in its desktop session (`x-terminal-emulator -e ./start_all.sh` with `WAYLAND_DISPLAY=wayland-0`, `DISPLAY=:0`). The Pi had been recalibrated by hand on 2026-11-10 (185 g weight, factor 412.36) without committing it; that file was kept, backed up to `~/miqdar-backup/scale_calibration-2026-11-10.json`, and is now committed as `scale_calibration.json`, replacing the 2026-10-20 values. The Pi's `database/miqdar_nutrition.db` also has local changes, left alone.

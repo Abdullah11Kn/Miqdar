@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -12,7 +13,11 @@ class BarcodeProduct {
     required this.nameAr,
     required this.per100g,
     this.servingG,
+    this.imageUrl,
   });
+
+  /// A photo of the pack's front (about 400 px), on Open Food Facts' own image server, if there is one.
+  final String? imageUrl;
 
   final String code;
   final String nameEn;
@@ -31,7 +36,9 @@ class OpenFoodFactsService {
 
   final http.Client _client;
 
-  static const _fields = 'product_name,product_name_en,product_name_ar,brands,serving_quantity,nutriments';
+  static const _fields =
+      'product_name,product_name_en,product_name_ar,brands,serving_quantity,nutriments,image_front_small_url,image_front_url';
+  static const _userAgent = 'Miqdar/1.0 (student project, smart kitchen scale)';
 
   /// Null when the product is unknown, has no calories, or the lookup fails.
   Future<BarcodeProduct?> lookup(String code) async {
@@ -40,7 +47,7 @@ class OpenFoodFactsService {
     try {
       final response = await _client.get(
         Uri.parse('https://world.openfoodfacts.org/api/v2/product/$digits.json?fields=$_fields'),
-        headers: {'User-Agent': 'Miqdar/1.0 (student project, smart kitchen scale)'},
+        headers: {'User-Agent': _userAgent},
       ).timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return null;
       final body = jsonDecode(utf8.decode(response.bodyBytes));
@@ -91,6 +98,33 @@ class OpenFoodFactsService {
       nameAr: text('product_name_ar'),
       per100g: NutritionValues.fromJson(values),
       servingG: servingG != null && servingG > 0 ? servingG : null,
+      imageUrl: _imageUrl(product),
     );
+  }
+
+  /// Only photos on Open Food Facts' own image server are used.
+  static String? _imageUrl(Map<String, dynamic> product) {
+    for (final key in ['image_front_url', 'image_front_small_url']) {
+      final url = Uri.tryParse((product[key] as String? ?? '').trim());
+      if (url != null && url.scheme == 'https' && url.host == 'images.openfoodfacts.org') return url.toString();
+    }
+    return null;
+  }
+
+  /// The pack's photo, or null if there is none, it is not an image, or the download fails.
+  Future<Uint8List?> fetchImage(BarcodeProduct product) async {
+    final url = product.imageUrl;
+    if (url == null) return null;
+    try {
+      final response = await _client
+          .get(Uri.parse(url), headers: {'User-Agent': _userAgent})
+          .timeout(const Duration(seconds: 8));
+      final type = response.headers['content-type'] ?? '';
+      if (response.statusCode != 200 || !type.startsWith('image/')) return null;
+      final bytes = response.bodyBytes;
+      return bytes.isEmpty || bytes.length > 3 * 1024 * 1024 ? null : bytes;
+    } catch (_) {
+      return null;
+    }
   }
 }

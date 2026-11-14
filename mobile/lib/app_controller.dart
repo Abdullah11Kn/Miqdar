@@ -1518,7 +1518,9 @@ class MiqdarController extends ChangeNotifier {
     } else {
       (grams, source) = (100, PortionSource.manual);
     }
-    final applied = await _applyResult(_barcodeResult(product, grams, source: source));
+    // The pack's own photo, when Open Food Facts has one; otherwise the meal simply has no photo.
+    final photo = await apiService.openFoodFacts.fetchImage(product);
+    final applied = await _applyResult(_barcodeResult(product, grams, source: source, imageBytes: photo));
     notifyListeners();
     return applied;
   }

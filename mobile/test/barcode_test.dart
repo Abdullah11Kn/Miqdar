@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -13,7 +14,7 @@ import 'package:miqdar_mobile/services/open_food_facts.dart';
 
 const _code = '6281007030090';
 
-http.Response _off({bool found = true, Map<String, Object?>? nutriments, Object? serving = 200}) => http.Response.bytes(
+http.Response _off({bool found = true, Map<String, Object?>? nutriments, Object? serving = 200, String? image}) => http.Response.bytes(
       utf8.encode(jsonEncode(found
           ? {
               'status': 1,
@@ -22,6 +23,7 @@ http.Response _off({bool found = true, Map<String, Object?>? nutriments, Object?
                 'product_name_ar': 'لبن أب',
                 'brands': 'Almarai',
                 'serving_quantity': serving,
+                if (image != null) 'image_front_small_url': image,
                 'nutriments': nutriments ??
                     {
                       'energy-kcal_100g': 56,
@@ -114,6 +116,35 @@ void main() {
       final draft = (await controller.prepareBarcodeDraft(_code))!;
       expect(draft.weightG, 200);
       expect(draft.portionSource, PortionSource.serving);
+    });
+
+    test("the pack's own photo from Open Food Facts becomes the meal's photo", () async {
+      final pack = Uint8List.fromList([0xFF, 0xD8, 1, 2, 3]);
+      final controller = controllerWith(MockClient((r) async => r.url.host == 'images.openfoodfacts.org'
+          ? http.Response.bytes(pack, 200, headers: {'content-type': 'image/jpeg'})
+          : _off(image: 'https://images.openfoodfacts.org/images/products/628/front_en.200.jpg')));
+      await controller.localDatabase.initialize();
+      final draft = (await controller.prepareBarcodeDraft(_code, weightG: 250))!;
+      expect(draft.imageBytes, pack);
+      final meal = (await controller.saveLastRecognition())!;
+      expect(await controller.mealPhoto(meal.id), pack);
+    });
+
+    test('a product with no photo gets none, rather than a picture of some other food', () async {
+      final controller = controllerWith(MockClient((_) async => _off()));
+      final draft = (await controller.prepareBarcodeDraft(_code, weightG: 250))!;
+      expect(draft.imageBytes, isNull);
+    });
+
+    test('a photo address outside Open Food Facts is never fetched', () async {
+      var fetchedElsewhere = false;
+      final controller = controllerWith(MockClient((r) async {
+        if (r.url.host == 'example.com') fetchedElsewhere = true;
+        return _off(image: 'https://example.com/tracker.jpg');
+      }));
+      final draft = (await controller.prepareBarcodeDraft(_code, weightG: 250))!;
+      expect(draft.imageBytes, isNull);
+      expect(fetchedElsewhere, isFalse);
     });
 
     test('an unknown product gives no draft', () async {
