@@ -102,7 +102,7 @@ where it went, never to decorate. Abdullah asked on 2026-11-08 for it to help us
 - **Tabs** fade through: the old tab fades out, then the new one fades in from the side of its tab. The tab pill slides.
 - **A meal's photo** flies between its row and Meal Detail.
 - **Home's calorie number** counts up with its ring.
-- **Home's greeting** types itself, rests about 3 s, erases, and types a short health line (يوم صحي, عِش بصحة, ...), then the greeting again, in turn. The caret shows only while letters move. Reduce Motion keeps the greeting still; screen readers hear only the greeting.
+- **Home's greeting** types itself, rests about 3 s, erases, and types عِش بصحة (Live well), then the greeting again, in turn. The caret shows only while letters move. Reduce Motion keeps the greeting still; screen readers hear only the greeting.
 - **Reduce Motion** turns all of it into plain cuts or fades.
 - **Do not** add entrance animations to lists or cards, or motion nobody asked for by tapping. Transitions must never
   rebuild the screen they wrap: keep the same widgets at rest and in motion, or the screen loses its state.

@@ -67,10 +67,8 @@ class S {
   String get greetingMorning => isAr ? 'صباح الخير،' : 'Good morning,';
   String get greetingAfternoon => isAr ? 'مساء الخير،' : 'Good afternoon,';
   String get greetingEvening => isAr ? 'مساء النور،' : 'Good evening,';
-  /// Short health lines Home types after the greeting, in turn.
-  List<String> get healthLines => isAr
-      ? const ['يوم صحي', 'عِش بصحة', 'كُل بوعي', 'لا تنسَ الماء', 'صحتك تستاهل', 'خطوة صغيرة كل يوم']
-      : const ['A healthy day', 'Live well', 'Eat mindfully', 'Remember your water', 'Your health is worth it', 'A small step each day'];
+  /// The health line Home types after the greeting, as Abdullah chose it.
+  List<String> get healthLines => isAr ? const ['عِش بصحة'] : const ['Live well'];
   String get dailyIntakeTitle => isAr ? 'تغذية اليوم' : 'Nutrition';
   String get startCapture => isAr ? 'إضافة وجبة' : 'Add Meal';
   String get searchFoodBtn => isAr ? 'بحث غذائي' : 'Search Food';

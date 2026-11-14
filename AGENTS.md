@@ -226,6 +226,7 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
 ### 2026-11-14: Home's greeting types itself, then a health line
 - Decided: Abdullah asked for a typing effect on Home's greeting: صباح الخير, then something about health, wording left to the agent.
+- Later the same day he chose a single line, عِش بصحة (English: Live well); the six-line list is gone.
 - Changed: new `TypingLine` widget (`mobile/lib/ui/widgets/typing_line.dart`). The greeting types, rests about 3 s, erases and types one of six health lines (`s.healthLines`: يوم صحي، عِش بصحة، كُل بوعي، لا تنسَ الماء، صحتك تستاهل، خطوة صغيرة كل يوم, and English versions), which rests about 4 s, then the greeting returns, and so on. The caret shows only while letters move. It stops when Home is off screen, and Reduce Motion shows the greeting still. `docs/DESIGN.md`, Motion, mentions it.
 - Tested: `flutter analyze`; 260 unit tests, two new in `typing_line_test.dart`; on his iPhone 16 Pro simulator (his data kept), screenshots in Arabic dark showed letters typing with the caret, يوم صحي resting, and مساء النور typing back.
 - Not tested / risks: English not looked at; not on a real iPhone. It never stops while Home is open; if it feels busy, lengthen the holds in `TypingLine` or stop after one round.
