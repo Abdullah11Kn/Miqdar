@@ -84,6 +84,7 @@ class S {
   String get carbs => isAr ? 'الكربوهيدرات' : 'Carbs';
   String get fat => isAr ? 'الدهون' : 'Fat';
   String get sugar => isAr ? 'السكريات' : 'Sugar';
+  String get freeSugar => isAr ? 'السكر الحر' : 'Free sugar';
   String get fiber => isAr ? 'الألياف' : 'Fiber';
   String get sodium => isAr ? 'الصوديوم' : 'Sodium';
   String get potassium => isAr ? 'البوتاسيوم' : 'Potassium';

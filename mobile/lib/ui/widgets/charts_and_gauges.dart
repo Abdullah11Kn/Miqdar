@@ -1160,6 +1160,7 @@ class NutrientGrid2x4 extends StatelessWidget {
       ('carbohydrate_g', s.carbs, values.carbohydrates, s.unitG, c.nCarbs),
       ('fat_g', s.fat, values.fat, s.unitG, c.nFat),
       ('sugar_g', s.sugar, values.sugar, s.unitG, c.nSugar),
+      if (values.freeSugar != null) ('free_sugar_g', s.freeSugar, values.sugarForLimit, s.unitG, c.nSugar),
       ('sodium_mg', s.sodium, values.sodium, s.unitMg, c.nSodium),
       ('potassium_mg', s.potassium, values.potassium, s.unitMg, c.nPotassium),
       ('fiber_g', s.fiber, values.fiber, s.unitG, c.nFiber),

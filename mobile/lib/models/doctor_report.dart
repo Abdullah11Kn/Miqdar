@@ -172,7 +172,7 @@ DoctorReport buildDoctorReport({
       : [
           goalDaysFor(ReportGoal.calories, goals.calories, (v) => v.calories),
           goalDaysFor(ReportGoal.carbohydrates, goals.carbohydrates, (v) => v.carbohydrates),
-          goalDaysFor(ReportGoal.sugar, goals.sugar, (v) => v.sugar),
+          goalDaysFor(ReportGoal.sugar, goals.sugar, (v) => v.sugarForLimit),
           goalDaysFor(ReportGoal.sodium, goals.sodium, (v) => v.sodium),
           goalDaysFor(ReportGoal.protein, goals.protein, (v) => v.protein),
           goalDaysFor(ReportGoal.fat, goals.fat, (v) => v.fat),

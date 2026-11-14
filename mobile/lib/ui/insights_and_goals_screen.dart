@@ -226,7 +226,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
           (s.protein, dailyAvg.protein, goals.protein, s.unitG, context.mq.nProtein, (MealEntry m) => m.nutrients.protein),
           (s.carbs, dailyAvg.carbohydrates, goals.carbohydrates, s.unitG, context.mq.nCarbs, (MealEntry m) => m.nutrients.carbohydrates),
           (s.fat, dailyAvg.fat, goals.fat, s.unitG, context.mq.nFat, (MealEntry m) => m.nutrients.fat),
-          (s.sugar, dailyAvg.sugar, goals.sugar, s.unitG, context.mq.nSugar, (MealEntry m) => m.nutrients.sugar),
+          (s.sugar, dailyAvg.sugarForLimit, goals.sugar, s.unitG, context.mq.nSugar, (MealEntry m) => m.nutrients.sugarForLimit),
           (s.sodium, dailyAvg.sodium, goals.sodium, s.unitMg, context.mq.nSodium, (MealEntry m) => m.nutrients.sodium),
           (s.potassium, dailyAvg.potassium, goals.potassium, s.unitMg, context.mq.nPotassium, (MealEntry m) => m.nutrients.potassium),
           (s.fiber, dailyAvg.fiber, goals.fiber, s.unitG, context.mq.nFiber, (MealEntry m) => m.nutrients.fiber),

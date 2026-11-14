@@ -459,9 +459,10 @@ class _DailySummaryCard extends StatelessWidget {
                       trackingOnly: goals.trackingOnly,
                     ),
                     _MacroProgressLine(
-                      label: s.sugar,
+                      // The limit is on free sugar; days with older meals count their total sugar.
+                      label: totals.freeSugar != null && !totals.countsTotalSugar ? s.freeSugar : s.sugar,
                       harmfulWhenOver: harmful('sugar_g'),
-                      value: totals.sugar,
+                      value: totals.sugarForLimit,
                       target: goals.sugar,
                       unit: s.unitG,
                       color: c.nSugar,

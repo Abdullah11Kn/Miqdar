@@ -60,6 +60,28 @@ Matcher _failsWith(String code) =>
     throwsA(isA<RecognitionException>().having((e) => e.code, 'code', code));
 
 void main() {
+  test('free sugar from Gemini reaches the meal, and the request asks for it', () async {
+    late Map<String, dynamic> sent;
+    final sweet = _candidate('Kunafa');
+    (sweet['per_100g_edible'] as Map<String, dynamic>)['free_sugar_g'] = 20.0;
+    final service = _service((request) async {
+      sent = jsonDecode(request.body) as Map<String, dynamic>;
+      return _gemini([sweet]);
+    });
+
+    final result = await service.analyze(imageBytes: _photo, weightG: 150, eventId: 'cap-sweet');
+
+    expect(result.nutrients.freeSugar, closeTo(30, 0.01));
+    expect(jsonEncode(sent), contains('free_sugar_g'));
+  });
+
+  test('an answer without free sugar is still used, counting total sugar', () async {
+    final service = _service((_) async => _gemini([_candidate('Jareesh')]));
+    final result = await service.analyze(imageBytes: _photo, weightG: 100, eventId: 'cap-old');
+    expect(result.nutrients.freeSugar, isNull);
+    expect(result.nutrients.sugarForLimit, closeTo(1, 0.01));
+  });
+
   test('calories come from Gemini per 100 g times the measured grams', () async {
     final service = _service((_) async => _gemini([_candidate('Jareesh'), _candidate('Saleeg', kcal: 200)]));
 

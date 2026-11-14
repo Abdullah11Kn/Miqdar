@@ -43,7 +43,22 @@ class NutritionValues {
     required this.sodium,
     required this.potassium,
     this.missingKeys = const {},
+    this.freeSugar,
+    this.includesTotalSugar = false,
   });
+
+  /// Free sugars as the WHO defines them: added sugar, honey, syrups and juice, not the sugar inside
+  /// whole fruit, vegetables or milk. Null for meals saved before it was estimated.
+  final double? freeSugar;
+
+  /// True when [sugarForLimit] counts the total sugar of some food that has no free-sugar value.
+  final bool includesTotalSugar;
+
+  /// The sugar the daily limit is checked against: free sugar, or total sugar when it is unknown.
+  double get sugarForLimit => freeSugar ?? sugar;
+
+  /// True when part of [sugarForLimit] is total sugar, so the screen can say so.
+  bool get countsTotalSugar => freeSugar == null ? sugar > 0 : includesTotalSugar;
 
   final double calories;
   final double protein;
@@ -92,6 +107,7 @@ class NutritionValues {
       sodium: readField('sodium_mg'),
       potassium: readField('potassium_mg'),
       missingKeys: missing,
+      freeSugar: (json['free_sugar_g'] as num?)?.toDouble(),
     );
   }
 
@@ -104,6 +120,7 @@ class NutritionValues {
         'fiber_g': fiber,
         'sodium_mg': sodium,
         'potassium_mg': potassium,
+        if (freeSugar != null && !includesTotalSugar) 'free_sugar_g': freeSugar!,
       };
 
   NutritionValues operator +(NutritionValues other) => NutritionValues(
@@ -116,6 +133,8 @@ class NutritionValues {
         sodium: sodium + other.sodium,
         potassium: potassium + other.potassium,
         missingKeys: {...missingKeys, ...other.missingKeys},
+        freeSugar: freeSugar == null && other.freeSugar == null ? null : sugarForLimit + other.sugarForLimit,
+        includesTotalSugar: countsTotalSugar || other.countsTotalSugar,
       );
 
   NutritionValues scaledBy(double factor) => NutritionValues(
@@ -128,6 +147,8 @@ class NutritionValues {
         sodium: sodium * factor,
         potassium: potassium * factor,
         missingKeys: missingKeys,
+        freeSugar: freeSugar == null ? null : freeSugar! * factor,
+        includesTotalSugar: includesTotalSugar,
       );
 
   /// Deterministic per-100g scaling (CALC-01, CALC-04).

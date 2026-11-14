@@ -84,15 +84,17 @@ class AlertService {
 
     String n(double v) => v.toStringAsFixed(0);
 
-    if (isHarmfulLimit('sugar_g', goals, context) && warns(projected.sugar, goals.sugar)) {
+    final sugar = projected.sugarForLimit;
+    if (isHarmfulLimit('sugar_g', goals, context) && warns(sugar, goals.sugar)) {
+      final kind = projected.countsTotalSugar ? 'sugar' : 'free sugar';
       pending.add((
         key: 'sugar_g',
-        value: projected.sugar,
+        value: sugar,
         limit: goals.sugar,
-        en: "Over your sugar limit. This meal brings today's sugar to ${n(projected.sugar)} of ${n(goals.sugar)} g.",
-        ar: 'تجاوزت حدّ السكر. الوجبة ترفع حد السكر اليومي إلى ${n(projected.sugar)} من ${n(goals.sugar)} غ.',
-        room: goals.sugar - currentTotals.sugar,
-        inMeal: incoming.sugar,
+        en: "Over your sugar limit. This meal brings today's $kind to ${n(sugar)} of ${n(goals.sugar)} g.",
+        ar: 'تجاوزت حدّ السكر. الوجبة ترفع حد السكر اليومي إلى ${n(sugar)} من ${n(goals.sugar)} غ.',
+        room: goals.sugar - currentTotals.sugarForLimit,
+        inMeal: incoming.sugarForLimit,
       ));
     }
 

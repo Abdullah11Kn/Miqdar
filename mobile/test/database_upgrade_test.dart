@@ -50,6 +50,9 @@ void main() {
     expect(meals.single.nutrients.calories, 336);
     expect(meals.single.items, isEmpty);
     expect(meals.single.leftover, isNull);
+    // Version 8: meals from before free sugar have none, and count their total sugar.
+    expect(meals.single.nutrients.freeSugar, isNull);
+    expect(meals.single.nutrients.sugarForLimit, 1);
 
     await database.updateMeal(meals.single.copyWith(
       leftover: MealLeftover(grams: 60, weighedAt: DateTime.now()),
@@ -58,6 +61,11 @@ void main() {
     expect(weighed.leftover!.grams, 60);
     expect(weighed.servedNutrients.calories, 336);
     expect(weighed.nutrients.calories, 252);
+
+    await database.updateMeal(weighed.copyWith(
+      nutrients: NutritionValues.fromJson({...weighed.servedNutrients.toDatabase(), 'free_sugar_g': 0.5}),
+    ));
+    expect((await database.loadMeals()).single.servedNutrients.freeSugar, 0.5);
 
     const profile = BodyProfile(
       sex: BodySex.female, birthYear: 1995, heightCm: 165, weightKg: 62,

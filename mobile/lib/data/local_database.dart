@@ -160,7 +160,7 @@ class LocalDatabase {
       final root = await getDatabasesPath();
       _database = await openDatabase(
         p.join(root, 'miqdar_mobile.db'),
-        version: 7,
+        version: 8,
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE goals(
@@ -189,6 +189,7 @@ class LocalDatabase {
           await _createMealItemsTable(db);
           await _createBodyWeightsTable(db);
           await _addLeftoverColumns(db);
+          await _addFreeSugarColumn(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) await _createHealthProfileTable(db);
@@ -197,6 +198,7 @@ class LocalDatabase {
           if (oldVersion < 5) await _createMealItemsTable(db);
           if (oldVersion < 6) await _createBodyWeightsTable(db);
           if (oldVersion < 7) await _addLeftoverColumns(db);
+          if (oldVersion < 8) await _addFreeSugarColumn(db);
         },
       );
       await _seedGoals();
@@ -296,6 +298,11 @@ class LocalDatabase {
       weight_kg REAL NOT NULL
     )
   ''');
+
+  /// Free sugar, per the WHO, for the sugar limit (database v8). Older meals keep null and count their
+  /// total sugar. Plate items keep theirs inside basis_json, so that table needs no column.
+  static Future<void> _addFreeSugarColumn(Database db) =>
+      db.execute('ALTER TABLE meals ADD COLUMN free_sugar_g REAL');
 
   /// Food weighed after eating (database v7). Served values stay in the meal's own columns.
   static Future<void> _addLeftoverColumns(Database db) async {

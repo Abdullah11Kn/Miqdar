@@ -1852,7 +1852,7 @@ class MiqdarController extends ChangeNotifier {
 
     final buffer = StringBuffer();
     buffer.writeln(
-      'Date,Time,Meal Type,Food (EN),Food (AR),Portion (g),Left (g),Portion Source,Verification,Calories (kcal),Protein (g),Carbs (g),Fat (g),Sugar (g),Fiber (g),Sodium (mg),Potassium (mg),Notes',
+      'Date,Time,Meal Type,Food (EN),Food (AR),Portion (g),Left (g),Portion Source,Verification,Calories (kcal),Protein (g),Carbs (g),Fat (g),Sugar (g),Free sugar (g),Fiber (g),Sodium (mg),Potassium (mg),Notes',
     );
     final cutoff = DateTime.now().subtract(Duration(days: days));
     for (final meal in meals.where((m) => m.eatenAt.isAfter(cutoff))) {
@@ -1873,6 +1873,7 @@ class MiqdarController extends ChangeNotifier {
         n.carbohydrates.toStringAsFixed(1),
         n.fat.toStringAsFixed(1),
         n.sugar.toStringAsFixed(1),
+        n.freeSugar?.toStringAsFixed(1) ?? '',
         n.fiber.toStringAsFixed(1),
         n.sodium.toStringAsFixed(0),
         n.potassium.toStringAsFixed(0),
