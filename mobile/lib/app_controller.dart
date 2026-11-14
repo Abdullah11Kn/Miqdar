@@ -920,9 +920,25 @@ class MiqdarController extends ChangeNotifier {
   /// Recent foods for Search, newest first, one row per name. Repeating one uses its saved
   /// values and sends nothing to Gemini.
   List<MealEntry> get recentFoods {
-    final seen = <String>{};
+    final seen = favouriteMeals.map((m) => m.nameEn.toLowerCase()).toSet();
     final sorted = [...meals]..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
     return sorted.where((meal) => seen.add(meal.nameEn.toLowerCase())).take(5).toList();
+  }
+
+  /// Starred meals for the top of Search, newest first, one row per name.
+  List<MealEntry> get favouriteMeals {
+    final seen = <String>{};
+    final sorted = meals.where((m) => m.favourite).toList()..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
+    return sorted.where((meal) => seen.add(meal.nameEn.toLowerCase())).toList();
+  }
+
+  /// Unstarring a food unstars every meal of that name, so it leaves the list.
+  Future<void> setFavourite(MealEntry meal, bool on) async {
+    if (on) return updateMeal(meal.copyWith(favourite: true));
+    final name = meal.nameEn.toLowerCase();
+    for (final m in meals.where((m) => m.favourite && m.nameEn.toLowerCase() == name).toList()) {
+      await updateMeal(m.copyWith(favourite: false));
+    }
   }
 
   /// A saved meal back on Review with its own values, so the portion can change before saving.

@@ -71,4 +71,12 @@ abstract final class MiqdarIcons {
   static const addTask = IconData(0xf23a, fontFamily: _font);
   static const addCircle = IconData(0xe990, fontFamily: _font);
   static const mic = IconData(0xe31d, fontFamily: _font);
+  static const star = IconData(0xf09a, fontFamily: _font);
+  static const waterDrop = IconData(0xe798, fontFamily: _font);
+  static const barcodeScanner = IconData(0xe70c, fontFamily: _font);
+  static const bloodtype = IconData(0xefe4, fontFamily: _font);
+  static const share = IconData(0xe80d, fontFamily: _font);
+  static const favorite = IconData(0xe87e, fontFamily: _font);
+  static const documentScanner = IconData(0xe5fa, fontFamily: _font);
+  static const monitorHeart = IconData(0xeaa2, fontFamily: _font);
 }

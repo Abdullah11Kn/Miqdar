@@ -182,7 +182,22 @@ class MealDetailScreen extends StatelessWidget {
     final secondaryName = currentMeal.secondaryName(s.isAr);
 
     return Scaffold(
-      appBar: AppBar(title: Text(s.mealTypeLabel(currentMeal.mealType))),
+      appBar: AppBar(
+        title: Text(s.mealTypeLabel(currentMeal.mealType)),
+        actions: [
+          IconButton(
+            tooltip: currentMeal.favourite
+                ? s.tr('Remove from Favourites', 'إزالة من المفضلة')
+                : s.tr('Add to Favourites', 'إضافة إلى المفضلة'),
+            onPressed: () => controller.setFavourite(currentMeal, !currentMeal.favourite),
+            icon: Icon(
+              MiqdarIcons.star,
+              fill: currentMeal.favourite ? 1 : 0,
+              color: currentMeal.favourite ? context.mq.accent : context.mq.ink,
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

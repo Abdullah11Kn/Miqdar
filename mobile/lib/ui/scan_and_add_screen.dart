@@ -1277,6 +1277,45 @@ class _ScanScreenState extends State<ScanScreen> {
       'Salad',
       if (controller.localDatabase.customFoods.isNotEmpty) 'Custom',
     ];
+    // A meal to log again with its saved values: a favourite (star) or a recent food.
+    Widget repeatRow(MealEntry meal, IconData icon) => Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () async {
+          final navigator = Navigator.of(context);
+          final draft = await controller.prepareRelog(meal);
+          navigator.push(MaterialPageRoute(builder: (_) => RecognitionResultScreen(result: draft)));
+        },
+        child: Row(
+          children: [
+            Icon(icon, size: 24, weight: 300, fill: icon == MiqdarIcons.star ? 1 : 0, color: context.mq.ink),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    meal.displayName(s.isAr),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: MiqdarType.titleCard.copyWith(fontSize: 16, color: context.mq.ink),
+                  ),
+                  Text(
+                    meal.portionSource.label(s.isAr),
+                    style: MiqdarType.caption.copyWith(color: context.mq.inkMuted),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '${meal.weightG.toStringAsFixed(0)} ${s.unitG} · ${meal.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
+              style: MiqdarType.caption.copyWith(color: context.mq.inkMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+
     final results = controller.searchCatalog(
       searchCtrl.text,
       category: selectedCategory,
@@ -1327,46 +1366,18 @@ class _ScanScreenState extends State<ScanScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        if (searchCtrl.text.isEmpty && selectedCategory == 'All' && controller.recentFoods.isNotEmpty) ...[
-          MiqdarSectionHeader(title: s.tr('Recent', 'الأخيرة')),
-          for (final meal in controller.recentFoods)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: InkWell(
-                onTap: () async {
-                  final navigator = Navigator.of(context);
-                  final draft = await controller.prepareRelog(meal);
-                  navigator.push(MaterialPageRoute(builder: (_) => RecognitionResultScreen(result: draft)));
-                },
-                child: Row(
-                  children: [
-                    Icon(MiqdarIcons.replay, size: 24, weight: 300, color: context.mq.ink),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            meal.displayName(s.isAr),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: MiqdarType.titleCard.copyWith(fontSize: 16, color: context.mq.ink),
-                          ),
-                          Text(
-                            meal.portionSource.label(s.isAr),
-                            style: MiqdarType.caption.copyWith(color: context.mq.inkMuted),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      '${meal.weightG.toStringAsFixed(0)} ${s.unitG} · ${meal.nutrients.calories.toStringAsFixed(0)} ${s.unitKcal}',
-                      style: MiqdarType.caption.copyWith(color: context.mq.inkMuted),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+        if (searchCtrl.text.isEmpty &&
+            selectedCategory == 'All' &&
+            (controller.recentFoods.isNotEmpty || controller.favouriteMeals.isNotEmpty)) ...[
+          if (controller.favouriteMeals.isNotEmpty) ...[
+            MiqdarSectionHeader(title: s.tr('Favourites', 'المفضلة')),
+            for (final meal in controller.favouriteMeals) repeatRow(meal, MiqdarIcons.star),
+            const SizedBox(height: 16),
+          ],
+          if (controller.recentFoods.isNotEmpty) ...[
+            MiqdarSectionHeader(title: s.tr('Recent', 'الأخيرة')),
+            for (final meal in controller.recentFoods) repeatRow(meal, MiqdarIcons.replay),
+          ],
           const SizedBox(height: 28),
           MiqdarSectionHeader(title: s.tr('All foods', 'كل الأطعمة')),
         ],

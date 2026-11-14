@@ -67,6 +67,11 @@ void main() {
     ));
     expect((await database.loadMeals()).single.servedNutrients.freeSugar, 0.5);
 
+    // Version 9: favourites are kept.
+    expect((await database.loadMeals()).single.favourite, isFalse);
+    await database.updateMeal((await database.loadMeals()).single.copyWith(favourite: true));
+    expect((await database.loadMeals()).single.favourite, isTrue);
+
     const profile = BodyProfile(
       sex: BodySex.female, birthYear: 1995, heightCm: 165, weightKg: 62,
       activity: ActivityLevel.light, goal: WeightGoal.maintain,

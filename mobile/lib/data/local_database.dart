@@ -160,7 +160,7 @@ class LocalDatabase {
       final root = await getDatabasesPath();
       _database = await openDatabase(
         p.join(root, 'miqdar_mobile.db'),
-        version: 8,
+        version: 9,
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE goals(
@@ -190,6 +190,7 @@ class LocalDatabase {
           await _createBodyWeightsTable(db);
           await _addLeftoverColumns(db);
           await _addFreeSugarColumn(db);
+          await _addFavouriteColumn(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) await _createHealthProfileTable(db);
@@ -199,6 +200,7 @@ class LocalDatabase {
           if (oldVersion < 6) await _createBodyWeightsTable(db);
           if (oldVersion < 7) await _addLeftoverColumns(db);
           if (oldVersion < 8) await _addFreeSugarColumn(db);
+          if (oldVersion < 9) await _addFavouriteColumn(db);
         },
       );
       await _seedGoals();
@@ -311,7 +313,12 @@ class LocalDatabase {
     await db.execute('ALTER TABLE meals ADD COLUMN leftover_at TEXT');
   }
 
-  static Map<String, Object?> _leftoverColumns(MealEntry meal) => {
+  /// Favourites (database v9).
+  static Future<void> _addFavouriteColumn(Database db) =>
+      db.execute('ALTER TABLE meals ADD COLUMN is_favourite INTEGER NOT NULL DEFAULT 0');
+
+  static Map<String, Object?> _mealStateColumns(MealEntry meal) => {
+        'is_favourite': meal.favourite ? 1 : 0,
         'leftover_g': meal.leftover?.grams,
         'leftover_item': meal.leftover?.itemIndex,
         'leftover_at': meal.leftover?.weighedAt.toUtc().toIso8601String(),
@@ -480,6 +487,7 @@ class LocalDatabase {
       nutrients: nutrients,
       notes: row['notes'] as String? ?? '',
       portionSource: PortionSource.values.asNameMap()[row['portion_source']] ?? PortionSource.scale,
+      favourite: row['is_favourite'] == 1,
       leftover: row['leftover_g'] is num && row['leftover_at'] is String
           ? MealLeftover(
               grams: (row['leftover_g'] as num).toDouble(),
@@ -568,7 +576,7 @@ class LocalDatabase {
         'confidence': meal.confidence,
         'notes': meal.notes,
         'portion_source': meal.portionSource.name,
-        ..._leftoverColumns(meal),
+        ..._mealStateColumns(meal),
         ...meal.servedNutrients.toDatabase(),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -599,7 +607,7 @@ class LocalDatabase {
         'weight_g': meal.weightG,
         'notes': meal.notes,
         'portion_source': meal.portionSource.name,
-        ..._leftoverColumns(meal),
+        ..._mealStateColumns(meal),
         ...meal.servedNutrients.toDatabase(),
       },
       where: 'id = ?',

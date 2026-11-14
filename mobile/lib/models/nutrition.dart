@@ -673,7 +673,11 @@ class MealEntry {
     this.basisPer100g,
     this.items = const [],
     this.leftover,
+    this.favourite = false,
   }) : servedNutrients = nutrients;
+
+  /// Starred on Meal Detail; listed at the top of Search to log again in one tap.
+  final bool favourite;
 
   final String id;
   final String foodId;
@@ -721,6 +725,7 @@ class MealEntry {
     List<MealItemEntry>? items,
     MealLeftover? leftover,
     bool clearLeftover = false,
+    bool? favourite,
   }) =>
       MealEntry(
         id: id,
@@ -739,6 +744,7 @@ class MealEntry {
         basisPer100g: basisPer100g ?? this.basisPer100g,
         items: items ?? this.items,
         leftover: clearLeftover ? null : (leftover ?? this.leftover),
+        favourite: favourite ?? this.favourite,
       );
 
   /// Recalculates nutrients from the immutable source basis for [newWeightG].
