@@ -59,6 +59,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Agent skills setup:** done. See Agent skills below.
 - **Logo, splash and Welcome (2026-11-07):** the app has Abdullah's logo, drawn from vectors, an animated splash on black, and a new Welcome with a food photo wall and Sign Up and Log In placeholders. Seen on simulators; not yet on a real iPhone or Android.
 - **Motion (2026-11-08):** screens, tabs, Add Meal and meal photos move as `docs/DESIGN.md`, Motion, describes. Seen on a throwaway simulator, filmed, in English light and Arabic dark; not yet on a real iPhone.
+- **Next features (2026-11-14):** spec in issue #32, eight features in order; ask Abdullah before each one whether there is time. Not built.
 - **Red health warnings (2026-11-14):** built, tickets #27 to #31, database v8. Seen in an end-to-end test on a throwaway simulator; not yet on a real iPhone or the physical touchscreen (the Pi needs `git pull` and a restart).
 - **Spec #14 built (2026-11-07):** Weigh What's Left, diabetes mode, the doctor's PDF report and Ramadan mode, tickets #15 to #25. Database v7. Not yet tried on the real scale or a real iPhone.
 
@@ -200,6 +201,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the root, created only when
 - 2026-11-07: he gave the logo and liked the animated splash. He then asked for no Arabic name on the splash, the logo dead center, and after it a Welcome like a reference he sent (photo wall, logo, headline, Get Started, Sign Up, Log In), "as a reference, not a copy". He wants Sign Up and Log In as buttons only for now: he will build the accounts and backend himself later.
 - 2026-11-08: he asked for the movement between screens to be made beautiful, then added that it must help use the app and not show off or look salesy. Motion stays short, answers a tap, and shows where something came from.
 - 2026-11-14: his instructor asked for red warnings for people with diabetes. Through `/grill-me` he chose: free sugar (WHO definition) instead of total sugar; a limit of 10% of daily calories, 5% with diabetes; no sodium; red only for limits harmful to pass (free sugar, calories unless gaining, and carbs in diabetes mode); warn people without diabetes only past 40%; a red card before Save plus one vibration, and the bell after saving, never a pop-up; the scale's touchscreen shows it too; users choose Miqdar's number with a no-medical-responsibility notice, or their own. Spec in issue #26.
+- 2026-11-14: after the competitor research, through `/grill-me` he chose: favourites and copying a meal or day; a piece/cup count Gemini fills and the user corrects (dates and coffee are logged on the scale, no one-tap buttons); water tracking; blood sugar typed in mg/dL beside meals in diabetes mode, a plain log; barcode from the phone and automatically from the scale photo, with Gemini label reading as fallback (a second number source besides Gemini, by his choice); a weekly summary; an adaptive calorie goal offered as a suggestion; Apple Health sync. He declined a medical notice and photo consent screen, "how was it cooked" choices, shared-platter weighing, SFDA tables in the app, and the LED. He decides before each feature whether there is time. Spec in issue #32.
 - 2026-11-05: on the scale, a single food goes from Capture straight to one Analyzing screen with Cancel, then to a result with Save. No "Photo sent" screen and no Capture on the result. Add Next Food is a separate flow and keeps its own screens.
 
 ## Open decisions
@@ -224,7 +226,7 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 - Decided: Abdullah asked for long research on Fitbit, Cronometer and other popular trackers, the features Miqdar misses, then `/grill-me` before any spec. He also reported that button text sometimes flickers from white to black for about a second; a test showed the app's theme rebuild does not change button text colour, so the cause is still unknown and the investigation paused for the research.
 - Changed: `docs/research/reports/Calorie app feature gaps.md` with its five research notes in `docs/research/research_notes/Calorie app feature gaps/`, listed in `docs/README.md`. No code changed.
 - Tested: nothing to run. Notes cite sources; several vendor pages could not be opened, and the effort estimates are guesses.
-- Next: grill Abdullah on the ranked list, then a spec. Resume the button flicker hunt.
+- Next: done: spec in issue #32 (see Decisions). Resume the button flicker hunt.
 
 ### 2026-11-14: Red health warnings built (tickets #27 to #31; commits eaa3cdc, 17d3f2c, 7f6b18e, f566baa, fcfab97)
 - Decided: Abdullah said he trusts agents to decide and asked for it to be built; tickets were published and built without a review round.
