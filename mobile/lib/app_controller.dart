@@ -13,6 +13,7 @@ import 'data/local_database.dart';
 import 'l10n/strings.dart';
 import 'models/body_profile.dart';
 import 'models/diabetes.dart';
+import 'models/water.dart';
 import 'models/doctor_report.dart';
 import 'models/nutrition.dart';
 import 'models/ramadan.dart';
@@ -216,6 +217,8 @@ class MiqdarController extends ChangeNotifier {
     bodyProfileSkipped = false;
     bodyProfileIsFirstRun = false;
     weightEntries = [];
+    waterEntries = [];
+    waterGoalSetMl = null;
     goalBasisWeightKg = null;
     if (reminderSettings.enabled) {
       reminderSettings = const ReminderSettings();
@@ -256,6 +259,8 @@ class MiqdarController extends ChangeNotifier {
     bodyProfileIsFirstRun = await localDatabase.getSetting('body_profile_first_run') == '1';
     bodyProfile = await localDatabase.loadBodyProfile();
     weightEntries = await localDatabase.loadBodyWeights();
+    waterEntries = await localDatabase.loadWater();
+    waterGoalSetMl = double.tryParse(await localDatabase.getSetting('water_goal_ml') ?? '');
     goalBasisWeightKg = double.tryParse(await localDatabase.getSetting('goal_weight_kg') ?? '');
     reminderSettings = ReminderSettings.decode(await localDatabase.getSetting('reminders'));
     diabetes = _decodeDiabetes(await localDatabase.getSetting('diabetes'));
@@ -1807,6 +1812,38 @@ class MiqdarController extends ChangeNotifier {
     final applied = await _applyResult(current.withPieceCount(count));
     notifyListeners();
     return applied;
+  }
+
+  // Water
+  List<WaterEntry> waterEntries = [];
+
+  /// A goal the user typed, which wins over the one from body weight.
+  double? waterGoalSetMl;
+
+  double get waterGoalMl => waterGoalSetMl ?? waterGoalFromWeight(bodyProfile?.weightKg);
+
+  Future<void> setWaterGoal(double ml) async {
+    waterGoalSetMl = ml;
+    notifyListeners();
+    if (!account.isDemo) await localDatabase.saveSetting('water_goal_ml', ml.toString());
+  }
+
+  /// Water on the diary day [day]; in Ramadan mode the day runs noon to noon, so iftar to suhoor counts together.
+  double waterForDate(DateTime day) =>
+      waterEntries.where((e) => diaryDayOf(e.at) == day).fold(0.0, (sum, e) => sum + e.ml);
+
+  Future<WaterEntry> addWater(double ml, {DateTime? at}) async {
+    final entry = WaterEntry(id: 'water-${DateTime.now().microsecondsSinceEpoch}', ml: ml, at: at ?? DateTime.now());
+    waterEntries = [...waterEntries, entry];
+    notifyListeners();
+    if (!account.isDemo) await localDatabase.saveWater(entry);
+    return entry;
+  }
+
+  Future<void> deleteWater(String id) async {
+    waterEntries = waterEntries.where((e) => e.id != id).toList();
+    notifyListeners();
+    if (!account.isDemo) await localDatabase.deleteWater(id);
   }
 
   /// Copies every meal of the diary day [day] to today, keeping each meal's time of day (and the

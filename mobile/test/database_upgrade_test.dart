@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:miqdar_mobile/data/local_database.dart';
 import 'package:miqdar_mobile/models/body_profile.dart';
 import 'package:miqdar_mobile/models/nutrition.dart';
+import 'package:miqdar_mobile/models/water.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -76,6 +77,10 @@ void main() {
     expect((await database.loadMeals()).single.pieceCount, isNull);
     await database.updateMeal((await database.loadMeals()).single.copyWith(pieceCount: 4));
     expect((await database.loadMeals()).single.pieceCount, 4);
+
+    // Version 11: water is kept.
+    await database.saveWater(WaterEntry(id: 'w1', ml: 250, at: DateTime.now()));
+    expect((await database.loadWater()).single.ml, 250);
 
     const profile = BodyProfile(
       sex: BodySex.female, birthYear: 1995, heightCm: 165, weightKg: 62,

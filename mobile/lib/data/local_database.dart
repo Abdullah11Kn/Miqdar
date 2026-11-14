@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../models/body_profile.dart';
 import '../models/nutrition.dart';
+import '../models/water.dart';
 
 class LocalDatabase {
   Database? _database;
@@ -160,7 +161,7 @@ class LocalDatabase {
       final root = await getDatabasesPath();
       _database = await openDatabase(
         p.join(root, 'miqdar_mobile.db'),
-        version: 10,
+        version: 11,
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE goals(
@@ -192,6 +193,7 @@ class LocalDatabase {
           await _addFreeSugarColumn(db);
           await _addFavouriteColumn(db);
           await _addPieceCountColumns(db);
+          await _createWaterTable(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) await _createHealthProfileTable(db);
@@ -203,6 +205,7 @@ class LocalDatabase {
           if (oldVersion < 8) await _addFreeSugarColumn(db);
           if (oldVersion < 9) await _addFavouriteColumn(db);
           if (oldVersion < 10) await _addPieceCountColumns(db);
+          if (oldVersion < 11) await _createWaterTable(db);
         },
       );
       await _seedGoals();
@@ -318,6 +321,10 @@ class LocalDatabase {
   /// Favourites (database v9).
   static Future<void> _addFavouriteColumn(Database db) =>
       db.execute('ALTER TABLE meals ADD COLUMN is_favourite INTEGER NOT NULL DEFAULT 0');
+
+  /// Water drunk (database v11).
+  static Future<void> _createWaterTable(Database db) => db.execute(
+      'CREATE TABLE IF NOT EXISTS water_entries(id TEXT PRIMARY KEY, ml REAL NOT NULL, at TEXT NOT NULL)');
 
   /// Pieces or cups (database v10).
   static Future<void> _addPieceCountColumns(Database db) async {
@@ -749,6 +756,7 @@ class LocalDatabase {
     _memSettings.clear();
     _memBodyProfile = null;
     _memWeights.clear();
+    _memWater.clear();
     if (_useInMemory) return;
     await db.delete('meals');
     await db.delete('alerts');
@@ -757,6 +765,7 @@ class LocalDatabase {
     await db.delete('body_profile');
     await db.delete('meal_items');
     await db.delete('body_weights');
+    await db.delete('water_entries');
     await db.execute('DROP TABLE IF EXISTS settings');
     await _seedGoals();
     await _seedHealthProfile();
@@ -787,6 +796,32 @@ class LocalDatabase {
     final database = _database;
     if (database == null || _useInMemory) return;
     await database.delete('body_weights', where: 'id = ?', whereArgs: [id]);
+  }
+
+  final Map<String, WaterEntry> _memWater = {};
+
+  Future<void> saveWater(WaterEntry entry) async {
+    _memWater[entry.id] = entry;
+    final database = _database;
+    if (database == null || _useInMemory) return;
+    await database.insert('water_entries', entry.toRow(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> deleteWater(String id) async {
+    _memWater.remove(id);
+    final database = _database;
+    if (database == null || _useInMemory) return;
+    await database.delete('water_entries', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Oldest first.
+  Future<List<WaterEntry>> loadWater() async {
+    final database = _database;
+    if (database == null || _useInMemory) {
+      return _memWater.values.toList()..sort((a, b) => a.at.compareTo(b.at));
+    }
+    final rows = await database.query('water_entries', orderBy: 'at');
+    return rows.map(WaterEntry.fromRow).toList();
   }
 
   /// Oldest first.

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../app_controller.dart';
 import '../data/food_catalog.dart';
 import '../l10n/strings.dart';
 import '../models/diabetes.dart';
@@ -264,6 +265,8 @@ class HomeScreen extends StatelessWidget {
                 limits: controller.alertContextFor(null),
               ),
             ],
+            const SizedBox(height: 16),
+            _WaterCard(day: controller.selectedDate),
 
             const SizedBox(height: 40),
 
@@ -966,5 +969,127 @@ class MealRowCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+
+/// Water for the day shown, with one-tap cups. Only today can be added to.
+class _WaterCard extends StatelessWidget {
+  const _WaterCard({required this.day});
+
+  final DateTime day;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = MiqdarScope.of(context);
+    final s = S.of(context);
+    final c = context.mq;
+    final drunk = controller.waterForDate(day);
+    final goal = controller.waterGoalMl;
+    final canAdd = controller.isToday(day);
+    final scaleGrams = controller.scaleDevice.online ? controller.scaleDevice.liveWeightG : 0.0;
+
+    Future<void> add(double ml) async {
+      final entry = await controller.addWater(ml);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(s.tr('${ml.toStringAsFixed(0)} ml of water added', 'أُضيف ${ml.toStringAsFixed(0)} مل من الماء')),
+        action: SnackBarAction(label: s.tr('Undo', 'تراجع'), onPressed: () => controller.deleteWater(entry.id)),
+      ));
+    }
+
+    return SurfaceCard(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(MiqdarIcons.waterDrop, fill: 1, size: 20, color: c.info),
+              const SizedBox(width: 8),
+              Text(s.tr('Water', 'الماء'), style: MiqdarType.titleCard.copyWith(color: c.ink)),
+              const Spacer(),
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => _editGoal(context, controller),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Text(
+                    '${drunk.toStringAsFixed(0)} / ${goal.toStringAsFixed(0)} ${s.tr('ml', 'مل')}',
+                    style: MiqdarType.label.copyWith(color: c.inkMuted),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: goal > 0 ? (drunk / goal).clamp(0.0, 1.0) : 0,
+              minHeight: 6,
+              backgroundColor: c.surfaceSunken,
+              color: c.info,
+            ),
+          ),
+          if (canAdd) ...[
+            const SizedBox(height: 8),
+            Wrap(spacing: 4, runSpacing: 4, children: [
+              TextButton.icon(
+                onPressed: () => add(250),
+                icon: const Icon(MiqdarIcons.add),
+                label: Text(s.tr('1 cup (250 ml)', 'كوب (250 مل)')),
+              ),
+              TextButton(
+                onPressed: () => _addCustom(context, add),
+                child: Text(s.tr('Other amount', 'كمية أخرى')),
+              ),
+              if (scaleGrams >= 20)
+                TextButton.icon(
+                  onPressed: () => add(scaleGrams.roundToDouble()),
+                  icon: const Icon(MiqdarIcons.scale),
+                  label: Text(s.tr('${scaleGrams.toStringAsFixed(0)} ml from the scale', '${scaleGrams.toStringAsFixed(0)} مل من الميزان')),
+                ),
+            ]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static Future<double?> _askMl(BuildContext context, String title, {double? initial}) async {
+    final s = S.of(context);
+    final field = TextEditingController(text: initial?.toStringAsFixed(0) ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: field,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(suffixText: s.tr('ml', 'مل')),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(s.tr('Cancel', 'إلغاء'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(s.tr('Save', 'حفظ'))),
+        ],
+      ),
+    );
+    if (ok != true) return null;
+    final ml = double.tryParse(normalizeDigits(field.text).trim());
+    return ml == null || ml <= 0 || ml > 10000 ? null : ml;
+  }
+
+  static Future<void> _addCustom(BuildContext context, Future<void> Function(double) add) async {
+    final s = S.of(context);
+    final ml = await _askMl(context, s.tr('How much water?', 'كم من الماء؟'));
+    if (ml != null) await add(ml);
+  }
+
+  static Future<void> _editGoal(BuildContext context, MiqdarController controller) async {
+    final s = S.of(context);
+    final ml = await _askMl(context, s.tr('Daily water goal', 'هدف الماء اليومي'), initial: controller.waterGoalMl);
+    if (ml != null) await controller.setWaterGoal(ml);
   }
 }
