@@ -14,6 +14,7 @@ import '../services/alert_service.dart';
 import '../theme.dart';
 import 'screens.dart';
 import 'widgets/charts_and_gauges.dart';
+import 'widgets/typing_line.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -76,8 +77,8 @@ class HomeScreen extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    _greeting(s).replaceAll(RegExp(r'[,،]\s*$'), ''),
+                  child: TypingLine(
+                    lines: [_greeting(s).replaceAll(RegExp(r'[,،]\s*$'), ''), ...s.healthLines],
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ),
