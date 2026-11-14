@@ -11,6 +11,37 @@ import '../models/glucose.dart';
 import '../models/water.dart';
 
 class LocalDatabase {
+  /// [fileName] picks the database file. The diary is `miqdar_mobile.db`; each showcase scenario
+  /// has its own file and photo folder, so nothing in a scenario can reach the real diary.
+  LocalDatabase({this.fileName = mainFileName});
+
+  static const mainFileName = 'miqdar_mobile.db';
+  final String fileName;
+
+  String get _photoFolder =>
+      fileName == mainFileName ? 'meal_photos' : 'meal_photos_${p.basenameWithoutExtension(fileName)}';
+
+  /// Closes the file, so a scenario's database can be deleted and seeded again.
+  Future<void> close() async {
+    await _database?.close();
+    _database = null;
+  }
+
+  /// Deletes a showcase database file and its photos. Refuses the diary's own file.
+  static Future<void> deleteFiles(String fileName) async {
+    if (fileName == mainFileName || kIsWeb) return;
+    final root = await getDatabasesPath();
+    await deleteDatabase(p.join(root, fileName));
+    final photos = Directory(p.join(root, 'meal_photos_${p.basenameWithoutExtension(fileName)}'));
+    if (await photos.exists()) await photos.delete(recursive: true);
+  }
+
+  /// Whether a showcase database file is already on the phone.
+  static Future<bool> filesExist(String fileName) async {
+    if (kIsWeb) return false;
+    return File(p.join(await getDatabasesPath(), fileName)).exists();
+  }
+
   Database? _database;
   bool _useInMemory = false;
 
@@ -161,7 +192,7 @@ class LocalDatabase {
     try {
       final root = await getDatabasesPath();
       _database = await openDatabase(
-        p.join(root, 'miqdar_mobile.db'),
+        p.join(root, fileName),
         version: 12,
         onCreate: (db, _) async {
           await db.execute('''
@@ -739,7 +770,7 @@ class LocalDatabase {
 
   /// Meal photos live as files named after the meal, so the database stays small.
   Future<File> _photoFile(String mealId) async =>
-      File(p.join(await getDatabasesPath(), 'meal_photos', '$mealId.jpg'));
+      File(p.join(await getDatabasesPath(), _photoFolder, '$mealId.jpg'));
 
   Future<void> saveMealPhoto(String mealId, Uint8List bytes) async {
     if (_useInMemory) {
@@ -792,7 +823,7 @@ class LocalDatabase {
     await db.execute('DROP TABLE IF EXISTS settings');
     await _seedGoals();
     await _seedHealthProfile();
-    final photos = Directory(p.join(await getDatabasesPath(), 'meal_photos'));
+    final photos = Directory(p.join(await getDatabasesPath(), _photoFolder));
     if (await photos.exists()) await photos.delete(recursive: true);
   }
 

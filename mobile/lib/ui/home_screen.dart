@@ -15,6 +15,7 @@ import '../theme.dart';
 import 'screens.dart';
 import 'widgets/charts_and_gauges.dart';
 import 'widgets/typing_line.dart';
+import 'showcase_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -72,6 +73,8 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
+
+            const ShowcaseBanner(),
 
             // Greeting and the bell
             Row(

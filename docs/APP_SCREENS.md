@@ -88,7 +88,13 @@ Main app: floating tab capsule with 4 tabs, and a separate Add Meal circle
 │    └─ Capture → Analyzing → Review Meal, or Failure sheet
 ├─ Diary → Meal Detail → Edit sheet, Log Again, Delete
 ├─ Insights → Export sheet, Nutrient sheet
-└─ Profile → Name sheet, Body Profile, Daily Goals, Food Preferences, Scale, Privacy & Data
+└─ Profile → Showcase Scenarios, Name sheet, Body Profile, Daily Goals, Food Preferences, Scale, Privacy & Data
+
+**Showcase Scenarios** (Profile, "Presenting Miqdar"): four cards, First Launch, Every Day with Miqdar (Khalid),
+Diabetes Mode (Noura) and Ramadan Mode (Faisal), each with a numbered list of what to show and **Start from the
+Splash**. Starting one restarts the app from the splash on its own sample database; Home then shows a slim
+"<scenario> · sample data" line with **What to Show** (the same list in a sheet). **Back to My Diary** returns to
+the real diary, untouched. Apple Health is hidden and reminders are not scheduled inside a scenario.
 ```
 
 **Floating bars, at the bottom of every tab, over content that fades out beneath them:**

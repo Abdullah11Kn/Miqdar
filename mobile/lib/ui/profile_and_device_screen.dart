@@ -9,6 +9,7 @@ import '../theme.dart';
 import 'screens.dart';
 import 'diabetes_widgets.dart';
 import 'widgets/charts_and_gauges.dart';
+import 'showcase_screen.dart';
 
 /// Server text may be English only, so Arabic screens show it only when it is translated.
 bool hasArabicText(String text) => RegExp(r'[؀-ۿ]').hasMatch(text);
@@ -57,7 +58,7 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      account.isDemo
+                      account.isDemo || controller.inShowcase
                           ? s.tr('Demo with sample data', 'عرض تجريبي ببيانات نموذجية')
                           : s.tr('Your diary stays on this phone', 'سجلك محفوظ على هذا الهاتف'),
                       style: MiqdarType.body.copyWith(fontSize: 14, color: context.mq.inkMuted),
@@ -74,6 +75,24 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
         ),
+
+        if (!account.isDemo)
+          MiqdarListGroup(
+            title: s.tr('Presenting Miqdar', 'عرض مقدار'),
+            children: [
+              MiqdarSettingsRow(
+                icon: MiqdarIcons.science,
+                title: s.tr('Showcase Scenarios', 'سيناريوهات العرض'),
+                subtitle: controller.inShowcase
+                    ? s.tr('Now: ${ShowcaseGuide.of(controller.showcase!, s).title}',
+                        'الآن: ${ShowcaseGuide.of(controller.showcase!, s).title}')
+                    : s.tr('First launch, every day, diabetes, Ramadan', 'أول تشغيل، يوم عادي، السكري، رمضان'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ShowcaseScreen()),
+                ),
+              ),
+            ],
+          ),
 
         MiqdarListGroup(
           title: s.tr('Appearance', 'المظهر'),
@@ -152,7 +171,7 @@ class ProfileScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const RemindersScreen()),
                 ),
               ),
-            if (!controller.account.isDemo)
+            if (!controller.account.isDemo && !controller.inShowcase)
               MiqdarSettingsRow(
                 icon: MiqdarIcons.favorite,
                 title: Theme.of(context).platform == TargetPlatform.android

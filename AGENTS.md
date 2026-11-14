@@ -59,6 +59,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Agent skills setup:** done. See Agent skills below.
 - **Logo, splash and Welcome (2026-11-07):** the app has Abdullah's logo, drawn from vectors, an animated splash on black, and a new Welcome with a food photo wall and Sign Up and Log In placeholders. Seen on simulators; not yet on a real iPhone or Android.
 - **Motion (2026-11-08):** screens, tabs, Add Meal and meal photos move as `docs/DESIGN.md`, Motion, describes. Seen on a throwaway simulator, filmed, in English light and Arabic dark; not yet on a real iPhone.
+- **Showcase Scenarios (2026-11-14):** Profile → Showcase Scenarios restarts the app from the splash in First Launch, Every Day (Khalid), Diabetes (Noura) or Ramadan (Faisal), each on its own sample database, with an in-app list of what to show. Built for Abdullah's meeting with his instructor. Seen on a throwaway simulator; not on his own simulator's real data or a real iPhone.
 - **Features from spec #32 (2026-11-14):** all twelve tickets #33 to #44 built (Abdullah said "implement all"): favourites, copy a day, piece counts, water, blood sugar, barcode (phone, scale photo, label mode), weekly summary, adaptive goal, Apple Health. Database v12. Not tried on a real iPhone or the real scale.
 - **Red health warnings (2026-11-14):** built, tickets #27 to #31, database v8. Seen in an end-to-end test on a throwaway simulator; not yet on a real iPhone or the physical touchscreen (the Pi needs `git pull` and a restart).
 - **Spec #14 built (2026-11-07):** Weigh What's Left, diabetes mode, the doctor's PDF report and Ramadan mode, tickets #15 to #25. Database v7. Not yet tried on the real scale or a real iPhone.
@@ -96,6 +97,7 @@ mobile/lib/
   miqdar_icons.dart       Icons from mobile/assets/fonts, generated; see the README there
 mobile/assets/branding/logo/  The logo's source files and build_logo.py, which traces them into lib/ui/widgets/miqdar_logo_paths.dart
 mobile/assets/fonts/thmanyah/  The text fonts. Not in git, by licence; install_thmanyah.sh beside it puts them there; install_thmanyah_pi.sh copies them to the Pi for its touchscreen
+  showcase/               Showcase Scenarios: the sample data (showcase.dart) and the app host that restarts into one (showcase_host.dart)
   l10n/strings.dart       English and Arabic text, s.tr(en, ar), s.date(...)
   ui/                     Screens; ui/widgets/charts_and_gauges.dart for shared widgets
 mobile/test/              Unit tests
@@ -147,7 +149,8 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
   accounts are not ready until they work. No fake numbers
   (there is no battery sensor, so never show a battery level).
 - The default diary holds only real meals. Sample meals exist only in the demo (`account.isDemo`), which must never
-  write to the database.
+  write to the database, and in Showcase Scenarios, which each write to their own database file
+  (`miqdar_showcase_<name>.db`), never the diary's `miqdar_mobile.db`, and say "sample data" on Home.
 - Gemini values are estimates and must be labelled as such, never "verified".
 - Privacy & Data states that food photos go to Google and that the free plan may use them. Keep this true.
 - Do not present the 400-sample evaluation as real results.
@@ -204,6 +207,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the root, created only when
 - 2026-11-08: he asked for the movement between screens to be made beautiful, then added that it must help use the app and not show off or look salesy. Motion stays short, answers a tap, and shows where something came from.
 - 2026-11-14: his instructor asked for red warnings for people with diabetes. Through `/grill-me` he chose: free sugar (WHO definition) instead of total sugar; a limit of 10% of daily calories, 5% with diabetes; no sodium; red only for limits harmful to pass (free sugar, calories unless gaining, and carbs in diabetes mode); warn people without diabetes only past 40%; a red card before Save plus one vibration, and the bell after saving, never a pop-up; the scale's touchscreen shows it too; users choose Miqdar's number with a no-medical-responsibility notice, or their own. Spec in issue #26.
 - 2026-11-14: after the competitor research, through `/grill-me` he chose: favourites and copying a meal or day; a piece/cup count Gemini fills and the user corrects (dates and coffee are logged on the scale, no one-tap buttons); water tracking; blood sugar typed in mg/dL beside meals in diabetes mode, a plain log; barcode from the phone and automatically from the scale photo, with Gemini label reading as fallback (a second number source besides Gemini, by his choice); a weekly summary; an adaptive calorie goal offered as a suggestion; Apple Health sync. He declined a medical notice and photo consent screen, "how was it cooked" choices, shared-platter weighing, SFDA tables in the app, and the LED. He decides before each feature whether there is time. Spec in issue #32.
+- 2026-11-14: for his instructor meeting he asked for ready-made flows in Profile or Settings, instead of new accounts or logging data live: one from the splash and login, one for people with diabetes, one for everything built. Agents chose the four scenarios and their data.
 - 2026-11-05: on the scale, a single food goes from Capture straight to one Analyzing screen with Cancel, then to a result with Save. No "Photo sent" screen and no Capture on the result. Add Next Food is a separate flow and keeps its own screens.
 
 ## Open decisions
@@ -223,6 +227,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-14: Showcase Scenarios for presenting the app
+- Decided: Abdullah meets his instructor tomorrow and asked for flows to show "everything we have implemented" without making accounts or logging data during the meeting: one from the splash, one for diabetes, one for everything. He also asked, mid-task, for the Home typing line to be عِش بصحة only (done, commit a84d10c).
+- Changed: Profile has "Presenting Miqdar → Showcase Scenarios" with four cards, each with a numbered "what to show" list. Starting one deletes and reseeds that scenario's own database (`LocalDatabase(fileName:)`, `miqdar_showcase_<name>.db` and its own photo folder), then rebuilds the whole app from the splash (`MiqdarRoot` in `lib/showcase/showcase_host.dart`, used by `main.dart`). Language, theme and scale address carry over, and the last scale capture is marked seen so it does not reopen. The open scenario is remembered in the diary's `showcase_active` setting and reopens after a relaunch. Scenarios: First Launch (empty, not onboarded); Every Day, Khalid, 21 days of Saudi meals with photos, a mixed plate, leftovers, counted dates, laban by barcode, favourites, water and weigh-ins that bring up the adaptive goal card; Diabetes, Noura, type 2 with Miqdar's 45/15 g carb numbers and 5% sugar limit, 14 days of blood sugar beside meals and yesterday's kunafa warning unread in the bell; Ramadan, Faisal, 11 days of iftar and suhoor. Seeded meals look like scale meals named by Gemini (`ai-` ids), as sample data. Home shows "<scenario> · sample data" with What to Show and the guide sheet. Inside a scenario Apple Health is hidden and refused, and reminders are never scheduled.
+- Tested: `flutter analyze`; 267 unit tests, seven new in `showcase_test.dart` (on real files through sqflite ffi: the diary keeps exactly its own meal through a scenario and back; each scenario's contents; restarting wipes it; relaunch reopens it). A temporary tour on the throwaway simulator, deleted afterwards: the picker, Home in Every Day, Diabetes (carbs first, bell with 2), the guide sheet, Ramadan, First Launch on Welcome, and Back to My Diary, all in English light.
+- Not tested / risks: not run on his iPhone 16 Pro simulator with his real diary, not in Arabic or dark, not on a real iPhone, not with the real scale connected inside a scenario. The "Start" button on the picker was not tapped by the tour (it called the same function directly). Today's sample meals depend on the time of day; early in the morning today is nearly empty. Switching closes the scenario database while the old screens are still drawn for a moment; nothing showed an error in the tour.
+- Next: Abdullah rehearses each scenario before the meeting. Leave the app in his own diary afterwards with Back to My Diary.
 
 ### 2026-11-14: Home's greeting types itself, then a health line
 - Decided: Abdullah asked for a typing effect on Home's greeting: صباح الخير, then something about health, wording left to the agent.

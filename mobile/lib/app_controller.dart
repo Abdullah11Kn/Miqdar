@@ -27,6 +27,7 @@ import 'services/open_food_facts.dart';
 import 'services/api_service.dart';
 import 'services/gemini_service.dart';
 import 'services/reminder_service.dart';
+import 'showcase/showcase.dart';
 
 /// A capture the scale could not finish, with the photo when one was taken.
 class ScaleCaptureFailure {
@@ -122,6 +123,27 @@ class MiqdarController extends ChangeNotifier {
     forceMobileFrameOnDesktop = !forceMobileFrameOnDesktop;
     notifyListeners();
   }
+
+  // Showcase scenarios
+  /// The scenario this app was started in, or null for the real diary. A scenario keeps its own
+  /// database file; the app host (main.dart) sets this and [switchShowcase].
+  Showcase? showcase;
+
+  /// Starts the app again from the splash in [Showcase], or in the real diary for null.
+  Future<void> Function(Showcase? showcase)? switchShowcase;
+
+  bool get inShowcase => showcase != null;
+
+  /// What a new scenario keeps from this app: language, look and the scale.
+  ShowcaseCarryOver get showcaseCarryOver => ShowcaseCarryOver(
+        locale: locale.languageCode,
+        dark: isDark,
+        apiBaseUrl: apiService.baseUrl,
+        lastCaptureEvent: _lastSeenCaptureEventId,
+      );
+
+  /// Stops polling the scale before this app's database is closed for another.
+  void suspend() => _liveScaleTimer?.cancel();
 
   // Account & Session
   UserAccount account = const UserAccount();
@@ -1098,7 +1120,13 @@ class MiqdarController extends ChangeNotifier {
     return allowed;
   }
 
-  Future<void> _applyReminders() => reminderScheduler.replaceAll([
+  /// Scenarios never schedule reminders: those belong to the real diary.
+  Future<void> _applyReminders() async {
+    if (inShowcase) return;
+    await _scheduleReminders();
+  }
+
+  Future<void> _scheduleReminders() => reminderScheduler.replaceAll([
         // Timed reminders pause in Ramadan and come back unchanged after it.
         if (reminderSettings.enabled && !ramadanMode)
           for (var i = 0; i < reminderSettings.meals.length; i++)
@@ -1989,10 +2017,11 @@ class MiqdarController extends ChangeNotifier {
 
   // Apple Health
   bool healthSyncOn = false;
-  bool get _syncing => healthSyncOn && !account.isDemo;
+  bool get _syncing => healthSyncOn && !account.isDemo && !inShowcase;
 
   /// Turning on asks permission first; returns whether sync is on afterwards.
   Future<bool> setHealthSync(bool on) async {
+    if (inShowcase) return false; // Sample meals must never reach Apple Health.
     if (on && !await healthSync.requestPermission()) return false;
     healthSyncOn = on;
     notifyListeners();
