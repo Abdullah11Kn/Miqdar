@@ -1347,3 +1347,46 @@ class NutrientNoticeCard extends StatelessWidget {
     );
   }
 }
+
+
+/// How many pieces or cups, with − and +. Changing it scales the meal from the weight per piece.
+class PieceCounter extends StatelessWidget {
+  const PieceCounter({super.key, required this.count, required this.unit, required this.onChanged});
+
+  final int count;
+  final PieceUnit unit;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final c = context.mq;
+    return SurfaceCard(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(s.tr('How many?', 'كم العدد؟'), style: MiqdarType.label.copyWith(color: c.inkMuted)),
+                Text('$count ${unit.label(s.isAr, count)}', style: MiqdarType.bodyStrong.copyWith(color: c.ink)),
+              ],
+            ),
+          ),
+          IconButton.filledTonal(
+            tooltip: s.tr('One less', 'واحد أقل'),
+            onPressed: count > 1 ? () => onChanged(count - 1) : null,
+            icon: const Icon(MiqdarIcons.remove),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filledTonal(
+            tooltip: s.tr('One more', 'واحد أكثر'),
+            onPressed: count < 99 ? () => onChanged(count + 1) : null,
+            icon: const Icon(MiqdarIcons.add),
+          ),
+        ],
+      ),
+    );
+  }
+}

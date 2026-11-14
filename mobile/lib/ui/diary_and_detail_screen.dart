@@ -391,6 +391,14 @@ class MealDetailScreen extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 18),
+                if (currentMeal.pieceCount != null) ...[
+                  PieceCounter(
+                    count: currentMeal.pieceCount!,
+                    unit: currentMeal.pieceUnit,
+                    onChanged: (count) => controller.setMealPieceCount(currentMeal, count),
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 NutrientGrid2x4(
                   values: currentMeal.nutrients,
                   goals: controller.goals,

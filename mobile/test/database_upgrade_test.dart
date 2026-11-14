@@ -72,6 +72,11 @@ void main() {
     await database.updateMeal((await database.loadMeals()).single.copyWith(favourite: true));
     expect((await database.loadMeals()).single.favourite, isTrue);
 
+    // Version 10: a count of pieces or cups is kept.
+    expect((await database.loadMeals()).single.pieceCount, isNull);
+    await database.updateMeal((await database.loadMeals()).single.copyWith(pieceCount: 4));
+    expect((await database.loadMeals()).single.pieceCount, 4);
+
     const profile = BodyProfile(
       sex: BodySex.female, birthYear: 1995, heightCm: 165, weightKg: 62,
       activity: ActivityLevel.light, goal: WeightGoal.maintain,

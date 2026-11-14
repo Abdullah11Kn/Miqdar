@@ -2,17 +2,32 @@ import 'dart:math';
 import 'dart:convert';
 import 'dart:typed_data';
 
+/// What a counted food is counted in: dates and biscuits in pieces, coffee and tea in cups.
+enum PieceUnit {
+  piece,
+  cup;
+
+  String label(bool isAr, int count) => switch (this) {
+        PieceUnit.piece => isAr ? (count == 1 ? 'قطعة' : 'قطع') : (count == 1 ? 'piece' : 'pieces'),
+        PieceUnit.cup => isAr ? (count == 1 ? 'كوب' : 'أكواب') : (count == 1 ? 'cup' : 'cups'),
+      };
+}
+
 enum PortionSource {
   scale,
   manual,
   serving,
-  estimated;
+  estimated,
+
+  /// The weight was changed by changing the count of pieces or cups, from the weight per piece.
+  counted;
 
   String label(bool isAr) => switch (this) {
         PortionSource.scale => isAr ? 'موزون بالميزان' : 'Weighed on scale',
         PortionSource.manual => isAr ? 'وزن مدخل يدوياً' : 'Entered by hand',
         PortionSource.serving => isAr ? 'حصة معيارية' : 'Standard serving',
         PortionSource.estimated => isAr ? 'وزن تقديري' : 'Estimated weight',
+        PortionSource.counted => isAr ? 'معدّل حسب العدد' : 'Adjusted from the count',
       };
 }
 
@@ -242,7 +257,13 @@ class RecognitionCandidate {
     this.basisPer100g,
     this.edibleFraction = 1,
     this.note = '',
+    this.pieceCount,
+    this.pieceUnit = PieceUnit.piece,
   });
+
+  /// How many pieces or cups Gemini saw, or null for food that is not counted.
+  final int? pieceCount;
+  final PieceUnit pieceUnit;
 
   final int rank;
   final String label;
@@ -414,7 +435,20 @@ class RecognitionResult {
     this.imageBytes,
     this.edibleFraction = 1,
     this.aiNote = '',
+    this.pieceCount,
+    this.pieceUnit = PieceUnit.piece,
   });
+
+  /// How many pieces or cups are on the scale, or null for food that is not counted.
+  final int? pieceCount;
+  final PieceUnit pieceUnit;
+
+  /// The same food with [count] pieces: grams and nutrients follow the weight per piece.
+  RecognitionResult withPieceCount(int count) {
+    final current = pieceCount;
+    if (current == null || current <= 0 || count <= 0) return this;
+    return withWeight(weightG * count / current, newSource: PortionSource.counted, newPieceCount: count);
+  }
 
   final String eventId;
   final String foodId;
@@ -533,6 +567,8 @@ class RecognitionResult {
       nutrients: candidateBasis.forPortionGrams(weightG),
       edibleFraction: candidate.edibleFraction,
       aiNote: candidate.note,
+      pieceCount: candidate.pieceCount,
+      pieceUnit: candidate.pieceUnit,
       alertEvaluationMs: alertEvaluationMs,
       alertSloMet: alertSloMet,
       isMock: isMock,
@@ -554,7 +590,7 @@ class RecognitionResult {
   }
 
   /// Lossless rescaling from immutable per-100g source basis (CALC-01, CALC-04).
-  RecognitionResult withWeight(double newWeightG, {PortionSource? newSource}) {
+  RecognitionResult withWeight(double newWeightG, {PortionSource? newSource, int? newPieceCount}) {
     final basis = resolvedBasisPer100g;
     return RecognitionResult(
       eventId: eventId,
@@ -584,6 +620,9 @@ class RecognitionResult {
       imageBytes: imageBytes,
       edibleFraction: edibleFraction,
       aiNote: aiNote,
+      // A weight typed by hand no longer matches a count, so the count goes.
+      pieceCount: newPieceCount ?? (newSource == null || newSource == PortionSource.counted ? pieceCount : null),
+      pieceUnit: pieceUnit,
     );
   }
 
@@ -615,6 +654,8 @@ class RecognitionResult {
         edibleFraction: edibleFraction,
         aiNote: aiNote,
         imageBytes: imageBytes,
+        pieceCount: pieceCount,
+        pieceUnit: pieceUnit,
       );
 
   factory RecognitionResult.fromJson(Map<String, dynamic> json) {
@@ -674,7 +715,13 @@ class MealEntry {
     this.items = const [],
     this.leftover,
     this.favourite = false,
+    this.pieceCount,
+    this.pieceUnit = PieceUnit.piece,
   }) : servedNutrients = nutrients;
+
+  /// How many pieces or cups the meal is, or null for food that is not counted.
+  final int? pieceCount;
+  final PieceUnit pieceUnit;
 
   /// Starred on Meal Detail; listed at the top of Search to log again in one tap.
   final bool favourite;
@@ -726,6 +773,8 @@ class MealEntry {
     MealLeftover? leftover,
     bool clearLeftover = false,
     bool? favourite,
+    int? pieceCount,
+    bool clearPieceCount = false,
   }) =>
       MealEntry(
         id: id,
@@ -745,6 +794,8 @@ class MealEntry {
         items: items ?? this.items,
         leftover: clearLeftover ? null : (leftover ?? this.leftover),
         favourite: favourite ?? this.favourite,
+        pieceCount: clearPieceCount ? null : (pieceCount ?? this.pieceCount),
+        pieceUnit: pieceUnit,
       );
 
   /// The same meal logged again as a new entry with [newId] at [newTime]: same food, values,
@@ -781,6 +832,8 @@ class MealEntry {
         leftover: leftover == null
             ? null
             : MealLeftover(grams: leftover!.grams, itemIndex: leftover!.itemIndex, weighedAt: newTime),
+        pieceCount: pieceCount,
+        pieceUnit: pieceUnit,
       );
 
   /// Recalculates nutrients from the immutable source basis for [newWeightG].
@@ -791,7 +844,16 @@ class MealEntry {
       nutrients: basis.forPortionGrams(newWeightG),
       basisPer100g: basis,
       portionSource: newSource ?? portionSource,
+      // A weight typed by hand no longer matches a count, so the count goes.
+      clearPieceCount: newSource != null && newSource != PortionSource.counted,
     );
+  }
+
+  /// The same meal with [count] pieces or cups, from the weight per piece.
+  MealEntry withPieceCount(int count) {
+    final current = pieceCount;
+    if (current == null || current <= 0 || count <= 0) return this;
+    return rescaledToWeight(weightG * count / current, newSource: PortionSource.counted).copyWith(pieceCount: count);
   }
 }
 

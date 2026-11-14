@@ -160,7 +160,7 @@ class LocalDatabase {
       final root = await getDatabasesPath();
       _database = await openDatabase(
         p.join(root, 'miqdar_mobile.db'),
-        version: 9,
+        version: 10,
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE goals(
@@ -191,6 +191,7 @@ class LocalDatabase {
           await _addLeftoverColumns(db);
           await _addFreeSugarColumn(db);
           await _addFavouriteColumn(db);
+          await _addPieceCountColumns(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) await _createHealthProfileTable(db);
@@ -201,6 +202,7 @@ class LocalDatabase {
           if (oldVersion < 7) await _addLeftoverColumns(db);
           if (oldVersion < 8) await _addFreeSugarColumn(db);
           if (oldVersion < 9) await _addFavouriteColumn(db);
+          if (oldVersion < 10) await _addPieceCountColumns(db);
         },
       );
       await _seedGoals();
@@ -317,7 +319,15 @@ class LocalDatabase {
   static Future<void> _addFavouriteColumn(Database db) =>
       db.execute('ALTER TABLE meals ADD COLUMN is_favourite INTEGER NOT NULL DEFAULT 0');
 
+  /// Pieces or cups (database v10).
+  static Future<void> _addPieceCountColumns(Database db) async {
+    await db.execute('ALTER TABLE meals ADD COLUMN piece_count INTEGER');
+    await db.execute("ALTER TABLE meals ADD COLUMN piece_unit TEXT NOT NULL DEFAULT 'piece'");
+  }
+
   static Map<String, Object?> _mealStateColumns(MealEntry meal) => {
+        'piece_count': meal.pieceCount,
+        'piece_unit': meal.pieceUnit.name,
         'is_favourite': meal.favourite ? 1 : 0,
         'leftover_g': meal.leftover?.grams,
         'leftover_item': meal.leftover?.itemIndex,
@@ -488,6 +498,8 @@ class LocalDatabase {
       notes: row['notes'] as String? ?? '',
       portionSource: PortionSource.values.asNameMap()[row['portion_source']] ?? PortionSource.scale,
       favourite: row['is_favourite'] == 1,
+      pieceCount: (row['piece_count'] as num?)?.toInt(),
+      pieceUnit: row['piece_unit'] == 'cup' ? PieceUnit.cup : PieceUnit.piece,
       leftover: row['leftover_g'] is num && row['leftover_at'] is String
           ? MealLeftover(
               grams: (row['leftover_g'] as num).toDouble(),
@@ -538,6 +550,9 @@ class LocalDatabase {
       syncStatus: syncStatus,
       notes: notes,
       basisPer100g: totalWeight > 0 ? totalNutrients.scaledBy(100.0 / totalWeight) : totalNutrients,
+      // A count only fits a single food: a plate or added sides weigh more than the pieces.
+      pieceCount: result.isPlate || result.additionalItems.isNotEmpty ? null : result.pieceCount,
+      pieceUnit: result.pieceUnit,
       items: result.isPlate ? result.plateItems : [
         MealItemEntry(
           id: 'item-main-${stamp.microsecondsSinceEpoch}',

@@ -1797,6 +1797,18 @@ class MiqdarController extends ChangeNotifier {
     unawaited(refreshRecommendations());
   }
 
+  /// Changes how many pieces or cups a saved meal is; grams and nutrients follow.
+  Future<void> setMealPieceCount(MealEntry meal, int count) => updateMeal(meal.withPieceCount(count));
+
+  /// Changes how many pieces or cups are on the result screen before saving.
+  Future<RecognitionResult?> setDraftPieceCount(int count) async {
+    final current = lastRecognition;
+    if (current == null) return null;
+    final applied = await _applyResult(current.withPieceCount(count));
+    notifyListeners();
+    return applied;
+  }
+
   /// Copies every meal of the diary day [day] to today, keeping each meal's time of day (and the
   /// noon-to-noon day in Ramadan mode). Returns how many meals were copied.
   Future<int> copyDayToToday(DateTime day) async {

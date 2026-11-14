@@ -2492,6 +2492,24 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                 ),
                 const SizedBox(height: 14),
 
+                // Pieces or cups, when Gemini counted them
+                if (!result.isPlate && result.additionalItems.isEmpty && result.pieceCount != null) ...[
+                  PieceCounter(
+                    count: result.pieceCount!,
+                    unit: result.pieceUnit,
+                    onChanged: (count) async {
+                      final updated = await controller.setDraftPieceCount(count);
+                      if (updated == null || !mounted) return;
+                      setState(() {
+                        currentResult = updated;
+                        final g = updated.weightG;
+                        weightEditCtrl.text = g.toStringAsFixed(g % 1 == 0 ? 0 : 1);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
                 // Portion
                 if (!result.isPlate)
                 SurfaceCard(
