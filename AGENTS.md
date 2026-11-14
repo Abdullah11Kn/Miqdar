@@ -59,7 +59,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Agent skills setup:** done. See Agent skills below.
 - **Logo, splash and Welcome (2026-11-07):** the app has Abdullah's logo, drawn from vectors, an animated splash on black, and a new Welcome with a food photo wall and Sign Up and Log In placeholders. Seen on simulators; not yet on a real iPhone or Android.
 - **Motion (2026-11-08):** screens, tabs, Add Meal and meal photos move as `docs/DESIGN.md`, Motion, describes. Seen on a throwaway simulator, filmed, in English light and Arabic dark; not yet on a real iPhone.
-- **Next features (2026-11-14):** spec in issue #32, eight features in order; ask Abdullah before each one whether there is time. Not built.
+- **Next features (2026-11-14):** spec in issue #32, split into tickets #33 to #44; ask Abdullah before each one whether there is time. Not built.
 - **Red health warnings (2026-11-14):** built, tickets #27 to #31, database v8. Seen in an end-to-end test on a throwaway simulator; not yet on a real iPhone or the physical touchscreen (the Pi needs `git pull` and a restart).
 - **Spec #14 built (2026-11-07):** Weigh What's Left, diabetes mode, the doctor's PDF report and Ramadan mode, tickets #15 to #25. Database v7. Not yet tried on the real scale or a real iPhone.
 
