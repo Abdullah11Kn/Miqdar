@@ -4,6 +4,7 @@ import '../l10n/strings.dart';
 import '../models/diabetes.dart';
 import '../models/doctor_report.dart';
 import '../models/nutrition.dart';
+import '../models/weekly_summary.dart';
 
 const _mealOrder = ['Breakfast', 'Lunch', 'Dinner', 'Iftar', 'Suhoor', 'Snack', 'Meal'];
 
@@ -180,6 +181,84 @@ tr{page-break-inside:avoid}
   }
   b.write('</table>');
   b.write('<p class="small muted">${s.tr('Made on ${s.date(DateTime.now(), 'd MMM yyyy')}.', 'أُعدّ في ${s.date(DateTime.now(), 'd MMM yyyy')}.')}</p>');
+  b.write('</body></html>');
+  return b.toString();
+}
+
+
+/// The weekly summary as one A4 page: plain numbers from the user's own diary, no medical advice.
+String weeklySummaryHtml(WeeklySummary w, S s, {String name = '', String? fontRegular, String? fontBold}) {
+  final b = StringBuffer();
+  String n0(double v) => v.toStringAsFixed(0);
+  final a = w.average;
+  final unknown = s.tr('Unknown', 'غير معروف');
+  String known(String key, double value, String unit) => a.isMissing(key) ? unknown : '${n0(value)} $unit';
+  b.write('<!doctype html><html lang="${s.isAr ? 'ar' : 'en'}" dir="${s.isAr ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><style>');
+  if (fontRegular != null) {
+    b.write("@font-face{font-family:'Thmanyah';font-weight:400;src:url(data:font/otf;base64,$fontRegular) format('opentype');}");
+  }
+  if (fontBold != null) {
+    b.write("@font-face{font-family:'Thmanyah';font-weight:700;src:url(data:font/otf;base64,$fontBold) format('opentype');}");
+  }
+  b.write('''
+@page{size:A4;margin:16mm 14mm}
+body{font-family:'Thmanyah',-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;font-size:11pt;line-height:1.45}
+h1{font-size:20pt;margin:0 0 2px}
+h2{font-size:13pt;margin:18px 0 6px;border-bottom:1.5px solid #111;padding-bottom:3px}
+.muted{color:#555}.small{font-size:9pt}
+table{width:100%;border-collapse:collapse;margin-top:4px}
+th,td{padding:4px 6px;border-bottom:1px solid #ddd;text-align:start;font-variant-numeric:tabular-nums}
+th{font-weight:700;background:#f2f2f2}
+td.num,th.num{text-align:end}
+.grid{display:flex;gap:10px;flex-wrap:wrap}
+.tile{border:1px solid #ccc;border-radius:8px;padding:6px 10px;min-width:110px}
+.tile b{display:block;font-size:14pt}
+</style></head><body>''');
+  b.write('<h1>${s.tr('Weekly summary', 'ملخص الأسبوع')}</h1>');
+  b.write('<div class="muted">${name.isEmpty ? '' : '${_esc(name)} · '}${s.date(w.from, 'd MMM')} – ${s.date(w.to, 'd MMM yyyy')}'
+      ' · ${s.tr('${w.loggedDays} of 7 days logged', 'سُجلت ${w.loggedDays} من 7 أيام')}</div>');
+  b.write('<p class="small muted">${s.tr('Made by the Miqdar app from the user\'s own diary. Values are estimates.', 'أعدّه تطبيق مقدار من سجل المستخدم نفسه. القيم تقديرية.')}</p>');
+
+  b.write('<h2>${s.tr('A day on average', 'المتوسط في اليوم')}</h2><div class="grid">');
+  void tile(String label, String value) => b.write('<div class="tile"><span class="small muted">$label</span><b>$value</b></div>');
+  tile(s.tr('Calories', 'السعرات'), known('calories_kcal', a.calories, s.unitKcal));
+  tile(s.tr('Carbs', 'الكربوهيدرات'), known('carbohydrate_g', a.carbohydrates, s.unitG));
+  tile(s.tr('Protein', 'البروتين'), known('protein_g', a.protein, s.unitG));
+  tile(s.tr('Fat', 'الدهون'), known('fat_g', a.fat, s.unitG));
+  tile(s.tr('Sugar', 'السكر'), known('sugar_g', a.sugarForLimit, s.unitG));
+  tile(s.tr('Water', 'الماء'), w.averageWaterMl == null ? unknown : '${n0(w.averageWaterMl!)} / ${n0(w.waterGoalMl)} ${s.tr('ml', 'مل')}');
+  b.write('</div>');
+
+  b.write('<h2>${s.tr('Days over a limit', 'أيام تجاوز الحد')}</h2><table>');
+  void row(String label, int days) =>
+      b.write('<tr><td>$label</td><td class="num">${s.tr('$days of ${w.loggedDays} days', '$days من ${w.loggedDays} أيام')}</td></tr>');
+  row(s.tr('Sugar', 'السكر'), w.daysOverSugar);
+  row(s.tr('Calories', 'السعرات'), w.daysOverCalories);
+  if (w.daysOverCarbs != null) row(s.tr('Carbs', 'الكربوهيدرات'), w.daysOverCarbs!);
+  b.write('</table>');
+
+  if (w.weightStart != null) {
+    b.write('<h2>${s.tr('Body weight', 'وزن الجسم')}</h2><p>');
+    final start = w.weightStart!;
+    final end = w.weightEnd;
+    if (end == null) {
+      b.write(s.tr('${start.weightKg.toStringAsFixed(1)} kg.', '${start.weightKg.toStringAsFixed(1)} كغ.'));
+    } else {
+      final change = end.weightKg - start.weightKg;
+      final sign = change > 0 ? '+' : '';
+      b.write(s.tr('${start.weightKg.toStringAsFixed(1)} → ${end.weightKg.toStringAsFixed(1)} kg ($sign${change.toStringAsFixed(1)} kg).',
+          '${start.weightKg.toStringAsFixed(1)} ← ${end.weightKg.toStringAsFixed(1)} كغ ($sign${change.toStringAsFixed(1)} كغ).'));
+    }
+    b.write('</p>');
+  }
+
+  if (w.topFoods.isNotEmpty) {
+    b.write('<h2>${s.tr('Most eaten', 'الأكثر تناولًا')}</h2><table>');
+    for (final f in w.topFoods) {
+      b.write('<tr><td>${_esc(f.name)}</td><td class="num">${s.tr('${f.count} times', '${f.count} مرات')}</td></tr>');
+    }
+    b.write('</table>');
+  }
   b.write('</body></html>');
   return b.toString();
 }

@@ -15,6 +15,7 @@ import 'models/body_profile.dart';
 import 'models/diabetes.dart';
 import 'models/glucose.dart';
 import 'models/water.dart';
+import 'models/weekly_summary.dart';
 import 'models/doctor_report.dart';
 import 'models/nutrition.dart';
 import 'models/ramadan.dart';
@@ -1832,6 +1833,18 @@ class MiqdarController extends ChangeNotifier {
             : (isAr && account.displayNameAr.isNotEmpty ? account.displayNameAr : account.displayName),
         carbsFirst: diabetes.carbsFirst,
         readings: diabetes.hasDiabetes ? glucoseReadings : const [],
+      );
+
+  /// The last 7 diary days on one page, checked against the limits the red bars use.
+  WeeklySummary weeklySummary() => buildWeeklySummary(
+        meals: meals,
+        water: waterEntries,
+        weights: weightEntries,
+        limits: limitGoals,
+        context: alertContextFor(null),
+        waterGoalMl: waterGoalMl,
+        today: today,
+        dayOf: diaryDayOf,
       );
 
   /// Leftovers can be weighed until the end of the meal's diary day.

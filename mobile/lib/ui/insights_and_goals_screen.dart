@@ -10,6 +10,7 @@ import '../models/nutrition.dart';
 import '../theme.dart';
 import 'body_weight_card.dart';
 import 'doctor_report_screen.dart';
+import 'weekly_summary_screen.dart';
 import 'widgets/charts_and_gauges.dart';
 
 class TrendsScreen extends StatefulWidget {
@@ -357,6 +358,14 @@ void showExportSheet(BuildContext context, {required int days}) {
               Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DoctorReportScreen()));
             },
             child: Text(s.tr("Make a Doctor's Report", 'إعداد تقرير للطبيب')),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const WeeklySummaryScreen()));
+            },
+            child: Text(s.tr('Weekly Summary to Share', 'ملخص الأسبوع للمشاركة')),
           ),
           const SizedBox(height: 24),
           Text(
