@@ -4,7 +4,13 @@ import 'nutrition.dart';
 enum DiabetesType { type1, type2, other, notSure }
 
 /// Where the per-meal carb numbers came from. [waiting] means the user chose to wait for a doctor.
-enum CarbPlanSource { none, suggested, doctor, waiting }
+/// [chosenAnyway]: Miqdar's starting number, taken by someone the app told to ask their care team,
+/// after a stronger notice.
+enum CarbPlanSource { none, suggested, doctor, waiting, chosenAnyway }
+
+/// Where the daily free-sugar limit comes from in diabetes mode: the general limit everyone has,
+/// Miqdar's stricter number (5% of calories, WHO), or the user's own from their doctor.
+enum SugarLimitSource { general, recommended, own }
 
 /// Why no carb number is suggested. A fixed starting number is riskiest for these people,
 /// so the app says their care team should set it (docs/research/diabetes-carb-guidance.md).
@@ -19,7 +25,12 @@ class DiabetesSettings {
     this.mealCarbsG,
     this.snackCarbsG,
     this.source = CarbPlanSource.none,
+    this.sugarSource = SugarLimitSource.general,
+    this.ownSugarLimitG,
   });
+
+  final SugarLimitSource sugarSource;
+  final double? ownSugarLimitG;
 
   final bool hasDiabetes;
   final DiabetesType type;
@@ -32,7 +43,9 @@ class DiabetesSettings {
   bool get carbsFirst => hasDiabetes;
 
   bool get hasPlan =>
-      hasDiabetes && (source == CarbPlanSource.suggested || source == CarbPlanSource.doctor) && mealCarbsG != null;
+      hasDiabetes &&
+      (source == CarbPlanSource.suggested || source == CarbPlanSource.doctor || source == CarbPlanSource.chosenAnyway) &&
+      mealCarbsG != null;
 
   /// The planned carbs for one meal of [mealType], or null without a plan.
   double? carbTargetFor(String mealType) {
@@ -55,6 +68,8 @@ class DiabetesSettings {
     double? snackCarbsG,
     CarbPlanSource? source,
     bool clearPlan = false,
+    SugarLimitSource? sugarSource,
+    double? ownSugarLimitG,
   }) =>
       DiabetesSettings(
         hasDiabetes: hasDiabetes ?? this.hasDiabetes,
@@ -63,6 +78,8 @@ class DiabetesSettings {
         mealCarbsG: clearPlan ? null : (mealCarbsG ?? this.mealCarbsG),
         snackCarbsG: clearPlan ? null : (snackCarbsG ?? this.snackCarbsG),
         source: clearPlan ? (source ?? CarbPlanSource.none) : (source ?? this.source),
+        sugarSource: sugarSource ?? this.sugarSource,
+        ownSugarLimitG: ownSugarLimitG ?? this.ownSugarLimitG,
       );
 
   Map<String, Object?> toJson() => {
@@ -72,6 +89,8 @@ class DiabetesSettings {
         'meal_carbs_g': mealCarbsG,
         'snack_carbs_g': snackCarbsG,
         'source': source.name,
+        'sugar_source': sugarSource.name,
+        'own_sugar_limit_g': ownSugarLimitG,
       };
 
   factory DiabetesSettings.fromJson(Map<String, dynamic> json) => DiabetesSettings(
@@ -81,6 +100,8 @@ class DiabetesSettings {
         mealCarbsG: (json['meal_carbs_g'] as num?)?.toDouble(),
         snackCarbsG: (json['snack_carbs_g'] as num?)?.toDouble(),
         source: CarbPlanSource.values.asNameMap()[json['source']] ?? CarbPlanSource.none,
+        sugarSource: SugarLimitSource.values.asNameMap()[json['sugar_source']] ?? SugarLimitSource.general,
+        ownSugarLimitG: (json['own_sugar_limit_g'] as num?)?.toDouble(),
       );
 }
 

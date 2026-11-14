@@ -349,6 +349,8 @@ class _MealSuggestionsScreenState extends State<MealSuggestionsScreen> {
                 if (controller.diabetes.hasDiabetes) ...[
                   const SizedBox(height: 12),
                   CarbPlanCard(controller: controller),
+                  const SizedBox(height: 12),
+                  SugarLimitCard(controller: controller),
                 ],
                 const SizedBox(height: 12),
                 SurfaceCard(

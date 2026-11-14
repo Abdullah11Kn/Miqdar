@@ -110,9 +110,14 @@ class CarbPlanCard extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          d.source == CarbPlanSource.doctor
-              ? s.tr('From your doctor', 'من طبيبك')
-              : s.tr('General starting point, not your personal target', 'نقطة بداية عامة، وليست هدفك الشخصي'),
+          switch (d.source) {
+            CarbPlanSource.doctor => s.tr('From your doctor', 'من طبيبك'),
+            CarbPlanSource.chosenAnyway => s.tr(
+                "Miqdar's general number, chosen although your care team should set it. Not medical advice.",
+                'رقم مقدار العام، اخترته مع أن فريقك الطبي يجب أن يحدده. ليس نصيحة طبية.',
+              ),
+            _ => s.tr('General starting point, not your personal target', 'نقطة بداية عامة، وليست هدفك الشخصي'),
+          },
           style: muted,
         ),
         const SizedBox(height: 8),
@@ -128,6 +133,13 @@ class CarbPlanCard extends StatelessWidget {
         OutlinedButton(
           onPressed: () => _enterDoctorNumbers(context),
           child: Text(s.tr("Enter My Doctor's Numbers", 'إدخال أرقام طبيبي')),
+        ),
+        TextButton(
+          onPressed: () async {
+            final reason = _blockText(s, block).split(',').first;
+            if (await confirmMiqdarNumber(context, strongerReason: reason)) await controller.useSuggestedCarbsAnyway();
+          },
+          child: Text(s.tr("Use Miqdar's Number Anyway", 'استخدام رقم مقدار على أي حال')),
         ),
       ]);
     } else if (d.source == CarbPlanSource.waiting) {
@@ -162,7 +174,14 @@ class CarbPlanCard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Row(children: [
-          Expanded(child: FilledButton(onPressed: controller.useSuggestedCarbs, child: Text(s.tr('Use This', 'استخدمه')))),
+          Expanded(
+            child: FilledButton(
+              onPressed: () async {
+                if (await confirmMiqdarNumber(context)) await controller.useSuggestedCarbs();
+              },
+              child: Text(s.tr('Use This', 'استخدمه')),
+            ),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: OutlinedButton(onPressed: controller.waitForDoctor, child: Text(s.tr('Wait for My Doctor', 'سأنتظر طبيبي'))),
@@ -238,6 +257,137 @@ class CarbPlanCard extends StatelessWidget {
     final snackG = double.tryParse(normalizeDigits(snack.text).trim());
     if (mealG == null || mealG <= 0 || mealG > 300) return;
     await controller.setDoctorCarbs(meal: mealG, snack: snackG != null && snackG > 0 && snackG <= 300 ? snackG : null);
+  }
+}
+
+/// Asks the user to accept that Miqdar's number is general guidance, not medical advice, before using it.
+/// [strongerReason] is for people the app tells to ask their care team (type 1, insulin, and so on).
+Future<bool> confirmMiqdarNumber(BuildContext context, {String? strongerReason}) async {
+  final s = S.of(context);
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(s.tr('Before you use this number', 'قبل أن تستخدم هذا الرقم')),
+      content: Text(
+        [
+          if (strongerReason != null)
+            s.tr(
+              '$strongerReason, your care team should set this number, and using a general one can be risky.',
+              '$strongerReason، يجب أن يحدد فريقك الطبي هذا الرقم، وقد يكون استخدام رقم عام خطرًا.',
+            ),
+          s.tr(
+            'It is general guidance from medical sources, not medical advice for you. Miqdar takes no medical '
+                'responsibility for how it is used. Your doctor or dietitian can set the right number for you.',
+            'هذا إرشاد عام من مصادر طبية، وليس نصيحة طبية لك. لا يتحمل مقدار أي مسؤولية طبية عن استخدامه. '
+                'يمكن لطبيبك أو أخصائي التغذية تحديد الرقم المناسب لك.',
+          ),
+        ].join(' '),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(s.tr('Cancel', 'إلغاء'))),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: Text(s.tr('I Understand, Use It', 'فهمت، استخدمه')),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+/// The daily free-sugar limit in diabetes mode: the general one, Miqdar's stricter one, or the user's own.
+class SugarLimitCard extends StatelessWidget {
+  const SugarLimitCard({super.key, required this.controller});
+
+  final MiqdarController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final c = context.mq;
+    final d = controller.diabetes;
+    if (!d.hasDiabetes) return const SizedBox.shrink();
+    final muted = MiqdarType.body.copyWith(color: c.inkMuted);
+    final limit = controller.sugarLimitG.toStringAsFixed(0);
+    final miqdar = freeSugarLimitG(controller.goals.calories, diabetes: true).toStringAsFixed(0);
+
+    return SurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.tr('Free sugar a day', 'السكر الحر في اليوم'), style: MiqdarType.titleCard.copyWith(color: c.ink)),
+          const SizedBox(height: 8),
+          Text(s.tr('Under $limit g a day', 'أقل من $limit غ في اليوم'), style: MiqdarType.bodyStrong.copyWith(color: c.ink)),
+          const SizedBox(height: 4),
+          Text(
+            switch (d.sugarSource) {
+              SugarLimitSource.general => s.tr(
+                  "The general limit for everyone: under 10% of your calories (WHO). Miqdar's number for diabetes is stricter.",
+                  'الحد العام للجميع: أقل من 10% من سعراتك (منظمة الصحة العالمية). رقم مقدار لمرضى السكري أشد.',
+                ),
+              SugarLimitSource.recommended => s.tr(
+                  "Miqdar's number for diabetes: under 5% of your calories (WHO). General guidance, not medical advice.",
+                  'رقم مقدار لمرضى السكري: أقل من 5% من سعراتك (منظمة الصحة العالمية). إرشاد عام، وليس نصيحة طبية.',
+                ),
+              SugarLimitSource.own => s.tr('Your own number, from your doctor.', 'رقمك الخاص، من طبيبك.'),
+            },
+            style: muted,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            s.tr(
+              'Free sugar is added sugar, honey, syrups and juice. Sugar inside whole fruit and milk is not counted.',
+              'السكر الحر هو السكر المضاف والعسل والشراب والعصير. لا يُحسب السكر داخل الفاكهة الكاملة والحليب.',
+            ),
+            style: muted,
+          ),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            if (d.sugarSource != SugarLimitSource.recommended)
+              FilledButton(
+                onPressed: () async {
+                  if (await confirmMiqdarNumber(context)) await controller.useRecommendedSugarLimit();
+                },
+                child: Text(s.tr("Use Miqdar's Number ($miqdar g)", 'استخدام رقم مقدار ($miqdar غ)')),
+              ),
+            OutlinedButton(
+              onPressed: () => _enterOwn(context),
+              child: Text(s.tr("Enter My Doctor's Number", 'إدخال رقم طبيبي')),
+            ),
+            if (d.sugarSource != SugarLimitSource.general)
+              TextButton(
+                onPressed: controller.useGeneralSugarLimit,
+                child: Text(s.tr('Use the General Limit', 'استخدام الحد العام')),
+              ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _enterOwn(BuildContext context) async {
+    final s = S.of(context);
+    final field = TextEditingController(text: controller.diabetes.ownSugarLimitG?.toStringAsFixed(0) ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(s.tr("Your doctor's number", 'رقم طبيبك')),
+        content: TextField(
+          controller: field,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(labelText: s.tr('Free sugar a day', 'السكر الحر في اليوم'), suffixText: s.unitG),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(s.tr('Cancel', 'إلغاء'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(s.tr('Save', 'حفظ'))),
+        ],
+      ),
+    );
+    if (saved != true) return;
+    final grams = double.tryParse(normalizeDigits(field.text).trim());
+    if (grams == null || grams <= 0 || grams > 200) return;
+    await controller.setOwnSugarLimit(grams);
   }
 }
 

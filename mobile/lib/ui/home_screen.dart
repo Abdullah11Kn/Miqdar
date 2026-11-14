@@ -38,7 +38,6 @@ class HomeScreen extends StatelessWidget {
     final isToday = controller.isToday(selectedDate);
     final totals = controller.selectedDateTotals;
     final dayMeals = controller.mealsForDate(selectedDate);
-    final goals = controller.goals;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -245,7 +244,7 @@ class HomeScreen extends StatelessWidget {
                     flex: 7,
                     child: _DailySummaryCard(
                 totals: totals,
-                goals: goals,
+                goals: controller.limitGoals,
                 carbsFirst: controller.diabetes.carbsFirst,
                 limits: controller.alertContextFor(null),
               ),
@@ -260,7 +259,7 @@ class HomeScreen extends StatelessWidget {
             else ...[
               _DailySummaryCard(
                 totals: totals,
-                goals: goals,
+                goals: controller.limitGoals,
                 carbsFirst: controller.diabetes.carbsFirst,
                 limits: controller.alertContextFor(null),
               ),

@@ -32,6 +32,11 @@ enum GoalType {
       };
 }
 
+/// The daily free-sugar limit, from WHO's sugars guideline (2015): free sugars under 10% of energy
+/// (strong recommendation), and under 5% (conditional) used in diabetes mode, at 4 kcal a gram.
+double freeSugarLimitG(double calories, {bool diabetes = false}) =>
+    (calories * (diabetes ? 0.05 : 0.10) / 4).roundToDouble();
+
 class NutritionValues {
   const NutritionValues({
     required this.calories,

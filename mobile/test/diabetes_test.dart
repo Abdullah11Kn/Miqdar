@@ -64,6 +64,26 @@ void main() {
     });
   });
 
+  group('the free-sugar limit (WHO)', () {
+    test('is 10% of daily calories, or 5% with diabetes, at 4 kcal a gram', () {
+      expect(freeSugarLimitG(2000), 50);
+      expect(freeSugarLimitG(2000, diabetes: true), 25);
+      expect(freeSugarLimitG(1800, diabetes: true), 23); // 22.5 rounds to 23
+    });
+
+    test('the calculated goal sets the sugar limit from the calories', () {
+      final suggestion = suggestGoals(_profile(), LocalDatabase.defaultGoals, DateTime(2026, 11, 14));
+      expect(suggestion.goals!.sugar, freeSugarLimitG(suggestion.goals!.calories));
+    });
+
+    test('the choice survives being stored', () {
+      const settings = DiabetesSettings(hasDiabetes: true, sugarSource: SugarLimitSource.own, ownSugarLimitG: 20);
+      final back = DiabetesSettings.fromJson(settings.toJson());
+      expect(back.sugarSource, SugarLimitSource.own);
+      expect(back.ownSugarLimitG, 20);
+    });
+  });
+
   group('the diabetes setting', () {
     late MiqdarController controller;
 
@@ -111,6 +131,33 @@ void main() {
       // 63 g against a 50 g limit is 26% past.
       expect(controller.goals.sugar, 50);
       expect(controller.projectedAlerts.where((a) => a.nutrientKey == 'sugar_g'), isEmpty);
+    });
+
+    test("the sugar limit is the general one until a choice is made, then Miqdar's or the user's own", () async {
+      await controller.updateGoals(controller.goals.copyWith(calories: 2000, sugar: 50));
+      await controller.updateDiabetes(_type2);
+      expect(controller.sugarLimitG, 50);
+      expect(controller.limitGoals.sugar, 50);
+
+      await controller.useRecommendedSugarLimit();
+      expect(controller.sugarLimitG, 25);
+      expect(controller.limitGoals.sugar, 25);
+
+      await controller.setOwnSugarLimit(30);
+      expect(controller.sugarLimitG, 30);
+
+      await controller.updateDiabetes(controller.diabetes.copyWith(hasDiabetes: false));
+      expect(controller.sugarLimitG, 50);
+    });
+
+    test("people told to ask their care team can still take Miqdar's carb number", () async {
+      await controller.updateDiabetes(const DiabetesSettings(hasDiabetes: true, type: DiabetesType.type1));
+      expect(controller.carbBlock, CarbAdviceBlock.type1);
+      expect(controller.suggestedCarbPlan, isNull);
+
+      await controller.useSuggestedCarbsAnyway();
+      expect(controller.carbTargetFor('Lunch'), 45);
+      expect(controller.diabetes.source, CarbPlanSource.chosenAnyway);
     });
 
     test('is off by default, and nothing is offered', () {

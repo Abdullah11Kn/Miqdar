@@ -234,3 +234,18 @@ for type 1 diabetes, insulin or sulfonylurea use, kidney disease, and Ramadan fa
 6. ADCES material and any Saudi Ministry or Saudi Diabetes and Endocrine Association page with per-meal numbers
    were not reached.
 7. Whether showing a carb number to people with diabetes changes the app's regulatory status in Saudi Arabia.
+
+## Free sugar limit (added 2026-11-14, issue #26)
+
+Used by the red warnings: the daily free-sugar limit is 10% of the calorie goal for everyone, and 5% in
+diabetes mode once the user accepts Miqdar's number, at 4 kcal a gram.
+
+| Source | What it says | Strength |
+|---|---|---|
+| WHO, *Guideline: Sugars intake for adults and children* (2015) | Free sugars under 10% of total energy (strong recommendation); a further cut to under 5% (conditional, very low-quality evidence). Free sugars are those added by cooks or makers plus honey, syrups and fruit juice; sugars in whole fruit, vegetables and milk are excluded. | High for 10%, low for 5% |
+| ADA, *Standards of Care in Diabetes—2026*, Section 5 (Diabetes Care 2026;49 Suppl 1:S89–S131, https://pmc.ncbi.nlm.nih.gov/articles/PMC12690188/) | Rec 5.25 (B): replace sugar-sweetened beverages "(including any juices)" with water or low- or no-calorie drinks and "minimize foods with added sugar". No gram or percent number. Rec 5.13 (B): individualized meal plans. Rec 5.15 (B): consider reducing carbohydrate for some adults. Rec 5.20 (B): sodium under 2,300 mg a day. | Read verbatim up to Rec 5.31 |
+
+- No guideline gives a sugar number for diabetes specifically. The 5% is WHO's stricter level, chosen as
+  the reading of ADA's "minimize"; it is offered as a choice with a no-medical-responsibility notice.
+- Gemini estimates free sugar per 100 g with the WHO definition. Its accuracy has not been measured.
+- Sodium is left out of the warnings by Abdullah's decision: it is hard to estimate from a photo.

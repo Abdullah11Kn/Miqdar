@@ -170,6 +170,7 @@ GoalSuggestion suggestGoals(BodyProfile profile, NutritionGoals base, DateTime n
       protein: protein,
       fat: fat,
       carbohydrates: carbs,
+      sugar: freeSugarLimitG(calories),
       trackingOnly: false,
     ),
     limitedToMinimum: planned < minimum,

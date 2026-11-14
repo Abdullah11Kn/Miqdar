@@ -1549,7 +1549,7 @@ class MiqdarController extends ChangeNotifier {
     final evaluation = alertService.evaluate(
       currentTotals: todayTotals,
       incoming: result.totalNutrients,
-      goals: goals,
+      goals: limitGoals,
       context: alertContextFor(mealTypeFor(DateTime.now())),
       incomingWeightG: result.portionSource == PortionSource.estimated ? null : result.totalWeightG,
     );
@@ -1681,6 +1681,35 @@ class MiqdarController extends ChangeNotifier {
 
   Future<void> setDoctorCarbs({required double meal, double? snack}) => updateDiabetes(
       diabetes.copyWith(mealCarbsG: meal, snackCarbsG: snack ?? meal, source: CarbPlanSource.doctor));
+
+  /// For people the app tells to ask their care team: Miqdar's starting number anyway, after a stronger notice.
+  Future<void> useSuggestedCarbsAnyway() async {
+    final plan = suggestedCarbs(bodyProfile);
+    await updateDiabetes(
+        diabetes.copyWith(mealCarbsG: plan.meal, snackCarbsG: plan.snack, source: CarbPlanSource.chosenAnyway));
+  }
+
+  /// The daily free-sugar limit in use: in diabetes mode Miqdar's stricter number or the user's own,
+  /// once chosen; otherwise the sugar goal.
+  double get sugarLimitG {
+    if (!diabetes.hasDiabetes) return goals.sugar;
+    return switch (diabetes.sugarSource) {
+      SugarLimitSource.recommended => freeSugarLimitG(goals.calories, diabetes: true),
+      SugarLimitSource.own => diabetes.ownSugarLimitG ?? goals.sugar,
+      SugarLimitSource.general => goals.sugar,
+    };
+  }
+
+  /// The goals the red warnings and bars check against.
+  NutritionGoals get limitGoals => goals.copyWith(sugar: sugarLimitG);
+
+  Future<void> useRecommendedSugarLimit() =>
+      updateDiabetes(diabetes.copyWith(sugarSource: SugarLimitSource.recommended));
+
+  Future<void> setOwnSugarLimit(double grams) =>
+      updateDiabetes(diabetes.copyWith(sugarSource: SugarLimitSource.own, ownSugarLimitG: grams));
+
+  Future<void> useGeneralSugarLimit() => updateDiabetes(diabetes.copyWith(sugarSource: SugarLimitSource.general));
 
   Future<void> clearCarbPlan() => updateDiabetes(diabetes.copyWith(clearPlan: true));
 
