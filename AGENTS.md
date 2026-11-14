@@ -59,7 +59,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Agent skills setup:** done. See Agent skills below.
 - **Logo, splash and Welcome (2026-11-07):** the app has Abdullah's logo, drawn from vectors, an animated splash on black, and a new Welcome with a food photo wall and Sign Up and Log In placeholders. Seen on simulators; not yet on a real iPhone or Android.
 - **Motion (2026-11-08):** screens, tabs, Add Meal and meal photos move as `docs/DESIGN.md`, Motion, describes. Seen on a throwaway simulator, filmed, in English light and Arabic dark; not yet on a real iPhone.
-- **Red health warnings (2026-11-14):** spec in issue #26, not built yet.
+- **Red health warnings (2026-11-14):** built, tickets #27 to #31, database v8. Seen in an end-to-end test on a throwaway simulator; not yet on a real iPhone or the physical touchscreen (the Pi needs `git pull` and a restart).
 - **Spec #14 built (2026-11-07):** Weigh What's Left, diabetes mode, the doctor's PDF report and Ramadan mode, tickets #15 to #25. Database v7. Not yet tried on the real scale or a real iPhone.
 
 ## Where things live
@@ -83,7 +83,7 @@ run_checks.sh             Rebuilds the database, then runs all tests
 mobile/lib/
   app_controller.dart     App state; capture flow; saving
   services/               gemini_service (prompt, model order), api_service (scale), alert_service, reminder_service
-  data/                   local_database (SQLite v7, meal photos, meal_items, body_weights, leftover columns on meals), food_catalog
+  data/                   local_database (SQLite v8, free_sugar_g on meals, meal photos, meal_items, body_weights, leftover columns on meals), food_catalog
   models/nutrition.dart   Data models
   models/body_profile.dart  Body profile and the goal calculation
   models/diabetes.dart    Diabetes settings, carb portions, when a carb number is offered
@@ -96,7 +96,7 @@ mobile/assets/fonts/thmanyah/  The text fonts. Not in git, by licence; install_t
   l10n/strings.dart       English and Arabic text, s.tr(en, ar), s.date(...)
   ui/                     Screens; ui/widgets/charts_and_gauges.dart for shared widgets
 mobile/test/              Unit tests
-mobile/integration_test/  scale_flow_test, mixed_plate_flow_test and scale_bar_capture_test: end-to-end flows on a simulator
+mobile/integration_test/  scale_flow_test, mixed_plate_flow_test, scale_bar_capture_test and health_warning_flow_test (needs no scale): end-to-end flows on a simulator
 backend/                  Python service and tests (old path, /recommendations, goals)
 database/                 Food database, seeds and build scripts
 evaluation/               Benchmark tools and test_recognition.py. The 400-sample data is placeholder
@@ -219,6 +219,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-14: Red health warnings built (tickets #27 to #31; commits eaa3cdc, 17d3f2c, 7f6b18e, f566baa, fcfab97)
+- Decided: Abdullah said he trusts agents to decide and asked for it to be built; tickets were published and built without a review round.
+- Changed: the alert check (`alert_service.dart`) now warns only for limits harmful to pass: free sugar and calories (not when gaining), and in diabetes mode daily carbs and a meal's carb number. Diabetes mode warns at any overshoot, others past 40%. Sodium and potassium no longer warn. The warning names the grams of this meal that keep the user within every limit passed (not for estimated weights). The result screen's card is red, says "Before you eat", and vibrates once per meal; the bell keeps the warning after saving. Home's harmful bars and the calorie ring turn red. Gemini now reports `free_sugar_g` (WHO definition) in every prompt; database v8 adds `free_sugar_g` on meals (plate items keep it in their JSON); meals without it count their total sugar. The calculated goal sets sugar to 10% of calories; in diabetes mode a new Free Sugar a Day card offers Miqdar's 5% number or the user's own, and Miqdar's numbers (sugar and carbs) need accepting a no-medical-responsibility notice. People told to ask their care team can now take Miqdar's carb number anyway (`CarbPlanSource.chosenAnyway`) after a stronger notice. The phone sends a short English `warning` with its result; the touchscreen draws it in red. `docs/API.md` and the research document updated (ADA 2026 Section 5 read on PMC).
+- Tested: `flutter analyze`; 196 unit tests; 52 Python tests; `health_warning_flow_test` on the throwaway simulator "Miqdar Welcome Demo" (red card with "about 165 g keeps you within it", warning in the bell, red sugar bar). His iPhone 16 Pro simulator rebuilt (script run without `open -a Simulator`, which macOS refused from this shell): Home opened in Arabic dark with his data after the v8 upgrade; the scale read not connected at that moment.
+- Not tested / risks: no real iPhone (vibration), no real Gemini call asking for free sugar (the schema change could be refused by a model; parsing still accepts answers without it), the physical touchscreen, Arabic and dark mode by eye, the two new dialogs and the Free Sugar card by eye. Old alerts in the bell now draw red too, including old sodium ones. The meal type used for the per-meal carb check is the one for the current time, not the one picked at Save.
+- Next: Abdullah tries a sweet food on the real scale in diabetes mode; `git pull origin feature/scale-live-flow && ./install_pi_desktop.sh` on the Pi, then restart the scale.
 
 ### 2026-11-14: First install on his real iPhone; spec for red health warnings (issue #26)
 - Decided: see Decisions, 2026-11-14. He also asked about a wide camera mode: the Pi has the standard Camera Module 3 (`imx708`), already shooting its full view; wide needs the Camera Module 3 Wide.
