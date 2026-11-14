@@ -58,6 +58,10 @@
 	<string>Miqdar listens when you choose to say what you ate.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Miqdar turns what you say into text so you can log a meal.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Miqdar reads your body weight and blood sugar from Apple Health, only if you turn on Apple Health in Profile, to show them beside your meals.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Miqdar writes the meals, water and body weight you log to Apple Health, only if you turn on Apple Health in Profile.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Miqdar uses the camera to recognize food.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

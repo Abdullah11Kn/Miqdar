@@ -152,6 +152,26 @@ class ProfileScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const RemindersScreen()),
                 ),
               ),
+            if (!controller.account.isDemo)
+              MiqdarSettingsRow(
+                icon: MiqdarIcons.favorite,
+                title: Theme.of(context).platform == TargetPlatform.android
+                    ? s.tr('Health Connect', 'Health Connect')
+                    : s.tr('Apple Health', 'صحة Apple'),
+                subtitle: s.tr('Writes meals, water and weight; reads weight and blood sugar', 'يكتب الوجبات والماء والوزن، ويقرأ الوزن وسكر الدم'),
+                toggle: controller.healthSyncOn,
+                onTap: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final want = !controller.healthSyncOn;
+                  final on = await controller.setHealthSync(want);
+                  if (want && !on) {
+                    messenger.showSnackBar(SnackBar(
+                      content: Text(s.tr('Health access was not allowed. You can allow it in the Health app.',
+                          'لم يُسمح بالوصول إلى الصحة. يمكنك السماح به من تطبيق الصحة.')),
+                    ));
+                  }
+                },
+              ),
             MiqdarSettingsRow(
               icon: MiqdarIcons.calendarMonth,
               title: s.tr('Ramadan Mode', 'وضع رمضان'),
@@ -707,6 +727,14 @@ class PrivacyAndDataScreen extends StatelessWidget {
                         body: s.tr(
                           'When you scan a barcode, only the barcode number is sent to Open Food Facts, a free public food database, to look up the product. No photo, account or other data goes with it.',
                           'عند مسح الباركود يُرسل رقم الباركود فقط إلى Open Food Facts، وهي قاعدة بيانات غذائية عامة ومجانية، للبحث عن المنتج. لا تُرسل معه صورة أو حساب أو أي بيانات أخرى.',
+                        ),
+                      ),
+                      _PrivacyRow(
+                        icon: MiqdarIcons.favorite,
+                        title: s.tr('Apple Health', 'صحة Apple'),
+                        body: s.tr(
+                          'Only if you turn it on in Profile: your meals, water and weight are written to Apple Health on this phone, and your weight and blood sugar are read from it. Apple Health keeps its own copy, which deleting data here does not remove.',
+                          'فقط إذا فعّلته من ملفي: تُكتب وجباتك والماء ووزنك في تطبيق صحة Apple على هذا الهاتف، ويُقرأ منه وزنك وسكر الدم. يحتفظ تطبيق الصحة بنسخته الخاصة، ولا يحذفها حذف البيانات هنا.',
                         ),
                       ),
                       _PrivacyRow(

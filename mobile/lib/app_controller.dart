@@ -22,6 +22,7 @@ import 'models/nutrition.dart';
 import 'models/ramadan.dart';
 import 'services/alert_service.dart';
 import 'services/barcode_reader.dart';
+import 'services/health_sync.dart';
 import 'services/open_food_facts.dart';
 import 'services/api_service.dart';
 import 'services/gemini_service.dart';
@@ -69,8 +70,13 @@ class MiqdarController extends ChangeNotifier {
     required this.alertService,
     ReminderScheduler? reminderScheduler,
     BarcodeReader? barcodeReader,
+    HealthSync? healthSync,
   })  : reminderScheduler = reminderScheduler ?? LocalNotificationReminders(),
-        barcodeReader = barcodeReader ?? PhotoBarcodeReader();
+        barcodeReader = barcodeReader ?? PhotoBarcodeReader(),
+        healthSync = healthSync ?? PlatformHealthSync();
+
+  /// Apple Health (Health Connect on Android); used only while [healthSyncOn].
+  final HealthSync healthSync;
 
   /// Looks for a product barcode in each scale photo before asking Gemini.
   final BarcodeReader barcodeReader;
@@ -231,6 +237,7 @@ class MiqdarController extends ChangeNotifier {
     waterEntries = [];
     waterGoalSetMl = null;
     adaptiveAnsweredAt = null;
+    healthSyncOn = false;
     glucoseReadings = [];
     glucoseUnit = GlucoseUnit.mgdl;
     goalBasisWeightKg = null;
@@ -275,6 +282,8 @@ class MiqdarController extends ChangeNotifier {
     weightEntries = await localDatabase.loadBodyWeights();
     waterEntries = await localDatabase.loadWater();
     adaptiveAnsweredAt = DateTime.tryParse(await localDatabase.getSetting('adaptive_answered_at') ?? '');
+    healthSyncOn = await localDatabase.getSetting('health_sync') == '1';
+    if (healthSyncOn) unawaited(syncFromHealth().catchError((Object _) {}));
     glucoseReadings = await localDatabase.loadGlucose();
     glucoseUnit = await localDatabase.getSetting('glucose_unit') == 'mmol' ? GlucoseUnit.mmol : GlucoseUnit.mgdl;
     waterGoalSetMl = double.tryParse(await localDatabase.getSetting('water_goal_ml') ?? '');
@@ -1009,11 +1018,14 @@ class MiqdarController extends ChangeNotifier {
 
   Future<void> saveWeightEntry({String? id, required DateTime measuredOn, required double weightKg}) async {
     if (account.isDemo) return;
-    await localDatabase.saveBodyWeight(BodyWeightEntry(
+    final entry = BodyWeightEntry(
       id: id ?? 'weight-${DateTime.now().microsecondsSinceEpoch}',
       measuredOn: measuredOn,
       weightKg: weightKg,
-    ));
+    );
+    await localDatabase.saveBodyWeight(entry);
+    // Weights that came from Health are not written back to it.
+    if (_syncing && !entry.id.startsWith('health-')) unawaited(healthSync.writeWeight(entry));
     await _reloadWeights();
   }
 
@@ -1679,6 +1691,7 @@ class MiqdarController extends ChangeNotifier {
       persist: !isDemo,
     );
     meals = [meal, ...meals]..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
+    if (_syncing) unawaited(healthSync.writeMeal(meal));
 
     final mealPhoto = photo ?? result.imageBytes;
     if (mealPhoto != null && mealPhoto.isNotEmpty) {
@@ -1735,6 +1748,13 @@ class MiqdarController extends ChangeNotifier {
 
   Future<void> updateMeal(MealEntry meal) async {
     if (!account.isDemo) await localDatabase.updateMeal(meal);
+    if (_syncing) {
+      final old = meals.where((m) => m.id == meal.id).firstOrNull;
+      unawaited(() async {
+        if (old != null) await healthSync.deleteMeal(old);
+        await healthSync.writeMeal(meal);
+      }());
+    }
     meals = meals.map((item) => item.id == meal.id ? meal : item).toList()
       ..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
     notifyListeners();
@@ -1948,6 +1968,7 @@ class MiqdarController extends ChangeNotifier {
       await localDatabase.deleteMeal(id);
       await localDatabase.deleteMealPhoto(id).catchError((Object _) {});
     }
+    if (_syncing && target != null) unawaited(healthSync.deleteMeal(target));
     _photoCache.remove(id);
     meals = meals.where((meal) => meal.id != id).toList();
     notifyListeners();
@@ -1964,6 +1985,32 @@ class MiqdarController extends ChangeNotifier {
     final applied = await _applyResult(current.withPieceCount(count));
     notifyListeners();
     return applied;
+  }
+
+  // Apple Health
+  bool healthSyncOn = false;
+  bool get _syncing => healthSyncOn && !account.isDemo;
+
+  /// Turning on asks permission first; returns whether sync is on afterwards.
+  Future<bool> setHealthSync(bool on) async {
+    if (on && !await healthSync.requestPermission()) return false;
+    healthSyncOn = on;
+    notifyListeners();
+    if (!account.isDemo) await localDatabase.saveSetting('health_sync', on ? '1' : '0');
+    if (on) await syncFromHealth();
+    return on;
+  }
+
+  /// Brings in weigh-ins from the last 90 days that the weight log does not already have.
+  Future<void> syncFromHealth() async {
+    if (!_syncing) return;
+    final since = DateTime.now().subtract(const Duration(days: 90));
+    for (final w in await healthSync.readWeights(since)) {
+      final day = DateTime(w.measuredOn.year, w.measuredOn.month, w.measuredOn.day);
+      final known = weightEntries.any((e) =>
+          DateTime(e.measuredOn.year, e.measuredOn.month, e.measuredOn.day) == day && (e.weightKg - w.weightKg).abs() < 0.05);
+      if (!known) await saveWeightEntry(id: w.id, measuredOn: w.measuredOn, weightKg: w.weightKg);
+    }
   }
 
   // Blood sugar (diabetes mode). A plain log: no ranges, averages, alerts or advice.
@@ -2023,10 +2070,13 @@ class MiqdarController extends ChangeNotifier {
     waterEntries = [...waterEntries, entry];
     notifyListeners();
     if (!account.isDemo) await localDatabase.saveWater(entry);
+    if (_syncing) unawaited(healthSync.writeWater(entry));
     return entry;
   }
 
   Future<void> deleteWater(String id) async {
+    final entry = waterEntries.where((e) => e.id == id).firstOrNull;
+    if (_syncing && entry != null) unawaited(healthSync.deleteWater(entry));
     waterEntries = waterEntries.where((e) => e.id != id).toList();
     notifyListeners();
     if (!account.isDemo) await localDatabase.deleteWater(id);
@@ -2055,6 +2105,11 @@ class MiqdarController extends ChangeNotifier {
       copies.add(copy);
     }
     meals = [...copies, ...meals]..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
+    if (_syncing) {
+      for (final copy in copies) {
+        unawaited(healthSync.writeMeal(copy));
+      }
+    }
     notifyListeners();
     unawaited(refreshRecommendations());
     return copies.length;
