@@ -19,6 +19,8 @@ import 'models/doctor_report.dart';
 import 'models/nutrition.dart';
 import 'models/ramadan.dart';
 import 'services/alert_service.dart';
+import 'services/barcode_reader.dart';
+import 'services/open_food_facts.dart';
 import 'services/api_service.dart';
 import 'services/gemini_service.dart';
 import 'services/reminder_service.dart';
@@ -64,7 +66,12 @@ class MiqdarController extends ChangeNotifier {
     required this.apiService,
     required this.alertService,
     ReminderScheduler? reminderScheduler,
-  }) : reminderScheduler = reminderScheduler ?? LocalNotificationReminders();
+    BarcodeReader? barcodeReader,
+  })  : reminderScheduler = reminderScheduler ?? LocalNotificationReminders(),
+        barcodeReader = barcodeReader ?? PhotoBarcodeReader();
+
+  /// Looks for a product barcode in each scale photo before asking Gemini.
+  final BarcodeReader barcodeReader;
 
   final ReminderScheduler reminderScheduler;
   final LocalDatabase localDatabase;
@@ -1307,12 +1314,18 @@ class MiqdarController extends ChangeNotifier {
     }
     notifyListeners();
     try {
-      final result = await apiService.gemini.analyze(
-        imageBytes: imageBytes,
-        weightG: weightG,
-        hint: note.isEmpty ? null : note,
-        eventId: eventId,
-      );
+      // A packaged product with its barcode in view uses the pack's values; otherwise Gemini.
+      final code = await barcodeReader.read(imageBytes);
+      final product = code == null ? null : await apiService.openFoodFacts.lookup(code);
+      final result = product != null
+          ? _barcodeResult(product, weightG,
+              source: PortionSource.scale, eventId: eventId, imageBytes: imageBytes)
+          : await apiService.gemini.analyze(
+              imageBytes: imageBytes,
+              weightG: weightG,
+              hint: note.isEmpty ? null : note,
+              eventId: eventId,
+            );
       if (_analyzingEventId != eventId) return null;
       await _acceptScaleCapture(result);
       unawaited(apiService.postScaleResult(result, warning: scaleWarningLine(projectedAlerts)));
@@ -1460,22 +1473,35 @@ class MiqdarController extends ChangeNotifier {
     } else {
       (grams, source) = (100, PortionSource.manual);
     }
-    final draft = await prepareCatalogDraft(
-      food: FoodCatalogItem(
+    final applied = await _applyResult(_barcodeResult(product, grams, source: source));
+    notifyListeners();
+    return applied;
+  }
+
+  RecognitionResult _barcodeResult(
+    BarcodeProduct product,
+    double grams, {
+    required PortionSource source,
+    String? eventId,
+    Uint8List? imageBytes,
+  }) =>
+      RecognitionResult(
+        eventId: eventId ?? 'barcode-${DateTime.now().microsecondsSinceEpoch}',
         foodId: '$barcodeFoodIdPrefix${product.code}',
         nameEn: product.nameEn,
         nameAr: product.nameAr,
-        category: 'Packaged',
-        preparation: 'Barcode ${product.code}',
+        weightG: grams,
+        confidence: 1.0,
         verificationStatus: barcodeStatus,
-        sourceId: 'OPEN_FOOD_FACTS',
-        per100g: product.per100g,
-      ),
-      weightG: grams,
-      portionSource: source,
-    );
-    return draft;
-  }
+        nutrients: product.per100g.forPortionGrams(grams),
+        basisPer100g: product.per100g,
+        alertEvaluationMs: 0,
+        alertSloMet: true,
+        isMock: false,
+        provider: 'open-food-facts',
+        portionSource: source,
+        imageBytes: imageBytes,
+      );
 
   Future<RecognitionResult> prepareCatalogDraft({
     required FoodCatalogItem food,
