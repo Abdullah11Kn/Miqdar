@@ -1551,6 +1551,7 @@ class MiqdarController extends ChangeNotifier {
       incoming: result.totalNutrients,
       goals: goals,
       context: alertContextFor(mealTypeFor(DateTime.now())),
+      incomingWeightG: result.portionSource == PortionSource.estimated ? null : result.totalWeightG,
     );
     projectedAlerts = evaluation.alerts;
     lastRecognition = result;

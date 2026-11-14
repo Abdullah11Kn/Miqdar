@@ -1299,21 +1299,18 @@ class NutrientNoticeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = S.of(context);
     final c = context.mq;
-    final isOver = alert.severity == 'critical';
-
+    // Every warning is now a limit that is harmful to pass, so it is red (spec #26).
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isOver ? c.accentSoft : c.infoSoft,
+        color: c.dangerSoft,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: c.danger.withValues(alpha: 0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            isOver ? MiqdarIcons.notificationsActive : MiqdarIcons.notifications,
-            color: isOver ? c.accentInk : c.info,
-          ),
+          Icon(MiqdarIcons.notificationsActive, color: c.danger),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1321,9 +1318,9 @@ class NutrientNoticeCard extends StatelessWidget {
               children: [
                 Text(
                   isPreview
-                      ? s.tr('If you save this meal', 'إذا حفظت هذه الوجبة')
-                      : '${s.nutrientLabel(alert.nutrientKey)} · ${s.tr("Above your goal", "أعلى من هدفك")}',
-                  style: MiqdarType.bodyStrong.copyWith(color: c.ink),
+                      ? s.tr('Before you eat', 'قبل أن تأكل')
+                      : s.tr('You passed a limit', 'تجاوزت حدًّا'),
+                  style: MiqdarType.bodyStrong.copyWith(color: c.danger),
                 ),
                 const SizedBox(height: 2),
                 Text(

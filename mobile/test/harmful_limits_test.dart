@@ -137,4 +137,47 @@ void main() {
       expect(passesHarmfulLimit('sugar_g', 90, 50, goals: goals.copyWith(trackingOnly: true)), isFalse);
     });
   });
+
+  group('the smaller portion', () {
+    HealthAlert warn(NutritionValues today, NutritionValues meal, double? grams, {AlertContext context = diabetic}) =>
+        AlertService()
+            .evaluate(currentTotals: today, incoming: meal, goals: goals, context: context, incomingWeightG: grams)
+            .alerts
+            .first;
+
+    test('says how many grams keep the day within the limit', () {
+      // 40 g so far, limit 50 g: 10 g of room. This 200 g meal has 22 g of sugar, 0.11 g a gram: 90 g fits.
+      final alert = warn(food(sugar: 40), food(sugar: 22), 200);
+      expect(alert.message, contains('about 90 g keeps you within it'));
+      expect(alert.messageAr, contains('نحو 90 غ تبقيك ضمن الحد'));
+    });
+
+    test('uses the tightest limit when several are passed', () {
+      // Sugar allows 90 g (as above); the meal carb number of 60 g allows 60 / (120 / 200) = 100 g.
+      final alerts = AlertService()
+          .evaluate(
+            currentTotals: food(sugar: 40),
+            incoming: food(sugar: 22, carbs: 120),
+            goals: goals,
+            context: diabetic,
+            incomingWeightG: 200,
+          )
+          .alerts;
+      expect(alerts.length, 2);
+      for (final a in alerts) {
+        expect(a.message, contains('about 90 g keeps you within your limits'));
+      }
+    });
+
+    test('offers no grams when the weight is only an estimate', () {
+      final alert = warn(food(sugar: 40), food(sugar: 22), null);
+      expect(alert.message, isNot(contains(' g keeps you')));
+      expect(alert.message, contains('try a smaller portion'));
+    });
+
+    test('offers no grams when the day is already past the limit', () {
+      final alert = warn(food(sugar: 60), food(sugar: 10), 100);
+      expect(alert.message, isNot(contains(' g keeps you')));
+    });
+  });
 }

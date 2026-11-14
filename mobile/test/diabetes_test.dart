@@ -95,6 +95,8 @@ void main() {
       );
       await controller.prepareCatalogDraft(food: sweet, weightG: 200);
       expect(controller.projectedAlerts.map((a) => a.nutrientKey), contains('sugar_g'));
+      // 60 g of sugar in 200 g against a 50 g limit: about 165 g keeps the day within it.
+      expect(controller.projectedAlerts.first.message, contains('about 165 g keeps you within it'));
 
       final before = controller.alerts.length;
       await controller.saveLastRecognition(mealType: 'Lunch');

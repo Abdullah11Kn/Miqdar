@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show HapticFeedback, rootBundle;
 import 'package:image_picker/image_picker.dart';
 
 import '../app.dart';
@@ -2406,6 +2406,7 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
                 ],
 
                 if (controller.projectedAlerts.isNotEmpty) ...[
+                  _WarnOnce(eventId: result.eventId),
                   const SizedBox(height: 14),
                   ...controller.projectedAlerts.map(
                     (alert) => Padding(
@@ -3109,4 +3110,39 @@ class _RecognitionResultScreenState extends State<RecognitionResultScreen> {
       ),
     );
   }
+}
+
+
+/// One firm vibration the first time a meal shows a red warning; nothing when it rebuilds.
+class _WarnOnce extends StatefulWidget {
+  const _WarnOnce({required this.eventId});
+  final String eventId;
+
+  @override
+  State<_WarnOnce> createState() => _WarnOnceState();
+}
+
+class _WarnOnceState extends State<_WarnOnce> {
+  static String? _lastWarned;
+
+  @override
+  void initState() {
+    super.initState();
+    _buzz();
+  }
+
+  @override
+  void didUpdateWidget(_WarnOnce old) {
+    super.didUpdateWidget(old);
+    _buzz();
+  }
+
+  void _buzz() {
+    if (_lastWarned == widget.eventId) return;
+    _lastWarned = widget.eventId;
+    HapticFeedback.heavyImpact();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
