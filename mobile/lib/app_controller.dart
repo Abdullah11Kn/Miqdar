@@ -927,6 +927,18 @@ class MiqdarController extends ChangeNotifier {
     return applied;
   }
 
+  /// A packaged food from a photo of its nutrition label, read by Gemini. Grams come from the scale
+  /// when something is on it, otherwise the label's serving.
+  Future<RecognitionResult> readNutritionLabel(Uint8List photo) async {
+    final live = scaleDevice.online && scaleDevice.liveWeightG >= 5 ? scaleDevice.liveWeightG : null;
+    final result = await apiService.gemini.readLabel(photo: photo, weightG: live);
+    activeProviderName = result.provider;
+    activeModelName = result.model;
+    final applied = await _applyResult(result);
+    notifyListeners();
+    return applied;
+  }
+
   /// Recent foods for Search, newest first, one row per name. Repeating one uses its saved
   /// values and sends nothing to Gemini.
   List<MealEntry> get recentFoods {

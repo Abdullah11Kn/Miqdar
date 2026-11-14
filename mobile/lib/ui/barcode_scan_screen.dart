@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../app.dart';
 import '../l10n/strings.dart';
+import '../services/api_service.dart';
 import '../theme.dart';
 import 'scan_and_add_screen.dart' show RecognitionResultScreen;
 
@@ -83,7 +85,7 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
 
 /// Scans a barcode and opens the result with the pack's values. Grams come from the scale when
 /// something is on it, otherwise from the pack's serving. An unknown product offers label mode.
-Future<void> scanBarcodeAndLog(BuildContext context, {Future<void> Function(BuildContext)? onNotFound}) async {
+Future<void> scanBarcodeAndLog(BuildContext context) async {
   final s = S.of(context);
   final controller = MiqdarScope.of(context);
   final navigator = Navigator.of(context);
@@ -109,10 +111,36 @@ Future<void> scanBarcodeAndLog(BuildContext context, {Future<void> Function(Buil
       )),
       actions: [
         TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(s.tr('Cancel', 'إلغاء'))),
-        if (onNotFound != null)
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(s.tr('Read the Label', 'قراءة الملصق'))),
+        FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(s.tr('Read the Label', 'قراءة الملصق'))),
       ],
     ),
   );
-  if (readLabel == true && onNotFound != null && context.mounted) await onNotFound(context);
+  if (readLabel == true && context.mounted) await readLabelAndLog(context);
+}
+
+/// Label mode: the phone photographs the nutrition label and Gemini reads it.
+Future<void> readLabelAndLog(BuildContext context) async {
+  final s = S.of(context);
+  final controller = MiqdarScope.of(context);
+  final navigator = Navigator.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final picked = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 90, maxWidth: 2000);
+  if (picked == null || !context.mounted) return;
+  final bytes = await picked.readAsBytes();
+  messenger.showSnackBar(SnackBar(
+    duration: const Duration(seconds: 30),
+    content: Text(s.tr('Reading the label…', 'جارٍ قراءة الملصق…')),
+  ));
+  try {
+    final draft = await controller.readNutritionLabel(bytes);
+    messenger.hideCurrentSnackBar();
+    await navigator.push(MaterialPageRoute(builder: (_) => RecognitionResultScreen(result: draft)));
+  } on RecognitionException catch (error) {
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
+      content: Text(error.code == 'LABEL_UNREADABLE'
+          ? s.tr('The label could not be read. Try a closer, sharper photo.', 'تعذّرت قراءة الملصق. جرّب صورة أقرب وأوضح.')
+          : s.tr('Gemini is not available right now. Try again soon.', 'Gemini غير متاح الآن. حاول بعد قليل.')),
+    ));
+  }
 }
