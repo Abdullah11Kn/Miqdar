@@ -39,7 +39,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 
 ## Current state
 
-*Update this section whenever it stops being true. Last updated 2026-11-08.*
+*Update this section whenever it stops being true. Last updated 2026-11-14.*
 
 - **Branch:** `feature/scale-live-flow` holds all current work, and the Pi is on it. `main` is well behind and
   `origin/usb` is an older copy. Do not merge to `main` until Abdullah says so.
@@ -59,6 +59,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Agent skills setup:** done. See Agent skills below.
 - **Logo, splash and Welcome (2026-11-07):** the app has Abdullah's logo, drawn from vectors, an animated splash on black, and a new Welcome with a food photo wall and Sign Up and Log In placeholders. Seen on simulators; not yet on a real iPhone or Android.
 - **Motion (2026-11-08):** screens, tabs, Add Meal and meal photos move as `docs/DESIGN.md`, Motion, describes. Seen on a throwaway simulator, filmed, in English light and Arabic dark; not yet on a real iPhone.
+- **Red health warnings (2026-11-14):** spec in issue #26, not built yet.
 - **Spec #14 built (2026-11-07):** Weigh What's Left, diabetes mode, the doctor's PDF report and Ramadan mode, tickets #15 to #25. Database v7. Not yet tried on the real scale or a real iPhone.
 
 ## Where things live
@@ -198,6 +199,7 @@ Single-context: one `GLOSSARY.md` and `docs/adr/` at the root, created only when
 - 2026-11-07: through `/grill-me` he chose four features, in issue #14: Weigh What's Left (container method only), diabetes mode (question in the Body Profile and Food Preferences; a suggested carb number he researched, which the user accepts or not), a doctor's PDF report (worked out by the app, no AI), and Ramadan mode (a Settings switch the app suggests near Ramadan; Iftar, Suhoor, Snack; no times). The confidence display stays until he removes it himself.
 - 2026-11-07: he gave the logo and liked the animated splash. He then asked for no Arabic name on the splash, the logo dead center, and after it a Welcome like a reference he sent (photo wall, logo, headline, Get Started, Sign Up, Log In), "as a reference, not a copy". He wants Sign Up and Log In as buttons only for now: he will build the accounts and backend himself later.
 - 2026-11-08: he asked for the movement between screens to be made beautiful, then added that it must help use the app and not show off or look salesy. Motion stays short, answers a tap, and shows where something came from.
+- 2026-11-14: his instructor asked for red warnings for people with diabetes. Through `/grill-me` he chose: free sugar (WHO definition) instead of total sugar; a limit of 10% of daily calories, 5% with diabetes; no sodium; red only for limits harmful to pass (free sugar, calories unless gaining, and carbs in diabetes mode); warn people without diabetes only past 40%; a red card before Save plus one vibration, and the bell after saving, never a pop-up; the scale's touchscreen shows it too; users choose Miqdar's number with a no-medical-responsibility notice, or their own. Spec in issue #26.
 - 2026-11-05: on the scale, a single food goes from Capture straight to one Analyzing screen with Cancel, then to a result with Save. No "Photo sent" screen and no Capture on the result. Add Next Food is a separate flow and keeps its own screens.
 
 ## Open decisions
@@ -217,6 +219,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-14: First install on his real iPhone; spec for red health warnings (issue #26)
+- Decided: see Decisions, 2026-11-14. He also asked about a wide camera mode: the Pi has the standard Camera Module 3 (`imx708`), already shooting its full view; wide needs the Camera Module 3 Wide.
+- Changed: `./run_iphone.sh` built and installed the app on "iphone A" (iPhone 15 Pro Max) with his free Personal Team; free signing lasts 7 days. Published issue #26. No code changed.
+- Tested: build and install finished; the launch then lost its connection, so whether it opens on the phone was not confirmed by us.
+- Not tested / risks: the ADA nutrition chapter was not opened; the spec says to check it. Free sugar is a new Gemini estimate with no accuracy measured.
+- Next: break #26 into tickets or build it.
 
 ### 2026-11-08: Add Meal button opens with a quiet fade (commit 0f505d7)
 - Decided: Abdullah did not like the motion when tapping the camera button on the bottom bar: the green circle growing into Add Meal.
