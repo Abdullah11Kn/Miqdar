@@ -59,7 +59,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Agent skills setup:** done. See Agent skills below.
 - **Logo, splash and Welcome (2026-11-07):** the app has Abdullah's logo, drawn from vectors, an animated splash on black, and a new Welcome with a food photo wall and Sign Up and Log In placeholders. Seen on simulators; not yet on a real iPhone or Android.
 - **Motion (2026-11-08):** screens, tabs, Add Meal and meal photos move as `docs/DESIGN.md`, Motion, describes. Seen on a throwaway simulator, filmed, in English light and Arabic dark; not yet on a real iPhone.
-- **Next features (2026-11-14):** spec in issue #32, split into tickets #33 to #44; ask Abdullah before each one whether there is time. Not built.
+- **Features from spec #32 (2026-11-14):** all twelve tickets #33 to #44 built (Abdullah said "implement all"): favourites, copy a day, piece counts, water, blood sugar, barcode (phone, scale photo, label mode), weekly summary, adaptive goal, Apple Health. Database v12. Not tried on a real iPhone or the real scale.
 - **Red health warnings (2026-11-14):** built, tickets #27 to #31, database v8. Seen in an end-to-end test on a throwaway simulator; not yet on a real iPhone or the physical touchscreen (the Pi needs `git pull` and a restart).
 - **Spec #14 built (2026-11-07):** Weigh What's Left, diabetes mode, the doctor's PDF report and Ramadan mode, tickets #15 to #25. Database v7. Not yet tried on the real scale or a real iPhone.
 
@@ -84,12 +84,14 @@ run_checks.sh             Rebuilds the database, then runs all tests
 mobile/lib/
   app_controller.dart     App state; capture flow; saving
   services/               gemini_service (prompt, model order), api_service (scale), alert_service, reminder_service
-  data/                   local_database (SQLite v8, free_sugar_g on meals, meal photos, meal_items, body_weights, leftover columns on meals), food_catalog
+  data/                   local_database (SQLite v12: free_sugar_g, is_favourite, piece_count on meals; water_entries; glucose_readings; meal photos, meal_items, body_weights, leftover columns on meals), food_catalog
   models/nutrition.dart   Data models
   models/body_profile.dart  Body profile and the goal calculation
   models/diabetes.dart    Diabetes settings, carb portions, when a carb number is offered
   models/ramadan.dart     Ramadan dates (Umm al-Qura, hijri package) and when to suggest the mode
   models/doctor_report.dart  The doctor's report, worked out from the user's meals; services/report_html.dart draws it
+  models/                 also water, glucose (blood sugar log), weekly_summary, adaptive_goal
+  services/               also open_food_facts (barcode lookup), barcode_reader (barcodes in scale photos), health_sync (Apple Health / Health Connect)
   theme.dart              All colors (context.mq) and text styles (MiqdarType)
   miqdar_icons.dart       Icons from mobile/assets/fonts, generated; see the README there
 mobile/assets/branding/logo/  The logo's source files and build_logo.py, which traces them into lib/ui/widgets/miqdar_logo_paths.dart
@@ -222,11 +224,33 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-14: Built spec #32, tickets #33 to #44 (commits b97574c to 4d07845)
+- Decided: Abdullah ran `/tdd implement all`, taken as yes to every ticket without asking per feature. Technical choices were made without a confirmation round, as he asked ("I trust you, make the best decisions").
+- Changed:
+  - Favourites: star on Meal Detail, a Favourites list above Recent in Search.
+  - Copy This Day to Today on past diary days. Meal Detail's existing Log Again covers copying one meal.
+  - Gemini returns `piece_count`/`piece_unit`. A − / + counter on Review and Meal Detail scales from the weight per piece (`PortionSource.counted`). Plates and added sides get no count.
+  - Water on Home: cups, other amounts, the scale's grams. Goal 35 ml/kg, editable by tapping it.
+  - Blood sugar in diabetes mode: typed in mg/dL (mmol/L option in Food Preferences), tagged, linked to the nearest meal within 3 h, listed in the doctor's report with no statistics.
+  - Barcode: Scan a Barcode on Add Meal (`mobile_scanner`), Open Food Facts lookup, "Read the Label" when unknown. Every scale photo is checked for a barcode on the phone before Gemini. Meals show "Barcode (Open Food Facts)" or "Label read by Gemini". Privacy & Data updated.
+  - Weekly summary PDF from Insights. PDF only; sharing as an image was not built.
+  - Adaptive goal card on Home after 14 days and 3 weigh-ins: least-squares weight trend, 7,700 kcal/kg, weekly, Accept or Not Now. Demo has sample weights. Test builds have "Test builds: Load 3 Weeks of Test Data" in Privacy & Data, which writes fake meals to the real diary.
+  - Apple Health switch in Profile (`health` package): writes meals, water, weight; reads weight and, in diabetes mode, blood sugar. HealthKit entitlement and usage texts added.
+  - New icons in the font.
+- Tested: `flutter analyze`; 258 unit tests (three full runs stable after giving scale-photo tests a no-barcode reader); `health_warning_flow_test` on the throwaway simulator; iOS simulator build with HealthKit; a temporary tour on the throwaway simulator, looked at in English light and Arabic dark: Home water and adaptive cards, Meal Detail with star, blood sugar and counter. Deleted afterwards.
+- Not tested / risks:
+  - No real iPhone: camera barcode scanning, the vibration, Apple Health. HealthKit with a free Personal Team is unconfirmed and may stop `./run_iphone.sh` signing; if so, remove `CODE_SIGN_ENTITLEMENTS` from the Runner target.
+  - Android: Health Connect setup not done; Android still not built.
+  - No real Gemini request for counts or labels. Barcode detection in real scale photos is unmeasured, and Open Food Facts coverage of Saudi products is unknown.
+  - Not looked at: Search favourites, the copy-day button, the weekly summary PDF and Profile's Health row.
+  - The test-data loader is in every non-release build, including his simulator's.
+- Next: Abdullah tries it; then the button text flicker (still open).
+
 ### 2026-11-14: Research on missing features compared with other apps
 - Decided: Abdullah asked for long research on Fitbit, Cronometer and other popular trackers, the features Miqdar misses, then `/grill-me` before any spec. He also reported that button text sometimes flickers from white to black for about a second; a test showed the app's theme rebuild does not change button text colour, so the cause is still unknown and the investigation paused for the research.
 - Changed: `docs/research/reports/Calorie app feature gaps.md` with its five research notes in `docs/research/research_notes/Calorie app feature gaps/`, listed in `docs/README.md`. No code changed.
 - Tested: nothing to run. Notes cite sources; several vendor pages could not be opened, and the effort estimates are guesses.
-- Next: done: spec in issue #32 (see Decisions). Resume the button flicker hunt.
+- Next: done: spec in issue #32, built (entry above). Resume the button flicker hunt.
 
 ### 2026-11-14: Red health warnings built (tickets #27 to #31; commits eaa3cdc, 17d3f2c, 7f6b18e, f566baa, fcfab97)
 - Decided: Abdullah said he trusts agents to decide and asked for it to be built; tickets were published and built without a review round.
