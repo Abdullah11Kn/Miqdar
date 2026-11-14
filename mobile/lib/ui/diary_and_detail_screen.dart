@@ -151,12 +151,46 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       ),
                     ),
                     ...dayMeals.map((meal) => MealRowCard(meal: meal)),
+                    if (!isToday && dayDate.isBefore(controller.today))
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: TextButton.icon(
+                          onPressed: () => _copyDay(context, controller, dayDate),
+                          icon: const Icon(MiqdarIcons.contentCopy),
+                          label: Text(s.tr('Copy This Day to Today', 'نسخ هذا اليوم إلى اليوم')),
+                        ),
+                      ),
                   ],
                 ),
               );
             }),
         ],
       ],
+    );
+  }
+
+  Future<void> _copyDay(BuildContext context, MiqdarController controller, DateTime day) async {
+    final s = S.of(context);
+    final count = controller.mealsForDate(day).length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(s.tr('Copy this day to today?', 'نسخ هذا اليوم إلى اليوم؟')),
+        content: Text(s.tr(
+          '$count ${count == 1 ? 'meal' : 'meals'} from ${s.date(day, 'EEE, d MMM')} will be added to today, at the same times.',
+          'ستُضاف $count من وجبات ${s.date(day, 'EEE، d MMM')} إلى اليوم، في الأوقات نفسها.',
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(s.tr('Cancel', 'إلغاء'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(s.tr('Copy', 'نسخ'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final copied = await controller.copyDayToToday(day);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(s.tr('$copied copied to today', 'نُسخت $copied إلى اليوم'))),
     );
   }
 }

@@ -74,4 +74,34 @@ void main() {
     await controller.setFavourite(second, true);
     expect(controller.favouriteMeals.single.weightG, 50);
   });
+
+  group('copying a day', () {
+    test("copies every meal of a past day to today, at the same times of day", () async {
+      await logFood('Kabsa', grams: 300, kcal: 180);
+      await logFood('Laban', grams: 200, kcal: 60);
+      // Move both meals to yesterday, at 08:30 and 13:15.
+      final yesterday = controller.today.subtract(const Duration(days: 1));
+      final times = [const Duration(hours: 8, minutes: 30), const Duration(hours: 13, minutes: 15)];
+      final originals = [...controller.meals];
+      for (var i = 0; i < originals.length; i++) {
+        await controller.updateMeal(originals[i].copyWith(eatenAt: yesterday.add(times[i])));
+      }
+      expect(controller.mealsForDate(controller.today), isEmpty);
+
+      final copied = await controller.copyDayToToday(yesterday);
+
+      expect(copied, 2);
+      final today = controller.mealsForDate(controller.today);
+      expect(today.map((m) => m.nameEn).toSet(), {'Kabsa', 'Laban'});
+      final kabsa = today.firstWhere((m) => m.nameEn == 'Kabsa');
+      expect(kabsa.eatenAt.hour, anyOf(8, 13));
+      expect(controller.totalsForDate(controller.today).calories, closeTo(540 + 120, 0.01));
+      // The originals are untouched.
+      expect(controller.mealsForDate(yesterday).length, 2);
+    });
+
+    test('copying an empty day copies nothing', () async {
+      expect(await controller.copyDayToToday(controller.today.subtract(const Duration(days: 3))), 0);
+    });
+  });
 }

@@ -1797,6 +1797,34 @@ class MiqdarController extends ChangeNotifier {
     unawaited(refreshRecommendations());
   }
 
+  /// Copies every meal of the diary day [day] to today, keeping each meal's time of day (and the
+  /// noon-to-noon day in Ramadan mode). Returns how many meals were copied.
+  Future<int> copyDayToToday(DateTime day) async {
+    final source = mealsForDate(day)..sort((a, b) => a.eatenAt.compareTo(b.eatenAt));
+    if (source.isEmpty) return 0;
+    final shift = today.difference(DateTime(day.year, day.month, day.day));
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final copies = <MealEntry>[];
+    for (var i = 0; i < source.length; i++) {
+      final copy = source[i].copiedAs('meal-copy-$stamp-$i', source[i].eatenAt.add(shift));
+      final photo = await mealPhoto(source[i].id);
+      if (account.isDemo) {
+        if (photo != null) _sessionPhotos[copy.id] = photo;
+      } else {
+        await localDatabase.insertMealEntry(copy);
+        if (photo != null) {
+          _photoCache[copy.id] = photo;
+          await localDatabase.saveMealPhoto(copy.id, photo).catchError((Object _) {});
+        }
+      }
+      copies.add(copy);
+    }
+    meals = [...copies, ...meals]..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
+    notifyListeners();
+    unawaited(refreshRecommendations());
+    return copies.length;
+  }
+
   Future<MealEntry?> undoLastDelete() async {
     final restored = _lastDeletedMeal;
     if (restored == null) return null;

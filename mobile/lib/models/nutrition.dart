@@ -747,6 +747,42 @@ class MealEntry {
         favourite: favourite ?? this.favourite,
       );
 
+  /// The same meal logged again as a new entry with [newId] at [newTime]: same food, values,
+  /// leftovers and plate items, not starred.
+  MealEntry copiedAs(String newId, DateTime newTime) => MealEntry(
+        id: newId,
+        foodId: foodId,
+        nameEn: nameEn,
+        nameAr: nameAr,
+        eatenAt: newTime,
+        mealType: mealType,
+        weightG: weightG,
+        confidence: confidence,
+        nutrients: servedNutrients,
+        portionSource: portionSource,
+        verificationStatus: verificationStatus,
+        notes: notes,
+        basisPer100g: basisPer100g,
+        items: [
+          for (var i = 0; i < items.length; i++)
+            MealItemEntry(
+              id: '$newId-$i',
+              foodId: items[i].foodId,
+              nameEn: items[i].nameEn,
+              nameAr: items[i].nameAr,
+              weightG: items[i].weightG,
+              nutrients: items[i].nutrients,
+              basisPer100g: items[i].basisPer100g,
+              portionSource: items[i].portionSource,
+              verificationStatus: items[i].verificationStatus,
+              preparation: items[i].preparation,
+            ),
+        ],
+        leftover: leftover == null
+            ? null
+            : MealLeftover(grams: leftover!.grams, itemIndex: leftover!.itemIndex, weighedAt: newTime),
+      );
+
   /// Recalculates nutrients from the immutable source basis for [newWeightG].
   MealEntry rescaledToWeight(double newWeightG, {PortionSource? newSource}) {
     final basis = resolvedBasisPer100g;
