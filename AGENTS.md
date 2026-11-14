@@ -50,8 +50,8 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Still not verified on the real scale:**
   1. Formal accuracy and timing tests, and mixed plates on real food. These are the most important next tests.
   2. Starting at boot: on the 2026-11-05 00:04 boot the scale was not running 8 minutes later, cause unknown. The same autostart mechanism ran a test entry correctly. `start_all.sh` now logs to `/tmp/miqdar_start.log`. Power-cycle it and read that log; rebooting over SSH needs a password.
-- **Pi:** tunnel off by default, but someone started it with the Internet icon on 2026-11-05 at 02:36 and it was still running at the last check. The scale's Wi-Fi address works.
-- **Pi code:** pulled to the commit of the 2026-11-05 entry "Save and Cancel on the touchscreen", with Thmanyah installed. The scale must be restarted to load it, and the phone needs the matching app build for Save and Cancel. `git pull` works there again since the history rewrite. The earlier calibration is backed up in `~/miqdar-backup/` on the Pi.
+- **Pi:** tunnel off by default; not running at the 2026-11-15 check. On the hotspot the Pi was at 172.20.10.3. The scale's Wi-Fi address works.
+- **Pi code:** at 2b97f38 (2026-11-15), installer run and the scale restarted with it, with Thmanyah installed. Its calibration is the 2026-11-10 one, now also in git. `git pull` works there again since the history rewrite. The earlier calibration is backed up in `~/miqdar-backup/` on the Pi.
 - **USB-C networking:** Abdullah remembers it working. On 2026-11-04 the Mac got no reply at 192.168.7.1 and no address from the Pi, even though the Pi's `miqdar-usb` connection reads as active. Use the `iphone A` hotspot, which works.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
@@ -229,11 +229,18 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-15: Pi updated to the latest code; its newer calibration saved to git
+- Decided: Abdullah switched the Mac to the iPhone hotspot so the Pi could be updated.
+- Changed: on the Pi (172.20.10.3 on the hotspot), `git pull` to 2b97f38 and `./install_pi_desktop.sh`, then the scale started in its desktop session (`x-terminal-emulator -e ./start_all.sh` with `WAYLAND_DISPLAY=wayland-0`, `DISPLAY=:0`). The Pi had been recalibrated by hand on 2026-11-10 (185 g weight, factor 412.36) without committing it; that file was kept, backed up to `~/miqdar-backup/scale_calibration-2026-11-10.json`, and is now committed as `scale_calibration.json`, replacing the 2026-10-20 values. The Pi's `database/miqdar_nutrition.db` also has local changes, left alone.
+- Tested: `/scale/live` answers from the Mac at 172.20.10.3 and at `foodscale.local`: real mode, sensor ok, 0 g, stable; no tunnel process; the new app.py has the warning code.
+- Not tested / risks: the red warning line was not seen on the physical touchscreen. Boot start: the Pi had booted 10 minutes earlier and `/tmp/miqdar_start.log` held a start entry from that boot (its date read 14 Nov 03:37, probably the clock before network time) followed by someone closing the scale, so boot start probably worked, but this is not certain.
+- Next: a sweet food on the scale in the Diabetes scenario, to see the red line on the touchscreen.
+
 ### 2026-11-15: The logo as the app icon; new build on his iPhone
 - Decided: Abdullah connected the Mac and the scale to the iPhone hotspot and asked for all the new changes on his iPhone, and for the logo to show "from outside", taken to mean the app icon.
 - Changed: the iOS and Android app icons are now the color mark (white bowl, green star) on black, like the splash, made by the new `mobile/assets/branding/logo/build_app_icon.py` from `mark-color-on-black.jpg`. The name under the icon is "Miqdar" (was "Miqdar Mobile" on iOS and "miqdar_mobile" on Android).
 - Tested: `./run_iphone.sh` built and installed on "iphone A" over Wi-Fi and launched (exit 0); signing with the HealthKit entitlement worked on his free Personal Team. His iPhone 16 Pro simulator rebuilt with his data kept; its home screen shows the new icon named Miqdar (screenshot).
-- Not tested / risks: the Pi was NOT updated: the Mac was on a 192.168.1.x Wi-Fi, not the hotspot, and the Pi did not answer there, so the touchscreen still lacks the red warning line. Not looked at on the real iPhone's home screen by us. Free signing lasts 7 days from this install.
+- Not tested / risks: the Pi was not updated in this step (the Mac was on another Wi-Fi); done in the entry above. Not looked at on the real iPhone's home screen by us. Free signing lasts 7 days from this install.
 - Next: with the Mac on the hotspot, `ssh -4 miqdar-pi`, then `cd ~/Miqdar && git pull origin feature/scale-live-flow && ./install_pi_desktop.sh` and restart the scale.
 
 ### 2026-11-14: Showcase Scenarios for presenting the app
