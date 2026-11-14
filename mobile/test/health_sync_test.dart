@@ -4,6 +4,7 @@ import 'package:http/testing.dart';
 import 'package:miqdar_mobile/app_controller.dart';
 import 'package:miqdar_mobile/data/local_database.dart';
 import 'package:miqdar_mobile/models/body_profile.dart';
+import 'package:miqdar_mobile/models/diabetes.dart';
 import 'package:miqdar_mobile/models/glucose.dart';
 import 'package:miqdar_mobile/models/nutrition.dart';
 import 'package:miqdar_mobile/models/water.dart';
@@ -123,5 +124,50 @@ void main() {
     await logMeal();
     await pumpEventQueue();
     expect(health.meals, isEmpty);
+  });
+
+  group('blood sugar from Health', () {
+    setUp(() async {
+      await controller.updateDiabetes(const DiabetesSettings(hasDiabetes: true, type: DiabetesType.type2));
+    });
+
+    test('appears beside the meal it belongs to, marked as from Apple Health, once', () async {
+      final meal = await logMeal();
+      health.glucoseInHealth = [
+        GlucoseReading(
+          id: 'health-glucose-1',
+          mgdl: 171,
+          at: meal.eatenAt.add(const Duration(hours: 2)).isAfter(DateTime.now())
+              ? DateTime.now()
+              : meal.eatenAt.add(const Duration(hours: 2)),
+          tag: GlucoseTag.other,
+          fromHealth: true,
+        ),
+      ];
+      await controller.setHealthSync(true);
+      await controller.syncFromHealth();
+      final readings = controller.readingsForMeal(meal);
+      expect(readings.single.mgdl, 171);
+      expect(readings.single.fromHealth, isTrue);
+    });
+
+    test('a reading already typed by hand is not added again', () async {
+      final at = DateTime.now().subtract(const Duration(minutes: 30));
+      await controller.addGlucose(140, tag: GlucoseTag.other, at: at);
+      health.glucoseInHealth = [
+        GlucoseReading(id: 'health-glucose-2', mgdl: 140, at: at.add(const Duration(minutes: 2)), tag: GlucoseTag.other, fromHealth: true),
+      ];
+      await controller.setHealthSync(true);
+      expect(controller.glucoseReadings.length, 1);
+    });
+
+    test('not read without diabetes mode', () async {
+      await controller.updateDiabetes(const DiabetesSettings());
+      health.glucoseInHealth = [
+        GlucoseReading(id: 'health-glucose-3', mgdl: 120, at: DateTime.now(), tag: GlucoseTag.other, fromHealth: true),
+      ];
+      await controller.setHealthSync(true);
+      expect(controller.glucoseReadings, isEmpty);
+    });
   });
 }

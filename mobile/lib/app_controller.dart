@@ -2011,6 +2011,21 @@ class MiqdarController extends ChangeNotifier {
           DateTime(e.measuredOn.year, e.measuredOn.month, e.measuredOn.day) == day && (e.weightKg - w.weightKg).abs() < 0.05);
       if (!known) await saveWeightEntry(id: w.id, measuredOn: w.measuredOn, weightKg: w.weightKg);
     }
+    if (!diabetes.hasDiabetes) return;
+    var added = false;
+    for (final r in await healthSync.readGlucose(since)) {
+      // The same reading typed by hand, or brought in before, is not added twice.
+      final known = glucoseReadings.any((g) =>
+          g.id == r.id || ((g.mgdl - r.mgdl).abs() < 1 && g.at.difference(r.at).abs() <= const Duration(minutes: 10)));
+      if (known) continue;
+      glucoseReadings = [...glucoseReadings, r];
+      await localDatabase.saveGlucose(r);
+      added = true;
+    }
+    if (added) {
+      glucoseReadings.sort((a, b) => a.at.compareTo(b.at));
+      notifyListeners();
+    }
   }
 
   // Blood sugar (diabetes mode). A plain log: no ranges, averages, alerts or advice.
