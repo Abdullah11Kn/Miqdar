@@ -1431,6 +1431,40 @@ class MiqdarController extends ChangeNotifier {
   }
 
   /// Prepares a reviewable draft directly from a catalog item or custom food (S24 -> S26).
+  /// A packaged product from its barcode, with [weightG] or the scale's grams, else the pack's
+  /// serving. Null when Open Food Facts does not know it (then label mode is offered).
+  Future<RecognitionResult?> prepareBarcodeDraft(String code, {double? weightG, bool weighedOnScale = false}) async {
+    final product = await apiService.openFoodFacts.lookup(code);
+    if (product == null) return null;
+    final live = scaleDevice.online && scaleDevice.liveWeightG >= 5 ? scaleDevice.liveWeightG : null;
+    final double grams;
+    final PortionSource source;
+    if (weightG != null) {
+      (grams, source) = (weightG, weighedOnScale ? PortionSource.scale : PortionSource.manual);
+    } else if (live != null) {
+      (grams, source) = (live, PortionSource.scale);
+    } else if (product.servingG != null) {
+      (grams, source) = (product.servingG!, PortionSource.serving);
+    } else {
+      (grams, source) = (100, PortionSource.manual);
+    }
+    final draft = await prepareCatalogDraft(
+      food: FoodCatalogItem(
+        foodId: '$barcodeFoodIdPrefix${product.code}',
+        nameEn: product.nameEn,
+        nameAr: product.nameAr,
+        category: 'Packaged',
+        preparation: 'Barcode ${product.code}',
+        verificationStatus: barcodeStatus,
+        sourceId: 'OPEN_FOOD_FACTS',
+        per100g: product.per100g,
+      ),
+      weightG: grams,
+      portionSource: source,
+    );
+    return draft;
+  }
+
   Future<RecognitionResult> prepareCatalogDraft({
     required FoodCatalogItem food,
     required double weightG,

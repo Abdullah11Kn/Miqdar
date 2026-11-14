@@ -403,6 +403,16 @@ class MealItemEntry {
 /// Marks nutrition estimated by Gemini rather than read from a reviewed record.
 const aiEstimateStatus = 'ai_estimate';
 
+/// Numbers read from a packaged product's barcode in Open Food Facts.
+const barcodeStatus = 'barcode_open_food_facts';
+
+/// Numbers Gemini read from a photo of a nutrition label.
+const labelStatus = 'label_read_by_ai';
+
+/// Prefixes of food ids for barcode and label foods, so a saved meal keeps where its numbers came from.
+const barcodeFoodIdPrefix = 'off-';
+const labelFoodIdPrefix = 'label-';
+
 /// Prefix of food ids that exist only as a Gemini estimate, not in any database.
 const aiFoodIdPrefix = 'ai-';
 

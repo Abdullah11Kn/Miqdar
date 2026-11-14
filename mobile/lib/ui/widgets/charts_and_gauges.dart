@@ -1234,6 +1234,14 @@ class AiVerificationBadge extends StatelessWidget {
       (bg, fg, iconColor) = (c.surface, c.ink, c.primary);
       icon = MiqdarIcons.verified;
       title = s.verifiedOfficialRecord;
+    } else if (verificationStatus == barcodeStatus) {
+      (bg, fg, iconColor) = (c.infoSoft, c.info, c.info);
+      icon = MiqdarIcons.barcodeScanner;
+      title = s.tr('Barcode (Open Food Facts)', 'باركود (Open Food Facts)');
+    } else if (verificationStatus == labelStatus) {
+      (bg, fg, iconColor) = (c.accentSoft, c.accentInk, c.accentInk);
+      icon = MiqdarIcons.documentScanner;
+      title = s.tr('Label read by Gemini', 'ملصق قرأه Gemini');
     } else if (verificationStatus == aiEstimateStatus) {
       (bg, fg, iconColor) = (c.accentSoft, c.accentInk, c.accentInk);
       icon = MiqdarIcons.autoAwesome;

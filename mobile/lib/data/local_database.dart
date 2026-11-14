@@ -523,7 +523,11 @@ class LocalDatabase {
             )
           : null,
       basisPer100g: weightG > 0 ? nutrients.scaledBy(100.0 / weightG) : nutrients,
-      verificationStatus: (row['food_id'] as String).startsWith(aiFoodIdPrefix)
+      verificationStatus: (row['food_id'] as String).startsWith(barcodeFoodIdPrefix)
+          ? barcodeStatus
+          : (row['food_id'] as String).startsWith(labelFoodIdPrefix)
+          ? labelStatus
+          : (row['food_id'] as String).startsWith(aiFoodIdPrefix)
           ? aiEstimateStatus
           : ((row['food_id'] as String) == 'food_dates_medjool'
               ? 'verified_official_record'

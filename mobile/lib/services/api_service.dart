@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../data/food_catalog.dart';
 import '../models/nutrition.dart';
 import 'gemini_service.dart';
+import 'open_food_facts.dart';
 
 String _defaultBaseUrl() {
   const envUrl = String.fromEnvironment('MIQDAR_API_URL');
@@ -133,9 +134,14 @@ class ApiService {
     this.apiToken = const String.fromEnvironment('MIQDAR_API_TOKEN'),
     http.Client? client,
     GeminiNutritionService? gemini,
+    OpenFoodFactsService? openFoodFacts,
   })  : baseUrl = baseUrl ?? _defaultBaseUrl(),
         _client = client ?? http.Client(),
-        gemini = gemini ?? GeminiNutritionService(client: client);
+        gemini = gemini ?? GeminiNutritionService(client: client),
+        openFoodFacts = openFoodFacts ?? OpenFoodFactsService();
+
+  /// Barcodes are looked up here; see Privacy & Data.
+  final OpenFoodFactsService openFoodFacts;
 
   String baseUrl;
   final String apiToken;

@@ -701,6 +701,14 @@ class PrivacyAndDataScreen extends StatelessWidget {
                         ),
                       ),
                       _PrivacyRow(
+                        icon: MiqdarIcons.barcodeScanner,
+                        title: s.tr('Open Food Facts', 'Open Food Facts'),
+                        body: s.tr(
+                          'When you scan a barcode, only the barcode number is sent to Open Food Facts, a free public food database, to look up the product. No photo, account or other data goes with it.',
+                          'عند مسح الباركود يُرسل رقم الباركود فقط إلى Open Food Facts، وهي قاعدة بيانات غذائية عامة ومجانية، للبحث عن المنتج. لا تُرسل معه صورة أو حساب أو أي بيانات أخرى.',
+                        ),
+                      ),
+                      _PrivacyRow(
                         icon: MiqdarIcons.scale,
                         title: s.tr('Your scale', 'ميزانك'),
                         body: s.tr(

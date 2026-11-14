@@ -12,6 +12,7 @@ import '../l10n/strings.dart';
 import '../models/nutrition.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
+import 'barcode_scan_screen.dart';
 import 'diabetes_widgets.dart';
 import 'screens.dart';
 import 'widgets/charts_and_gauges.dart';
@@ -668,6 +669,11 @@ class _ScanScreenState extends State<ScanScreen> {
               Wrap(
                 alignment: WrapAlignment.center,
                 children: [
+                  TextButton.icon(
+                    onPressed: () => scanBarcodeAndLog(context),
+                    icon: const Icon(MiqdarIcons.barcodeScanner, size: 18),
+                    label: Text(s.tr('Scan a Barcode', 'امسح الباركود')),
+                  ),
                   TextButton.icon(
                     onPressed: () => openDescribeMeal(context, startWithCamera: true),
                     icon: const Icon(MiqdarIcons.photoCamera, size: 18),
