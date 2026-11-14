@@ -180,4 +180,12 @@ void main() {
       expect(alert.message, isNot(contains(' g keeps you')));
     });
   });
+
+  test("the scale's touchscreen gets one short English line, or none", () {
+    final alerts = AlertService()
+        .evaluate(currentTotals: food(sugar: 40), incoming: food(sugar: 22), goals: goals, context: diabetic)
+        .alerts;
+    expect(scaleWarningLine(alerts), 'Over sugar limit. Try a smaller portion.');
+    expect(scaleWarningLine(const []), isNull);
+  });
 }

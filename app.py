@@ -533,6 +533,8 @@ class ScaleHardwareAdapter:
             "food": payload.get("food", {}),
             "nutrients": payload.get("nutrients", {}),
             "weight_g": latest["weight_g"],
+            # A short red line when the meal passes a limit that is harmful to pass (issue #26).
+            "warning": payload.get("warning"),
         }
         return True
 
@@ -1333,6 +1335,8 @@ def draw_screen(p: Any, s: Dict[str, Any]) -> List[Tuple[int, int, int, int, str
         text(W // 2, 148, kcal_text, 48, C_ACCENT if kcal is None else C_INK, bold=True)
         if s.get("save_note"):
             text(W // 2, 370, str(s["save_note"]), 14, C_ACCENT, bold=True)
+        elif s.get("warning"):
+            text(W // 2, 370, str(s["warning"])[:60], 16, C_DANGER, bold=True)
         grams_text = f"{s.get('weight', 0):.0f} g"
         if s.get("estimate"):
             text(W // 2, 192, f"{grams_text}  ·  Gemini estimate", 17, C_ACCENT, bold=True)
@@ -1703,7 +1707,7 @@ class ScaleTouchscreenApp:
                           event_id=result.get("event_id"), saved_to_history=bool(result.get("saved_to_history")),
                           saving=False, save_note=None, waiting_phone=False, stalled=False,
                           kcal=n.get("calories_kcal"), carbs=n.get("carbohydrate_g"), protein=n.get("protein_g"),
-                          fat=n.get("fat_g"), sugar=n.get("sugar_g"))
+                          fat=n.get("fat_g"), sugar=n.get("sugar_g"), warning=result.get("warning"))
         self._set_status("Saved" if result.get("saved_to_history") else "Sent to app", C_PRIMARY)
         self._redraw()
 

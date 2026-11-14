@@ -395,7 +395,8 @@ class ApiService {
   }
 
   /// Tells the scale what the phone found, so its touchscreen can show the calories too.
-  Future<void> postScaleResult(RecognitionResult result) async {
+  /// [warning] is a short English line for a passed health limit; the touchscreen draws it in red.
+  Future<void> postScaleResult(RecognitionResult result, {String? warning}) async {
     try {
       await _client
           .post(
@@ -411,6 +412,7 @@ class ApiService {
                 'fat_g': result.nutrients.fat,
                 'sugar_g': result.nutrients.sugar,
               },
+              if (warning != null) 'warning': warning,
             }),
           )
           .timeout(const Duration(seconds: 8));

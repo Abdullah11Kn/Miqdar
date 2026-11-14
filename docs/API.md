@@ -74,8 +74,10 @@ the request and says so.
 analyzing it, closes its screens and answers with `outcome: discarded`.
 
 ### `POST /scale/capture/result`
-The app reports `{"event_id", "food": {"name_en"}, "nutrients"}` so the touchscreen can show the calories. Results for
-an older capture are ignored. Returns `{"accepted": true}` or `false`.
+The app reports `{"event_id", "food": {"name_en"}, "nutrients", "warning"?}` so the touchscreen can show the calories.
+`warning` is present only when the meal passes a limit that is harmful to pass, as one short English line such as
+"Over sugar limit. Try a smaller portion."; the touchscreen draws it in red. Results for an older capture are ignored.
+Returns `{"accepted": true}` or `false`.
 
 ### `POST /scale/tare`
 Sets the current reading to 0 g. Returns `{"success": true, "scale": { ...same as /scale/live... }}`.

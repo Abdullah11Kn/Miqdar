@@ -62,6 +62,19 @@ bool isHarmfulLimit(String key, NutritionGoals goals, AlertContext context) {
 bool _partial(NutritionValues values, String key) =>
     values.isMissing(key == mealCarbsKey ? 'carbohydrate_g' : key);
 
+/// The short line the scale's touchscreen shows in red. English only: that screen does not shape Arabic.
+String? scaleWarningLine(List<HealthAlert> alerts) {
+  if (alerts.isEmpty) return null;
+  final what = switch (alerts.first.nutrientKey) {
+    'sugar_g' => 'sugar limit',
+    'calories_kcal' => 'calorie goal',
+    'carbohydrate_g' => 'daily carb limit',
+    mealCarbsKey => 'carbs for one meal',
+    _ => 'a limit',
+  };
+  return 'Over $what. Try a smaller portion.';
+}
+
 class AlertService {
   AlertEvaluation evaluate({
     required NutritionValues currentTotals,

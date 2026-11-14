@@ -1277,7 +1277,7 @@ class MiqdarController extends ChangeNotifier {
       );
       if (_analyzingEventId != eventId) return null;
       await _acceptScaleCapture(result);
-      unawaited(apiService.postScaleResult(result));
+      unawaited(apiService.postScaleResult(result, warning: scaleWarningLine(projectedAlerts)));
       return result;
     } on RecognitionException catch (error) {
       if (_analyzingEventId != eventId) return null;

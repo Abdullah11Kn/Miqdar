@@ -375,6 +375,35 @@ class ScaleCaptureFlowTests(unittest.TestCase):
         self.assertIn("Unknown", drawn)
         self.assertNotIn("0.0 g", drawn)
 
+    def test_touchscreen_shows_the_phone_warning_in_red_only_when_sent(self) -> None:
+        drawn = []
+
+        class Painter:
+            def rect(self, *_):
+                pass
+
+            def round(self, *_):
+                pass
+
+            def text(self, _x, _y, value, _size, _bold, fill, *_):
+                drawn.append((value, fill))
+
+        base = {"screen": "result", "food": "Kunafa", "weight": 200, "estimate": True,
+                "kcal": 800, "carbs": 100.0, "protein": 10.0, "fat": 40.0, "sugar": 60.0}
+        scale_app.draw_screen(Painter(), {**base, "warning": "Over sugar limit. Try a smaller portion."})
+        self.assertIn(("Over sugar limit. Try a smaller portion.", scale_app.C_DANGER), drawn)
+
+        drawn.clear()
+        scale_app.draw_screen(Painter(), base)
+        self.assertFalse(any("limit" in value for value, _ in drawn))
+
+    def test_phone_result_keeps_its_warning_for_the_touchscreen(self) -> None:
+        self.hw.record_photo_event(b"", 200.0)
+        event_id = self.hw.latest_capture_event["event_id"]
+        self.assertTrue(self.hw.record_analysis({"event_id": event_id, "food": {"name_en": "Kunafa"},
+                                                 "nutrients": {}, "warning": "Over sugar limit."}))
+        self.assertEqual(self.hw.latest_analysis["warning"], "Over sugar limit.")
+
     def test_photo_for_the_app_is_downscaled(self) -> None:
         hw = self.real_scale(FakeHardwareModule(grams=240.0))
         hw.analyze_on_scale = False
