@@ -14,6 +14,7 @@ import argparse
 import csv
 import math
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 REQUIRED = ["trial", "meal", "food_added", "food_already_on_plate", "added_mass_g", "detected",
@@ -91,15 +92,25 @@ def report(rows: list[dict[str, str]], simulated: bool, source: str) -> str:
     low, high = wilson(passed, total)
     needed = math.ceil(TARGET * total)
     verdict = "meets" if rate >= TARGET else "does not meet"
+    meals = len({r["meal"] for r in filled})
+    first_food = total - on_plate[1]
+    first_passed = passed - on_plate[0]
     lines += [
         "",
         f"**Successful detection and logging rate = {passed} / {total} × 100 = {rate * 100:.0f}%**, "
         f"which {verdict} the 90% requirement (at least {needed} of {total}).",
         "",
+        f"- {total} additions in {meals} meals, so {meals} Gemini requests (one per meal, at Done).",
+        f"- First food on an empty plate: {first_passed} of {first_food} passed.",
         f"- Additions made with food already on the plate: {on_plate[0]} of {on_plate[1]} passed.",
         f"- 95% confidence interval for the true rate: {low * 100:.0f}% to {high * 100:.0f}% "
         f"(Wilson). With only {total} trials, the true rate could be this far from the measured one.",
     ]
+    by_food: dict[str, list[bool]] = defaultdict(list)
+    for r in filled:
+        by_food[r["food_added"].strip()].append(judge(r)[0])
+    lines += ["", "| Food | Passed |", "|---|---:|"]
+    lines += [f"| {food} | {sum(res)} / {len(res)} |" for food, res in sorted(by_food.items())]
     if failures:
         lines += ["", "Failed trials:"]
         lines += [f"- Trial {t} ({food}): {why}." + (f" {note}" if note else "") for t, food, why, note in failures]
