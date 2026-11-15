@@ -23,7 +23,8 @@ class PhotoBarcodeReader implements BarcodeReader {
       );
       file = File('${Directory.systemTemp.path}/miqdar-barcode-${DateTime.now().microsecondsSinceEpoch}.jpg');
       await file.writeAsBytes(jpeg, flush: true);
-      final capture = await scanner.analyzeImage(file.path).timeout(const Duration(seconds: 4));
+      // Short: a scale photo with no barcode must not hold up Gemini.
+      final capture = await scanner.analyzeImage(file.path).timeout(const Duration(milliseconds: 1500));
       return capture?.barcodes.map((b) => b.rawValue).whereType<String>().firstOrNull;
     } catch (_) {
       return null;

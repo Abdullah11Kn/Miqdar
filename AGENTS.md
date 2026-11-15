@@ -231,6 +231,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-15: Faster results: smaller photos to Gemini, low thinking, shorter barcode wait
+- Decided: Abdullah said results took more than 12 s and asked for a fast fix that breaks nothing, on his phone, the Mac and the scale.
+- Found: the Pi's log showed about 2 s from photo to the phone having it, then 28 s and 32 s until the phone posted its result: the phone side (barcode check, then Gemini). The phone sent the scale's full 1280 x 960 photos (350 to 420 KB) to Google over the hotspot, asked Gemini with its default thinking, and waited up to 4 s for the barcode check first.
+- Changed (`gemini_service.dart`, `barcode_reader.dart`): photos over 150 KB go to Gemini at 768 px on the long side, JPEG 85, made in a background isolate; the meal keeps the full photo, and label reading keeps full size so small print stays readable. Every request asks for `thinkingConfig: {thinkingLevel: low}`; if a model answers 400 mentioning thinking, the same model is asked again at once without it, so no model is lost. The barcode check gives up after 1.5 s. `image` (already in the build through another package, 4.12.0) is now a direct dependency.
+- Tested: `flutter analyze`; 285 unit tests, four new in `gemini_speed_test.dart` (a 1280 x 960 photo is sent at 768 x 576 while the result keeps the original; thinking low in the request; a model refusing the setting is retried without it; small or unreadable photos sent as they are). No Gemini request was made, by his rule.
+- Not tested / risks: the real speed-up is unmeasured; the first real capture will show it. Whether each Gemini 3 model accepts `low` is unknown; the retry covers a refusal that names thinking, and a refusal that does not falls to the next model as before.
+
 ### 2026-11-15: Plain names for the real trial log and report
 - Decided: Abdullah will write the real trial outcomes himself and asked for the report without Arabic, without "example" wording and without a SIMULATED name. Agreed for the real report; declined putting the invented 19/20 rows into an unlabelled file, because that would be a fake test report.
 - Changed: `template.csv` is now `evaluation/addition_trials/addition_trials.csv`, the log for the real trials. `score_trials.py` writes `evaluation/addition_trials/ADDITION_TRIALS_REPORT.md` from it, with no Arabic in the title and the document line taken from the output name; a log without SIMULATED in its name or first line gets no simulated wording. The labelled simulated example and its report stay as they are.

@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 
 import '../data/food_catalog.dart';
 import '../models/nutrition.dart';
@@ -52,6 +54,41 @@ class GeminiNutritionService {
   static const _retryableStatus = {400, 404, 429, 500, 502, 503, 504};
   static const _notFoodLabels = {'not food', 'no food', 'non-food'};
 
+  /// Photos go to Gemini at this size on their long side. The scale's 1280 px photos were slow to upload
+  /// over a phone hotspot and slow to read; 768 px is enough to name a food. The meal keeps the full photo.
+  static const _sendLongSide = 768;
+  static const _shrinkAboveBytes = 150 * 1024;
+
+  /// Naming a food needs little reasoning, and Gemini's default thinking adds seconds to every answer.
+  static const _thinking = {'thinkingLevel': 'low'};
+
+  /// A smaller copy of [photo] for Gemini, or [photo] itself if it is small already or cannot be read.
+  static Future<Uint8List> _forGemini(Uint8List photo) async {
+    // A photo this small is already quick to send; the scale's are 350 to 420 KB.
+    if (photo.length < _shrinkAboveBytes) return photo;
+    try {
+      return await Isolate.run(() {
+        final decoded = img.decodeImage(photo);
+        if (decoded == null) return photo;
+        final longSide = decoded.width > decoded.height ? decoded.width : decoded.height;
+        if (longSide <= _sendLongSide) return photo;
+        final resized = decoded.width >= decoded.height
+            ? img.copyResize(decoded, width: _sendLongSide, interpolation: img.Interpolation.average)
+            : img.copyResize(decoded, height: _sendLongSide, interpolation: img.Interpolation.average);
+        return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+      });
+    } catch (_) {
+      return photo;
+    }
+  }
+
+  /// The same request without the thinking setting, for a model that does not accept it.
+  static String _withoutThinking(String payload) {
+    final body = jsonDecode(payload) as Map<String, dynamic>;
+    (body['generationConfig'] as Map<String, dynamic>?)?.remove('thinkingConfig');
+    return jsonEncode(body);
+  }
+
   final String apiKey;
   final List<String> models;
   final http.Client _client;
@@ -79,7 +116,7 @@ class GeminiNutritionService {
       throw const RecognitionException('INVALID_IMAGE', 'The photo is empty.');
     }
     return _generate(
-      jsonEncode(_requestBody(imageBytes, weightG, hint, correction)),
+      jsonEncode(_requestBody(await _forGemini(imageBytes), weightG, hint, correction)),
       (body, model, elapsedMs) => _parseResult(
         body,
         model: model,
@@ -104,7 +141,9 @@ class GeminiNutritionService {
       throw const RecognitionException('AI_KEY_MISSING', 'This build of the app has no Gemini API key.');
     }
     return _generate(
-      jsonEncode(_plateRequestBody(steps, hint)),
+      jsonEncode(_plateRequestBody([
+        for (final step in steps) PlatePhoto(photo: await _forGemini(step.photo), grams: step.grams),
+      ], hint)),
       (body, model, elapsedMs) => _parsePlate(body, steps, eventId, model, elapsedMs),
       perRequest: _longPerRequestTimeout,
       total: _longTotalDeadline,
@@ -123,7 +162,7 @@ class GeminiNutritionService {
       throw const RecognitionException('AI_KEY_MISSING', 'This build of the app has no Gemini API key.');
     }
     return _generate(
-      jsonEncode(_describeRequestBody(description, weightG, photo)),
+      jsonEncode(_describeRequestBody(description, weightG, photo == null ? null : await _forGemini(photo))),
       (body, model, elapsedMs) {
         final answer = _answerJson(body);
         final grams = weightG ?? (answer['estimated_grams'] as num?)?.toDouble() ?? 0;
@@ -206,6 +245,7 @@ class GeminiNutritionService {
         },
       ],
       'generationConfig': {
+        'thinkingConfig': _thinking,
         'temperature': 0,
         'responseMimeType': 'application/json',
         'responseJsonSchema': {
@@ -234,6 +274,7 @@ class GeminiNutritionService {
     RecognitionException? lastError;
     final queue = [...models];
     final slowModels = <String>[];
+    final withoutThinking = <String>{};
     while (queue.isNotEmpty || slowModels.isNotEmpty) {
       if (queue.isEmpty) {
         queue.addAll(slowModels);
@@ -248,9 +289,17 @@ class GeminiNutritionService {
             .post(
               Uri.parse('$_endpoint/$model:generateContent'),
               headers: {'Content-Type': 'application/json', 'x-goog-api-key': apiKey},
-              body: payload,
+              body: withoutThinking.contains(model) ? _withoutThinking(payload) : payload,
             )
             .timeout(nothingElseToTry || remaining < perRequest ? remaining : perRequest);
+        if (response.statusCode == 400 &&
+            !withoutThinking.contains(model) &&
+            utf8.decode(response.bodyBytes, allowMalformed: true).toLowerCase().contains('thinking')) {
+          // This model does not take the thinking setting: ask it again, at once, without it.
+          withoutThinking.add(model);
+          queue.insert(0, model);
+          continue;
+        }
         if (response.statusCode != 200) {
           lastError = RecognitionException(
             response.statusCode == 429 ? 'AI_QUOTA_EXCEEDED' : 'AI_PROVIDER_UNAVAILABLE',
@@ -325,6 +374,7 @@ class GeminiNutritionService {
         },
       ],
       'generationConfig': {
+        'thinkingConfig': _thinking,
         'temperature': 0.1,
         'responseMimeType': 'application/json',
         'responseJsonSchema': {
@@ -419,6 +469,7 @@ class GeminiNutritionService {
         },
       ],
       'generationConfig': {
+        'thinkingConfig': _thinking,
         'temperature': 0.1,
         'responseMimeType': 'application/json',
         'responseJsonSchema': {
@@ -465,6 +516,7 @@ class GeminiNutritionService {
         },
       ],
       'generationConfig': {
+        'thinkingConfig': _thinking,
         'temperature': 0.1,
         'responseMimeType': 'application/json',
         'responseJsonSchema': {
