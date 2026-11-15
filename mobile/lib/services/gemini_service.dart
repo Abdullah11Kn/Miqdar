@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 
+import 'fast_http.dart';
+
 import '../data/food_catalog.dart';
 import '../models/nutrition.dart';
 import 'api_service.dart';
@@ -36,7 +38,7 @@ class GeminiNutritionService {
     this.apiKey = const String.fromEnvironment('GEMINI_API_KEY'),
     this.models = _defaultModels,
     http.Client? client,
-  }) : _client = client ?? http.Client();
+  }) : _client = client ?? FastHttp.client();
 
   static const _defaultModels = [
     'gemini-3.1-flash-lite',
@@ -98,6 +100,17 @@ class GeminiNutritionService {
   bool noteInArabic = false;
 
   bool get configured => apiKey.trim().isNotEmpty;
+
+  DateTime? _warmedAt;
+
+  /// Opens the connection to Gemini ahead of a request, at most once a minute. Sends no key and asks
+  /// nothing, so it uses no quota; on his iPhone a new connection took far longer than the answer.
+  void warmUp() {
+    final now = DateTime.now();
+    if (!configured || (_warmedAt != null && now.difference(_warmedAt!) < const Duration(seconds: 60))) return;
+    _warmedAt = now;
+    unawaited(FastHttp.warmUp(_client, Uri.parse(_endpoint).host));
+  }
 
   Future<RecognitionResult> analyze({
     required Uint8List imageBytes,

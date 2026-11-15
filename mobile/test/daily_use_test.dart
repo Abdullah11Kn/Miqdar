@@ -48,7 +48,7 @@ void main() {
     geminiCalls = [];
     reminders = _FakeReminders(allow: allow);
     final client = MockClient((request) async {
-      if (request.url.host.contains('googleapis')) geminiCalls.add(request.url.path);
+      if (request.url.host.contains('googleapis') && request.method != 'GET') geminiCalls.add(request.url.path);
       return http.Response('{}', 200);
     });
     final database = LocalDatabase();

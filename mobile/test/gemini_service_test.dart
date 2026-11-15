@@ -332,7 +332,7 @@ void main() {
       var capture = 0;
       final client = MockClient((request) async {
         if (request.url.host.contains('googleapis')) {
-          geminiCalls++;
+          if (request.url.path.endsWith(':generateContent')) geminiCalls++; // not the key-less warm-up
           return _gemini([_candidate('Jareesh')]);
         }
         final event = {

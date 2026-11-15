@@ -75,7 +75,7 @@ void main() {
       'image_base64': base64Encode(_photo),
     };
     final client = MockClient((request) async {
-      hosts.add(request.url.host);
+      hosts.add(request.url.host + request.url.path);
       if (request.url.host.contains('googleapis')) return _geminiKabsa();
       if (request.url.host.contains('openfoodfacts')) {
         return known ? _offLaban() : http.Response(jsonEncode({'status': 0}), 404);
@@ -109,7 +109,7 @@ void main() {
     expect(capture.nutrients.calories, closeTo(184.8, 0.01));
     expect(capture.portionSource, PortionSource.scale);
     expect(capture.imageBytes, _photo);
-    expect(hosts.where((h) => h.contains('googleapis')), isEmpty);
+    expect(hosts.where((h) => h.contains(":generateContent")), isEmpty, reason: "no Gemini question asked; a key-less warm-up is fine");
   });
 
   test('no barcode in the photo: Gemini as usual', () async {

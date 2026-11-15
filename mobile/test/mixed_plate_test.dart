@@ -71,6 +71,7 @@ class _Rig {
 
   Future<void> setUp() async {
     final client = MockClient((request) async {
+      if (request.url.host.contains('googleapis') && request.method == 'GET') return http.Response('', 404); // warm-up
       if (request.url.host.contains('googleapis')) {
         geminiBodies.add(request.body);
         return geminiStatus == 200 ? _gemini(answer) : http.Response('{}', geminiStatus);

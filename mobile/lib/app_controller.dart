@@ -438,6 +438,7 @@ class MiqdarController extends ChangeNotifier {
     scaleDevice = scaleDevice.copyWith(lastSeen: DateTime.now());
     notifyListeners();
     if (reminderSettings.enabled) unawaited(_applyReminders().catchError((Object _) {}));
+    apiService.gemini.warmUp();
     unawaited(_initializeNetworkFeatures());
     _startLiveScaleSyncTimer();
   }
@@ -720,6 +721,7 @@ class MiqdarController extends ChangeNotifier {
         }
         if (wasOffline) unawaited(checkServer());
 
+        if (scaleDevice.captureState != 'idle') apiService.gemini.warmUp();
         final bootId = data['boot_id'] as String?;
         final restarted = _scaleBootId != null && bootId != null && bootId != _scaleBootId;
         if (bootId != null) _scaleBootId = bootId;
@@ -827,6 +829,8 @@ class MiqdarController extends ChangeNotifier {
       return;
     }
     final grams = scaleDevice.liveWeightG;
+    // Food is going on: open the connection to Gemini now, so Done does not wait for one.
+    if (grams >= 5) apiService.gemini.warmUp();
     final paused = _autoAddPaused;
     if (paused != null) {
       final cleared = grams < 5;
@@ -1421,6 +1425,7 @@ class MiqdarController extends ChangeNotifier {
       _lastSeenCaptureEventId = eventId;
       return false;
     }
+    apiService.gemini.warmUp(); // a new capture: Gemini is next
     // Marked seen only after the photo arrives, so a failed download retries on the next poll.
     final event = await apiService.getLatestScaleCapture();
     _pauseAutoAdd(untilCleared: true); // that food is captured; the next meal starts on a cleared plate

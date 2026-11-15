@@ -67,6 +67,7 @@ class _Scale {
 
   Future<void> setUp() async {
     final client = MockClient((request) async {
+      if (request.url.host.contains('googleapis') && request.method == 'GET') return http.Response('', 404); // warm-up
       if (request.url.host.contains('googleapis')) {
         geminiBodies.add(request.body);
         return _gemini(request.body.contains('one food at a time')
