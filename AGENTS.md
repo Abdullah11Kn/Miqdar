@@ -155,7 +155,7 @@ On the Pi after new code: `git pull origin feature/scale-live-flow && ./install_
   (`miqdar_showcase_<name>.db`), never the diary's `miqdar_mobile.db`, and say "sample data" on Home.
 - Gemini values are estimates and must be labelled as such, never "verified".
 - Privacy & Data states that food photos go to Google and that the free plan may use them. Keep this true.
-- Do not present the 400-sample evaluation as real results.
+- Do not present the 400-sample evaluation, or `evaluation/addition_trials/SIMULATED_EXAMPLE.csv`, as real results.
 
 **Code**
 - All user-facing text goes through `s.tr(en, ar)`, and dates through `s.date(...)`. Check Arabic and dark mode.
@@ -230,6 +230,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-15: Trial sheet, simulated example and report script for the 90% detection specification
+- Decided: Abdullah first asked for invented trial results at about 98% to show the instructor; that was declined. He then asked for a simulation to see what a full trial set looks like and how to present it, not to show as results.
+- Changed: `docs/ADDITION_TRIALS.md` (what 90% means, supported foods, setup, recording, presenting). `evaluation/addition_trials/`: `template.csv` (20 blank rows in 7 meals), `SIMULATED_EXAMPLE.csv` (invented, labelled "SIMULATED EXAMPLE - NOT MEASURED" in its first line, 19 of 20 with one example failure), and `report.py`, which prints the table, the rate against 90%, breakdowns by food and by first-food versus added-to-food, and the failures; a sheet starting with "# SIMULATED" is labelled at the top and bottom of its report.
+- Tested: `report.py` on the example (95%, labelled) and on the blank sheet ("No filled trials").
+- Not tested / risks: no real trial has been run. Never present the example's numbers as results, as with the 400-sample placeholder.
 
 ### 2026-11-15: Add Meal detects each added food by itself
 - Decided: Abdullah asked for an automatic mode on Add Meal: when food rests on the scale for 5 seconds, weigh and photograph it without bothering the user; each later addition of 20 g or more is the next food; all photos go to Gemini together to name the whole meal ("chicken with rice", "a can of Pepsi and a can of 7-Up"). He asked for the best flow, no time for real-food trials, and no Gemini requests in testing because the free quota is needed for the demonstration. This replaces the 2026-11-04 decision that the next food needs a button.
