@@ -51,7 +51,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
   1. Formal accuracy and timing tests, and mixed plates on real food. These are the most important next tests.
   2. Starting at boot: on the 2026-11-05 00:04 boot the scale was not running 8 minutes later, cause unknown. The same autostart mechanism ran a test entry correctly. `start_all.sh` now logs to `/tmp/miqdar_start.log`. Power-cycle it and read that log; rebooting over SSH needs a password.
 - **Pi:** tunnel off by default; not running at the 2026-11-15 check. On the hotspot the Pi was at 172.20.10.3. The scale's Wi-Fi address works.
-- **Pi code:** at 2b97f38 (2026-11-15), installer run and the scale restarted with it, with Thmanyah installed. Its calibration is the 2026-11-10 one, now also in git. `git pull` works there again since the history rewrite. The earlier calibration is backed up in `~/miqdar-backup/` on the Pi.
+- **Pi code:** at dd1e4b1 (2026-11-15; the scale's own code is unchanged since 2b97f38, which is what the running scale loaded), with Thmanyah installed. Its calibration is the 2026-11-10 one, the same in git. His iPhone has the dd1e4b1 build; his simulator has an older one, kept closed so only one phone watches the scale. `git pull` works there again since the history rewrite. The earlier calibration is backed up in `~/miqdar-backup/` on the Pi.
 - **USB-C networking:** Abdullah remembers it working. On 2026-11-04 the Mac got no reply at 192.168.7.1 and no address from the Pi, even though the Pi's `miqdar-usb` connection reads as active. Use the `iphone A` hotspot, which works.
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
