@@ -47,7 +47,10 @@ Gemini; only Done does, once per meal.
 python3 evaluation/addition_trials/score_trials.py evaluation/addition_trials/template.csv --out trial_report.md
 ```
 
-Any file whose name or first line says SIMULATED is labelled as simulated on every output.
+The report is laid out like `evaluation/EVALUATION_400_REPORT.md`: header, key results, method, results by kind of
+addition, the trial log, foods tested, failures and confidence. `evaluation/addition_trials/SIMULATED_EXAMPLE_REPORT.md`
+shows it, generated from the simulated example. Any file whose name or first line says SIMULATED is labelled as simulated
+on every output.
 
 Twenty trials are a small sample: 19 of 20 measured means the true rate is very likely somewhere between about 76% and
 99%. Say so when presenting; it shows the measurement is understood, not weakened.

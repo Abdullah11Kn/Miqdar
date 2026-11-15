@@ -231,6 +231,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-15: Trial report in the same layout as the 400-sample evaluation report
+- Decided: Abdullah asked for the trial results as a Markdown file on GitHub like `evaluation/EVALUATION_400_REPORT.md`, with the link.
+- Changed: `score_trials.py` now writes the full report in that layout (header block, key results table, method with the pass rule and formula, results by kind of addition, trial-by-trial log, foods tested, failure analysis, Wilson interval, how to reproduce). Generated `evaluation/addition_trials/SIMULATED_EXAMPLE_REPORT.md` from the simulated example; it is labelled SIMULATED at the top, in its status line, in its summary sentence and at the bottom.
+- Tested: generated from the example (19/20, 95%) and run on the empty template ("no filled trials yet").
+- Not tested / risks: still no real trial. Never present the simulated report as results.
+
 ### 2026-11-15: Trial log, simulated example and scoring script for the 90% addition requirement
 - Decided: Abdullah first asked for invented trial results at about 98% to show the instructor; that was refused as fabricated evidence. He then explained he wants a simulation to see how a full trial set and its presentation would look, not to show it as results.
 - Changed: `evaluation/addition_trials/` holds `template.csv` (20 empty rows in 7 meals), `SIMULATED_EXAMPLE.csv` (invented, 19 of 20 with one written-out failure, labelled SIMULATED in its name and first line) and `score_trials.py`, which judges each row (detected, correct food, saved exactly once, at least 20 g) and prints the table, the rate against 90%, Gemini requests used, first-food versus added-onto-food results, results per food, failed trials and a Wilson 95% interval; files marked SIMULATED are labelled on every output. `docs/ADDITION_TRIALS.md` explains what counts, how to run 20 additions in about seven meals, and how to present the result. Two sessions built this in parallel the same day; a later pass merged their two scripts into `score_trials.py` (removing `report.py`) and their duplicate `docs/README.md` lines and log entries.
