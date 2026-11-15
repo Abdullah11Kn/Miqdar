@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -29,8 +30,10 @@ class PhotoBarcodeReader implements BarcodeReader {
     } catch (_) {
       return null;
     } finally {
-      await scanner?.dispose().catchError((Object _) {});
-      if (file != null && await file.exists()) await file.delete().catchError((Object _) => file!);
+      // Cleaning up must never hold up the answer.
+      unawaited(scanner?.dispose().catchError((Object _) {}));
+      final used = file;
+      if (used != null) unawaited(used.delete().then((_) {}, onError: (Object _) {}));
     }
   }
 }

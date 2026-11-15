@@ -973,17 +973,12 @@ class MiqdarController extends ChangeNotifier {
       if (plate.steps.length == 1) {
         // One food: the single-food analysis, with its barcode check and piece count.
         final step = plate.steps.single;
-        final code = await barcodeReader.read(step.photo);
-        final product = code == null ? null : await apiService.openFoodFacts.lookup(code);
-        result = product != null
-            ? _barcodeResult(product, step.grams,
-                source: PortionSource.scale, eventId: plate.plateId, imageBytes: step.photo)
-            : await apiService.gemini.analyze(
-                imageBytes: step.photo,
-                weightG: step.grams,
-                hint: plate.note.isEmpty ? null : plate.note,
-                eventId: plate.plateId,
-              );
+        result = await _identifyScalePhoto(
+          step.photo,
+          step.grams,
+          hint: plate.note.isEmpty ? null : plate.note,
+          eventId: plate.plateId,
+        );
       } else {
         result = await apiService.gemini.analyzePlate(
           steps: plate.steps,
@@ -1503,18 +1498,12 @@ class MiqdarController extends ChangeNotifier {
     }
     notifyListeners();
     try {
-      // A packaged product with its barcode in view uses the pack's values; otherwise Gemini.
-      final code = await barcodeReader.read(imageBytes);
-      final product = code == null ? null : await apiService.openFoodFacts.lookup(code);
-      final result = product != null
-          ? _barcodeResult(product, weightG,
-              source: PortionSource.scale, eventId: eventId, imageBytes: imageBytes)
-          : await apiService.gemini.analyze(
-              imageBytes: imageBytes,
-              weightG: weightG,
-              hint: note.isEmpty ? null : note,
-              eventId: eventId,
-            );
+      final result = await _identifyScalePhoto(
+        imageBytes,
+        weightG,
+        hint: note.isEmpty ? null : note,
+        eventId: eventId,
+      );
       if (_analyzingEventId != eventId) return null;
       await _acceptScaleCapture(result);
       unawaited(apiService.postScaleResult(result, warning: scaleWarningLine(projectedAlerts)));
@@ -1530,6 +1519,71 @@ class MiqdarController extends ChangeNotifier {
       if (_analyzingEventId == eventId) _analyzingEventId = null;
       notifyListeners();
     }
+  }
+
+  /// How long the barcode check may hold up Gemini. On a phone, Apple Vision finds a barcode in well
+  /// under this; a photo with no barcode must not wait for the check to give up.
+  static const _barcodeHeadStart = Duration(milliseconds: 400);
+
+  /// A scale photo: a packaged product with its barcode in view uses the pack's values, otherwise
+  /// Gemini. The barcode check gets a short head start, then runs beside Gemini and can never delay it.
+  Future<RecognitionResult> _identifyScalePhoto(
+    Uint8List photo,
+    double grams, {
+    String? hint,
+    String? eventId,
+  }) async {
+    final clock = Stopwatch()..start();
+    Future<RecognitionResult?> fromBarcode() async {
+      final code = await barcodeReader.read(photo);
+      debugPrint('[Miqdar timing] barcode check ${clock.elapsedMilliseconds} ms: ${code ?? 'none'}');
+      if (code == null) return null;
+      final product = await apiService.openFoodFacts.lookup(code);
+      if (product == null) return null;
+      return _barcodeResult(product, grams, source: PortionSource.scale, eventId: eventId, imageBytes: photo);
+    }
+
+    final barcode = fromBarcode().catchError((Object _) => null);
+    RecognitionResult? early;
+    var barcodeDone = false;
+    unawaited(barcode.then((value) {
+      early = value;
+      barcodeDone = true;
+    }));
+    // A short head start: a barcode found quickly saves the Gemini request altogether.
+    await Future.any([barcode, Future<void>.delayed(_barcodeHeadStart)]);
+    if (early != null) return early!;
+    if (barcodeDone) return _timedGemini(photo, grams, hint: hint, eventId: eventId, clock: clock);
+
+    // Still checking: Gemini starts now, and whichever gives an answer first is used.
+    final gemini = _timedGemini(photo, grams, hint: hint, eventId: eventId, clock: clock);
+    final winner = Completer<RecognitionResult>();
+    unawaited(barcode.then((value) {
+      if (value != null && !winner.isCompleted) winner.complete(value);
+    }));
+    unawaited(gemini.then((value) {
+      if (!winner.isCompleted) winner.complete(value);
+    }, onError: (Object error, StackTrace stack) async {
+      // Gemini failed: a barcode can still save the meal, so wait for it before giving up.
+      final fallback = await barcode;
+      if (winner.isCompleted) return;
+      fallback != null ? winner.complete(fallback) : winner.completeError(error, stack);
+    }));
+    return winner.future;
+  }
+
+  Future<RecognitionResult> _timedGemini(
+    Uint8List photo,
+    double grams, {
+    String? hint,
+    String? eventId,
+    required Stopwatch clock,
+  }) async {
+    final started = clock.elapsedMilliseconds;
+    final result = await apiService.gemini.analyze(imageBytes: photo, weightG: grams, hint: hint, eventId: eventId);
+    debugPrint('[Miqdar timing] Gemini ${clock.elapsedMilliseconds - started} ms (${result.model}), '
+        'from photo to answer ${clock.elapsedMilliseconds} ms');
+    return result;
   }
 
   Future<void> _acceptScaleCapture(RecognitionResult result) async {

@@ -16,10 +16,14 @@ import 'package:miqdar_mobile/services/open_food_facts.dart';
 final _photo = Uint8List.fromList([0xFF, 0xD8, 0xFF, 7]);
 
 class _FakeReader implements BarcodeReader {
-  _FakeReader(this.code);
+  _FakeReader(this.code, {this.delay = Duration.zero});
   final String? code;
+  final Duration delay;
   @override
-  Future<String?> read(Uint8List jpeg) async => code;
+  Future<String?> read(Uint8List jpeg) async {
+    if (delay > Duration.zero) await Future<void>.delayed(delay);
+    return code;
+  }
 }
 
 http.Response _geminiKabsa() => http.Response.bytes(
@@ -64,7 +68,7 @@ http.Response _offLaban() => http.Response.bytes(
 void main() {
   late List<String> hosts;
 
-  MiqdarController controllerWith({String? code, bool known = true}) {
+  MiqdarController controllerWith({String? code, bool known = true, Duration readerDelay = Duration.zero}) {
     hosts = [];
     final event = {
       'event_id': 'cap-21', 'status': 'photo', 'source': 'scale', 'age_s': 1, 'weight_g': 330.0,
@@ -90,7 +94,7 @@ void main() {
         openFoodFacts: OpenFoodFactsService(client: client),
       ),
       alertService: AlertService(),
-      barcodeReader: _FakeReader(code),
+      barcodeReader: _FakeReader(code, delay: readerDelay),
     );
   }
 
@@ -120,5 +124,23 @@ void main() {
     await controller.syncScaleLive();
     await pumpEventQueue();
     expect(controller.latestExternalScaleCapture!.verificationStatus, aiEstimateStatus);
+  });
+
+  test('a slow barcode check never holds up Gemini', () async {
+    final controller = controllerWith(code: null, readerDelay: const Duration(seconds: 20));
+    final clock = Stopwatch()..start();
+    await controller.syncScaleLive();
+    while (controller.latestExternalScaleCapture == null && clock.elapsed < const Duration(seconds: 5)) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    expect(controller.latestExternalScaleCapture?.verificationStatus, aiEstimateStatus);
+    expect(clock.elapsed, lessThan(const Duration(seconds: 2)));
+  });
+
+  test('with a slow barcode check, whichever answers first is used', () async {
+    final controller = controllerWith(code: '6281007030090', readerDelay: const Duration(milliseconds: 600));
+    await controller.syncScaleLive();
+    await Future<void>.delayed(const Duration(seconds: 1));
+    expect(controller.latestExternalScaleCapture, isNotNull);
   });
 }

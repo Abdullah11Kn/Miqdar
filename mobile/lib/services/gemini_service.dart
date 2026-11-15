@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 
@@ -292,6 +293,8 @@ class GeminiNutritionService {
               body: withoutThinking.contains(model) ? _withoutThinking(payload) : payload,
             )
             .timeout(nothingElseToTry || remaining < perRequest ? remaining : perRequest);
+        debugPrint('[Miqdar timing] $model answered ${response.statusCode} after '
+            '${DateTime.now().difference(started).inMilliseconds} ms (payload ${payload.length ~/ 1024} KB)');
         if (response.statusCode == 400 &&
             !withoutThinking.contains(model) &&
             utf8.decode(response.bodyBytes, allowMalformed: true).toLowerCase().contains('thinking')) {
@@ -319,6 +322,7 @@ class GeminiNutritionService {
         }
         lastError = error;
       } on TimeoutException {
+        debugPrint('[Miqdar timing] $model timed out after ${DateTime.now().difference(started).inMilliseconds} ms');
         lastError = const RecognitionException('AI_PROVIDER_UNAVAILABLE', 'Gemini did not answer in time.');
         slowModels.add(model);
       } catch (_) {
