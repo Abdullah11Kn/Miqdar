@@ -506,3 +506,11 @@ These come from reading the code. They are observations, not decisions. The desi
 - **Manual form gap:** the form has no fields for fiber or potassium, so they always show as Unknown.
 - **Uneven Arabic:** the design system names the Profile tab حسابي ("my account") although there are no accounts.
 - **No logo:** the design system has none yet, so the name is set in type.
+
+### Add Meal: automatic food detection (2026-11-15)
+
+With **Detect each food automatically** on (the default), the Scale part of Add Meal watches the plate. Food that
+rests for 5 seconds is weighed and photographed by itself ("Keep still: recording in N s" with a bar), then listed as
+"Food 1 · 200 g" with its photo. Each later addition of 20 g or more becomes the next food with only its added grams.
+**Done** sends every photo to Gemini in one request and opens Review with the whole meal. Undo Last Food and Cancel Plate
+stay. **Capture Now** takes a single food at once. With the switch off, Capture and Add Next Food work as before.

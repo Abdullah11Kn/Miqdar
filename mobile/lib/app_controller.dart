@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show HapticFeedback, rootBundle;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
@@ -305,6 +305,7 @@ class MiqdarController extends ChangeNotifier {
     waterEntries = await localDatabase.loadWater();
     adaptiveAnsweredAt = DateTime.tryParse(await localDatabase.getSetting('adaptive_answered_at') ?? '');
     healthSyncOn = await localDatabase.getSetting('health_sync') == '1';
+    autoAddOn = await localDatabase.getSetting('auto_add') != '0';
     if (healthSyncOn) unawaited(syncFromHealth().catchError((Object _) {}));
     glucoseReadings = await localDatabase.loadGlucose();
     glucoseUnit = await localDatabase.getSetting('glucose_unit') == 'mmol' ? GlucoseUnit.mmol : GlucoseUnit.mgdl;
@@ -636,6 +637,7 @@ class MiqdarController extends ChangeNotifier {
     notifyListeners();
     final ok = await apiService.remoteScaleTare();
     if (ok) {
+      _autoAddPaused = null;
       scaleDevice = scaleDevice.copyWith(
         liveWeightG: 0.0,
         clearLockedWeight: true,
@@ -728,7 +730,10 @@ class MiqdarController extends ChangeNotifier {
         await _followCancelRequest(data['cancel_request'] as String?);
         final newCapture = await _followLatestCapture(data['latest_capture']);
         await _followSaveRequest(data['save_request'] as String?);
-        if (newCapture ||
+        final wasCounting = _autoAddHeldSince != null;
+        _watchAdditions();
+        if (wasCounting || _autoAddHeldSince != null ||
+            newCapture ||
             plateChanged ||
             wasOffline ||
             hadIssue ||
@@ -752,6 +757,124 @@ class MiqdarController extends ChangeNotifier {
       notifyListeners();
     } finally {
       _scalePollInFlight = false;
+    }
+  }
+
+  // Automatic additions on Add Meal
+  /// Each food must add at least this much to count as a new food (the specification's 20 g).
+  static const autoAddMinG = 20.0;
+
+  /// How long a new weight must rest before it is weighed and photographed.
+  static const autoAddSettle = Duration(seconds: 5);
+  static const _autoAddToleranceG = 2.0;
+
+  /// The time, replaceable in tests.
+  DateTime Function() clock = DateTime.now;
+
+  /// Add Meal's switch, on unless the user turned it off.
+  bool autoAddOn = true;
+  final Set<Object> _autoAddWatchers = {};
+  bool get _autoAddWatching => _autoAddWatchers.isNotEmpty;
+  bool _autoAdding = false;
+  double? _autoAddHeldG;
+  DateTime? _autoAddHeldSince;
+
+  /// Where detection stopped, so food still on the scale is not counted twice: after Done, Cancel or
+  /// a capture it waits for the plate to be cleared or zeroed; after Undo, for the weight to change.
+  ({double grams, bool untilCleared})? _autoAddPaused;
+
+  /// Each Add Meal says when it is on screen; the scale is watched while any one is. There can be two:
+  /// the hidden tab and one opened on top of another screen.
+  void setAutoAddWatching(bool on, {Object owner = 'default'}) {
+    final before = _autoAddWatching;
+    on ? _autoAddWatchers.add(owner) : _autoAddWatchers.remove(owner);
+    if (before != _autoAddWatching) _resetAutoAddHold();
+  }
+
+  Future<void> setAutoAdd(bool on) async {
+    autoAddOn = on;
+    _resetAutoAddHold();
+    notifyListeners();
+    await localDatabase.saveSetting('auto_add', on ? '1' : '0').catchError((Object _) {});
+  }
+
+  bool get autoAddWaitingForClear => _autoAddPaused?.untilCleared == true;
+
+  /// 0 to 1 while a new food rests on the plate, or null when nothing is about to be recorded.
+  double? get autoAddProgress {
+    final since = _autoAddHeldSince;
+    if (since == null || !autoAddOn || !_autoAddWatching) return null;
+    final ms = clock().difference(since).inMilliseconds / autoAddSettle.inMilliseconds;
+    return ms.clamp(0.0, 1.0).toDouble();
+  }
+
+  bool get autoAddRecording => _autoAdding;
+
+  void _resetAutoAddHold() {
+    _autoAddHeldG = null;
+    _autoAddHeldSince = null;
+  }
+
+  void _pauseAutoAdd({required bool untilCleared}) {
+    _autoAddPaused = (grams: scaleDevice.liveWeightG, untilCleared: untilCleared);
+    _resetAutoAddHold();
+  }
+
+  /// Runs after every poll of the scale. Records a food once its weight has rested for [autoAddSettle].
+  void _watchAdditions() {
+    if (!autoAddOn || !_autoAddWatching || !scaleDevice.online || scaleDevice.sensorError != null) {
+      _resetAutoAddHold();
+      return;
+    }
+    final grams = scaleDevice.liveWeightG;
+    final paused = _autoAddPaused;
+    if (paused != null) {
+      final cleared = grams < 5;
+      final moved = !paused.untilCleared && (grams - paused.grams).abs() > _autoAddToleranceG + 1;
+      if (!cleared && !moved) return;
+      _autoAddPaused = null;
+    }
+    final plate = scalePlate;
+    if (_autoAdding ||
+        plateBusy ||
+        scaleWorking ||
+        taringScale ||
+        latestExternalScaleCapture != null ||
+        (plate != null && plate.finished)) {
+      _resetAutoAddHold();
+      return;
+    }
+    final base = plate == null || plate.steps.isEmpty ? 0.0 : plate.steps.last.readingG;
+    if (grams - base < autoAddMinG) {
+      _resetAutoAddHold();
+      return;
+    }
+    final held = _autoAddHeldG;
+    if (held == null || (grams - held).abs() > _autoAddToleranceG || !scaleDevice.isStable) {
+      _autoAddHeldG = grams;
+      _autoAddHeldSince = scaleDevice.isStable ? clock() : null;
+      if (!scaleDevice.isStable) _autoAddHeldG = null;
+      return;
+    }
+    if (clock().difference(_autoAddHeldSince!) < autoAddSettle) return;
+    _resetAutoAddHold();
+    unawaited(_autoAddStep());
+  }
+
+  Future<void> _autoAddStep() async {
+    _autoAdding = true;
+    notifyListeners();
+    try {
+      await plateAction('add');
+      unawaited(HapticFeedback.lightImpact().catchError((Object _) {}));
+    } on RecognitionException catch (error) {
+      // A hand on the plate or a busy scale: the watcher simply tries again once it rests.
+      if (error.code == 'PLATE_WEIGHT_DROPPED') _pauseAutoAdd(untilCleared: false);
+      if (error.code == 'PLATE_OPEN') _pauseAutoAdd(untilCleared: true);
+    } catch (_) {
+    } finally {
+      _autoAdding = false;
+      notifyListeners();
     }
   }
 
@@ -784,6 +907,8 @@ class MiqdarController extends ChangeNotifier {
     notifyListeners();
     try {
       await _followPlate(await apiService.plateAction(action));
+      if (action == 'finish' || action == 'cancel') _pauseAutoAdd(untilCleared: true);
+      if (action == 'undo') _pauseAutoAdd(untilCleared: false);
     } finally {
       plateBusy = false;
       notifyListeners();
@@ -824,6 +949,7 @@ class MiqdarController extends ChangeNotifier {
       aiNote = '';
       _platePhotos.clear();
       scalePlate = null;
+      _pauseAutoAdd(untilCleared: true);
       unawaited(apiService.plateAction('cancel').catchError((Object _) => null)); // the phone holds it now
       unawaited(_analyzePlate(taken));
       return true;
@@ -843,13 +969,30 @@ class MiqdarController extends ChangeNotifier {
     pendingScaleCapture = PendingScaleCapture(imageBytes: plate.steps.last.photo, weightG: plate.totalG);
     notifyListeners();
     try {
-      final result = await apiService.gemini.analyzePlate(
-        steps: plate.steps,
-        eventId: plate.plateId,
-        hint: plate.note.isEmpty ? null : plate.note,
-      );
+      final RecognitionResult result;
+      if (plate.steps.length == 1) {
+        // One food: the single-food analysis, with its barcode check and piece count.
+        final step = plate.steps.single;
+        final code = await barcodeReader.read(step.photo);
+        final product = code == null ? null : await apiService.openFoodFacts.lookup(code);
+        result = product != null
+            ? _barcodeResult(product, step.grams,
+                source: PortionSource.scale, eventId: plate.plateId, imageBytes: step.photo)
+            : await apiService.gemini.analyze(
+                imageBytes: step.photo,
+                weightG: step.grams,
+                hint: plate.note.isEmpty ? null : plate.note,
+                eventId: plate.plateId,
+              );
+      } else {
+        result = await apiService.gemini.analyzePlate(
+          steps: plate.steps,
+          eventId: plate.plateId,
+          hint: plate.note.isEmpty ? null : plate.note,
+        );
+      }
       if (_analyzingEventId != plate.plateId) return;
-      _rememberPlatePhotos(plate, result);
+      if (result.isPlate) _rememberPlatePhotos(plate, result);
       await _acceptScaleCapture(result);
     } on RecognitionException catch (error) {
       if (_analyzingEventId != plate.plateId) return;
@@ -1285,6 +1428,7 @@ class MiqdarController extends ChangeNotifier {
     }
     // Marked seen only after the photo arrives, so a failed download retries on the next poll.
     final event = await apiService.getLatestScaleCapture();
+    _pauseAutoAdd(untilCleared: true); // that food is captured; the next meal starts on a cleared plate
     if (event['status'] == 'photo') {
       unawaited(_ingestCaptureEvent(event)); // Gemini takes seconds; keep the weight live meanwhile
     } else {

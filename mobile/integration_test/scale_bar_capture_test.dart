@@ -42,6 +42,8 @@ void main() {
 
     await placeFood(0);
     await controller.initialize();
+    // These tests drive the manual buttons; automatic detection has its own unit tests.
+    await controller.setAutoAdd(false);
     await tester.pumpWidget(MiqdarApp(controller: controller));
     await pumpUntil(() => find.text('Get Started').evaluate().isNotEmpty || find.byType(MainShell).evaluate().isNotEmpty);
     if (find.text('Get Started').evaluate().isNotEmpty) {

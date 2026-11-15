@@ -47,6 +47,8 @@ void main() {
         http.post(Uri.parse('${api.baseUrl}$path'), body: jsonEncode(body ?? {}));
 
     await controller.initialize();
+    // These tests drive the manual buttons; automatic detection has its own unit tests.
+    await controller.setAutoAdd(false);
     await controller.deleteAllData();
     await tester.pumpWidget(MiqdarApp(controller: controller));
     await pumpUntil(() => find.text('Get Started').evaluate().isNotEmpty);

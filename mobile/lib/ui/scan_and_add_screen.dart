@@ -101,8 +101,11 @@ class _ScanScreenState extends State<ScanScreen> {
     _restoreInterruptedPick();
   }
 
+  MiqdarController? _watchingController;
+
   @override
   void dispose() {
+    _watchingController?.setAutoAddWatching(false, owner: this);
     weightTextCtrl.dispose();
     hintTextCtrl.dispose();
     searchCtrl.dispose();
@@ -579,6 +582,10 @@ class _ScanScreenState extends State<ScanScreen> {
       }
     }
 
+    // Foods are detected only while the scale part of Add Meal is on screen.
+    _watchingController = controller;
+    controller.setAutoAddWatching(modeIndex == 0 && TickerMode.valuesOf(context).enabled, owner: this);
+
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.paddingOf(context).bottom + 24),
       children: [
@@ -984,8 +991,28 @@ class _ScanScreenState extends State<ScanScreen> {
     final plateOpen = plate != null && plate.isOpen;
     final plateActive = !working && !controller.plateBusy && scale.online;
 
+    final auto = controller.autoAddOn;
+    final progress = auto ? controller.autoAddProgress : null;
+
     final String guidance;
-    if (plateOpen && !working && scale.online) {
+    if (auto && scale.online && (controller.autoAddRecording || (controller.plateBusy && !working))) {
+      guidance = s.tr('Weighing and photographing…', 'جارٍ الوزن والتصوير…');
+    } else if (auto && progress != null && !working) {
+      final left = ((1 - progress) * MiqdarController.autoAddSettle.inSeconds).ceil().clamp(1, 9);
+      guidance = s.tr('Keep still: recording in $left s', 'أبقِ الطبق ثابتاً: التسجيل خلال $left ث');
+    } else if (auto && plateOpen && !working && scale.online) {
+      guidance = s.tr(
+        'Add the next food, or tap Done. Each food of 20 g or more is recorded by itself.',
+        'أضف الطعام التالي، أو اضغط تم. كل طعام 20 غ أو أكثر يُسجَّل تلقائياً.',
+      );
+    } else if (auto && controller.autoAddWaitingForClear && scale.online && !working && grams >= 5) {
+      guidance = s.tr('Take the food off, or tap Zero, to start the next meal.', 'أزِل الطعام أو اضغط تصفير لبدء الوجبة التالية.');
+    } else if (auto && scale.online && !working && scale.sensorError == null && !plateOpen && grams < MiqdarController.autoAddMinG) {
+      guidance = s.tr(
+        'Put food on the plate. It is weighed and photographed by itself after 5 seconds.',
+        'ضع الطعام على الطبق. يُوزن ويُصوَّر تلقائياً بعد 5 ثوانٍ.',
+      );
+    } else if (plateOpen && !working && scale.online) {
       guidance = s.tr('Add the next food, or Finish.', 'أضف الطعام التالي، أو اضغط إنهاء.');
     } else if (!scale.online) {
       final issue = controller.scaleConnectionIssue;
@@ -1103,11 +1130,47 @@ class _ScanScreenState extends State<ScanScreen> {
           Text(
             guidance,
             textAlign: TextAlign.center,
-            style: isReady
+            style: isReady || progress != null
                 ? MiqdarType.bodyStrong.copyWith(color: c.primary)
                 : MiqdarType.body.copyWith(color: c.inkMuted),
           ),
-          const SizedBox(height: 24),
+          if (scale.online) ...[
+            const SizedBox(height: 10),
+            // The 5-second wait, visible so nobody lifts the plate too soon.
+            AnimatedOpacity(
+              opacity: progress != null && !working ? 1 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(end: progress ?? 0),
+                  duration: const Duration(milliseconds: 480),
+                  builder: (context, value, _) => LinearProgressIndicator(
+                    value: value,
+                    minHeight: 6,
+                    color: c.primary,
+                    backgroundColor: c.surface,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              value: auto,
+              onChanged: (on) => controller.setAutoAdd(on),
+              title: Text(
+                s.tr('Detect each food automatically', 'اكتشاف كل طعام تلقائياً'),
+                style: MiqdarType.bodyStrong.copyWith(color: c.ink),
+              ),
+              subtitle: Text(
+                s.tr('Weighs and photographs each food you add (20 g or more)', 'يزن ويصوّر كل طعام تضيفه (20 غ أو أكثر)'),
+                style: MiqdarType.caption.copyWith(color: c.inkMuted),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
           if (plateOpen && scale.online) ...[
             _plateSteps(controller, s, plate),
             const SizedBox(height: 12),
@@ -1117,15 +1180,17 @@ class _ScanScreenState extends State<ScanScreen> {
               icon: controller.plateBusy || working
                   ? SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.3, color: c.onAction))
                   : const Icon(MiqdarIcons.check, size: 22),
-              label: s.tr('Finish', 'إنهاء'),
+              label: auto ? s.tr('Done', 'تم') : s.tr('Finish', 'إنهاء'),
             ),
-            const SizedBox(height: 8),
-            FilledButton.tonalIcon(
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-              onPressed: plateActive ? () => _plateAction(controller, s, 'add') : null,
-              icon: const Icon(MiqdarIcons.add),
-              label: Text(s.tr('Add Next Food', 'إضافة الطعام التالي')),
-            ),
+            if (!auto) ...[
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                onPressed: plateActive ? () => _plateAction(controller, s, 'add') : null,
+                icon: const Icon(MiqdarIcons.add),
+                label: Text(s.tr('Add Next Food', 'إضافة الطعام التالي')),
+              ),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1139,6 +1204,15 @@ class _ScanScreenState extends State<ScanScreen> {
                   child: Text(s.tr('Cancel Plate', 'إلغاء الطبق')),
                 ),
               ],
+            ),
+          ] else if (scale.online && auto) ...[
+            FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              onPressed: canCapture ? _captureFromScaleCamera : null,
+              icon: working
+                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2.2))
+                  : const Icon(MiqdarIcons.photoCamera, size: 20),
+              label: Text(s.tr('Capture Now', 'التقط الآن')),
             ),
           ] else if (scale.online) ...[
             _ScaleActionButton(
