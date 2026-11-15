@@ -1,6 +1,6 @@
 > **SIMULATED EXAMPLE, NOT MEASURED.** These rows were invented to show the format of the report. They are not results and must never be presented as results.
 
-# Miqdar (مقدار) Integrated System: Food-Addition Detection and Logging Report
+# Miqdar Integrated System: Food-Addition Detection and Logging Report
 
 **Document:** `SIMULATED_EXAMPLE_REPORT.md`  
 **Project:** Miqdar Smart Nutrition Scale & Mobile System (Senior Capstone)  
@@ -134,9 +134,10 @@ Twenty trials are a small sample. With 19 of 20 passing, the 95% Wilson interval
 
 ## 8. Reproducing This Report
 
-Fill one row per addition in `evaluation/addition_trials/template.csv` (or a copy), then run:
+The trial log is `evaluation/addition_trials/addition_trials.csv`, one row per addition. The report is made from it with:
 ```bash
-python3 evaluation/addition_trials/score_trials.py your_trials.csv --out your_trials_REPORT.md
+python3 evaluation/addition_trials/score_trials.py evaluation/addition_trials/addition_trials.csv \
+  --out evaluation/addition_trials/ADDITION_TRIALS_REPORT.md
 ```
 The setup and steps are in `docs/ADDITION_TRIALS.md`.
 

@@ -231,6 +231,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-15: Plain names for the real trial log and report
+- Decided: Abdullah will write the real trial outcomes himself and asked for the report without Arabic, without "example" wording and without a SIMULATED name. Agreed for the real report; declined putting the invented 19/20 rows into an unlabelled file, because that would be a fake test report.
+- Changed: `template.csv` is now `evaluation/addition_trials/addition_trials.csv`, the log for the real trials. `score_trials.py` writes `evaluation/addition_trials/ADDITION_TRIALS_REPORT.md` from it, with no Arabic in the title and the document line taken from the output name; a log without SIMULATED in its name or first line gets no simulated wording. The labelled simulated example and its report stay as they are.
+- Tested: report regenerated from the simulated example (still labelled); the empty log prints "no filled trials yet".
+- Not tested / risks: no real trial run. `ADDITION_TRIALS_REPORT.md` does not exist until the log is filled.
+
 ### 2026-11-15: Trial report in the same layout as the 400-sample evaluation report
 - Decided: Abdullah asked for the trial results as a Markdown file on GitHub like `evaluation/EVALUATION_400_REPORT.md`, with the link.
 - Changed: `score_trials.py` now writes the full report in that layout (header block, key results table, method with the pass rule and formula, results by kind of addition, trial-by-trial log, foods tested, failure analysis, Wilson interval, how to reproduce). Generated `evaluation/addition_trials/SIMULATED_EXAMPLE_REPORT.md` from the simulated example; it is labelled SIMULATED at the top, in its status line, in its summary sentence and at the bottom.

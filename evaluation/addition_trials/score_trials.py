@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Scores a food-addition trial log and prints the result table, as it would be shown.
 
-    python3 evaluation/addition_trials/score_trials.py evaluation/addition_trials/template.csv
+    python3 evaluation/addition_trials/score_trials.py evaluation/addition_trials/addition_trials.csv --out evaluation/addition_trials/ADDITION_TRIALS_REPORT.md
     python3 evaluation/addition_trials/score_trials.py my_trials.csv --out report.md
 
 A trial passes only when the addition was detected, saved as the correct food, and saved exactly once.
@@ -69,7 +69,7 @@ def _pct(n: int, d: int) -> str:
     return f"{n / d * 100:.1f}% ({n}/{d})" if d else "none"
 
 
-def report(rows: list[dict[str, str]], simulated: bool, source: str) -> str:
+def report(rows: list[dict[str, str]], simulated: bool, source: str, document: str | None = None) -> str:
     """The full report, laid out like evaluation/EVALUATION_400_REPORT.md."""
     filled = [r for r in rows if r["food_added"].strip()]
     banner = ("> **SIMULATED EXAMPLE, NOT MEASURED.** These rows were invented to show the format of the report. "
@@ -94,9 +94,9 @@ def report(rows: list[dict[str, str]], simulated: bool, source: str) -> str:
     foods = sorted({r["food_added"].strip() for r in filled})
     status = "Simulated example (not measured)" if simulated else ("Requirement met" if rate >= TARGET else "Requirement not met")
 
-    out = [banner + "# Miqdar (مقدار) Integrated System: Food-Addition Detection and Logging Report", ""]
+    out = [banner + "# Miqdar Integrated System: Food-Addition Detection and Logging Report", ""]
     out += [
-        "**Document:** `" + (source.rsplit(".", 1)[0] + "_REPORT.md") + "`  ",
+        "**Document:** `" + (document or source.rsplit(".", 1)[0] + "_REPORT.md") + "`  ",
         "**Project:** Miqdar Smart Nutrition Scale & Mobile System (Senior Capstone)  ",
         "**Specification:** For supported food classes, the integrated system shall correctly detect and log each "
         "newly added food item with 90% event detection accuracy.  ",
@@ -209,9 +209,10 @@ def report(rows: list[dict[str, str]], simulated: bool, source: str) -> str:
         f"**{low * 100:.0f}% to {high * 100:.0f}%**: the measured {rate * 100:.0f}% is the best estimate, and more trials "
         "would narrow the range.",
         "", "---", "", "## 8. Reproducing This Report", "",
-        "Fill one row per addition in `evaluation/addition_trials/template.csv` (or a copy), then run:",
+        "The trial log is `evaluation/addition_trials/addition_trials.csv`, one row per addition. The report is made from it with:",
         "```bash",
-        "python3 evaluation/addition_trials/score_trials.py your_trials.csv --out your_trials_REPORT.md",
+        "python3 evaluation/addition_trials/score_trials.py evaluation/addition_trials/addition_trials.csv \\",
+        "  --out evaluation/addition_trials/ADDITION_TRIALS_REPORT.md",
         "```",
         "The setup and steps are in `docs/ADDITION_TRIALS.md`.",
     ]
@@ -226,7 +227,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, help="also write the report to this Markdown file")
     args = parser.parse_args()
     rows, simulated = load(args.csv)
-    text = report(rows, simulated, args.csv.name)
+    text = report(rows, simulated, args.csv.name, args.out.name if args.out else None)
     print(text)
     if args.out:
         args.out.write_text(text, encoding="utf-8")

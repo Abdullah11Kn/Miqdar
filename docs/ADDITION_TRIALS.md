@@ -37,14 +37,14 @@ Gemini; only Done does, once per meal.
 
 ## Recording and showing the result
 
-- `evaluation/addition_trials/template.csv`: the empty log for the real trials, one row per addition.
+- `evaluation/addition_trials/addition_trials.csv`: the empty log for the real trials, one row per addition.
 - `evaluation/addition_trials/SIMULATED_EXAMPLE.csv`: invented rows that show the format and how a failure is
   written. **Not measured. Never present it as a result.**
 - `evaluation/addition_trials/score_trials.py`: turns a log into the results table, the rate, results per food, the failed trials and a
   95% confidence interval:
 
 ```bash
-python3 evaluation/addition_trials/score_trials.py evaluation/addition_trials/template.csv --out trial_report.md
+python3 evaluation/addition_trials/score_trials.py evaluation/addition_trials/addition_trials.csv --out evaluation/addition_trials/ADDITION_TRIALS_REPORT.md
 ```
 
 The report is laid out like `evaluation/EVALUATION_400_REPORT.md`: header, key results, method, results by kind of
