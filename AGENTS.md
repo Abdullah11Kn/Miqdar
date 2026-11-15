@@ -229,6 +229,11 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-15: Checked the "each newly added food" specification against the code (no code changed)
+- Decided: Abdullah pasted the integrated specification the instructor will check: at least 90% of newly added foods (each at least 20 g) detected and logged, judged as 18 of 20 additions giving exactly one correct saved entry with the added weight; a weight change alone, or pressing a scan button, does not count as detecting an addition. He asked for an assessment only, nothing built.
+- Found: partly met. The Add Next Food plate flow weighs each addition by the weight difference and identifies each food, but it needs a button press per food and saves one meal with the foods inside it. The Pi's `AutoCaptureMonitor` (off unless `--auto-capture`) does notice additions, but it re-arms only at 25 g (the spec tests 20 g), and it photographs and logs the whole plate's total weight, so rice then chicken would log "rice and chicken" at the total, not chicken at its added grams. No 20-addition trial has been run on the real scale. This conflicts with the 2026-11-04 decision that the next food uses a button, not automatic detection; only Abdullah can change that.
+- Risks for a 20-trial run: Gemini's free plan allows about 20 requests a day per model; two phones (or a phone and the simulator) on the same scale can save the same capture twice, which counts as a failed trial.
+
 ### 2026-11-15: No stock food photo on meals without a photo; barcode meals show the pack
 - Decided: Abdullah saw a picture of rice when he scanned any barcode, and asked for the product's picture or an icon instead.
 - Found: Review Meal guessed a stock photo from the food's name for any meal without a photo of its own, falling back to the kabsa photo; barcode, search, hand-entered and described meals all got it.
