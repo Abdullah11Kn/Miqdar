@@ -1,81 +1,53 @@
-# Food addition trials: how to run, record and present them
+# Food-addition trials: how to measure the 90% requirement
 
-The integrated specification: *for supported food classes, the integrated system shall correctly detect and log each
-newly added food item with 90% event detection accuracy.*
+The integrated specification says: *for supported food classes, the integrated system shall correctly detect and log
+each newly added food item with 90% event detection accuracy.* This page says how to measure that on the real scale and
+how to show the result. **No trials have been run yet** (2026-11-15).
 
-This guide says how to measure that on the real scale. **No real trial has been run yet** (2026-11-15). The files
-below are a blank sheet, an invented example to show the format, and a script that turns any sheet into the results.
+## What counts
 
-| File | What it is |
-|---|---|
-| `evaluation/addition_trials/template.csv` | The blank sheet for the real trials: 20 rows in 7 meals |
-| `evaluation/addition_trials/SIMULATED_EXAMPLE.csv` | **Invented rows, not measured.** Shows how a filled sheet and a failure look. Never present it as results |
-| `evaluation/addition_trials/report.py` | Makes the results table, the rate, and breakdowns by food and kind of addition |
+- **One event** is one addition: one supported food of at least 20 g put on the plate, alone or on top of food already
+  there.
+- **Pass:** the app records it by itself (a "Food N · grams" row appears without a button), and after Done the saved
+  meal lists it **once**, with the **correct food** and the **added grams**.
+- **Fail:** missed (no row), wrong food, saved twice, or not saved.
+- **Requirement:** at least 90%, so at least **18 of 20**.
 
-## What 90% means
+This is a success rate per addition. It is not Gemini's "% sure" badge, and not the accuracy of the weight, which is a
+separate specification.
 
-One **event** is one addition: putting one supported food of at least 20 g on the plate. Each event passes or fails.
+## Before starting
 
-| Outcome | Counts as |
-|---|---|
-| Detected, the right food saved, saved exactly once, with its added grams | Pass |
-| Nothing recorded (missed) | Fail |
-| The wrong food saved | Fail |
-| Saved twice | Fail |
+1. Phone and scale on the same hotspot; only **one phone** open on the scale, or a capture can be saved twice.
+2. Add Meal open, **Detect each food automatically** on.
+3. Empty plate on the scale, then **Zero**.
+4. Decide the supported foods and write them down first, for example rice, chicken, jareesh, dates, laban, tamees,
+   hummus, salad, a soft-drink can. Test only those.
 
-Rate = passes ÷ additions × 100. At least **18 of 20** passes meets 90%. This is not Gemini's "% sure" on a photo,
-and not the scale's weighing accuracy, which is a different specification.
+## Running a meal (2 to 4 additions)
 
-## Supported foods
+1. Put the first food on and take your hand away. After 5 still seconds "Food 1" appears.
+2. Add the next food (20 g or more), hand away, wait for the next row. Repeat.
+3. Tap **Done**, check Review, **Save**.
+4. Open the meal in the Diary and fill one row per addition in the trial log.
+5. Take the food off (or Zero) before the next meal.
 
-State the list before testing, and test only from it. A good list for Miqdar: rice (plain or kabsa), chicken (grilled
-or cooked), jareesh, saleeg, dates, tamees bread, hummus, falafel, boiled egg, salad, cucumber, laban, canned drinks.
+Twenty additions in about seven meals use about **seven Gemini requests**, because detection and weighing do not use
+Gemini; only Done does, once per meal.
 
-## Setting up
+## Recording and showing the result
 
-1. Phone and scale on the same hotspot. **Only one phone** with the app open, so no capture is saved twice.
-2. Add Meal open, on Scale, with **Detect each food automatically** on.
-3. Empty plate on the scale, tap **Zero**.
-
-## One meal of trials
-
-1. Put the first food on. Hands off. Wait for "Food 1 · N g" (about 5 seconds). That is one trial.
-2. Leave it there. Add the next food (20 g or more). Hands off. Wait for "Food 2 · N g". The next trial.
-3. A third food the same way, if the meal has one.
-4. Tap **Done**, check Review, tap **Save**. Then open the meal in the Diary.
-5. Write each food's row in the sheet (below), then take everything off the plate, or tap Zero, for the next meal.
-
-20 additions in 7 meals are 7 Gemini requests, one per meal. The free plan allows about 20 a day per model, so the
-trials fit, with room for a live demonstration.
-
-## Recording each trial
-
-| Column | What to write |
-|---|---|
-| `trial`, `meal` | Numbers, already filled in the blank sheet |
-| `food_added` | The food you put on |
-| `food_already_on_plate` | What was there before; empty for the first food |
-| `added_mass_g` | The grams shown on its "Food N" row |
-| `detected` | `yes` if its "Food N" row appeared by itself |
-| `saved_as` | The name in the saved meal in the Diary |
-| `correct_food` | `yes` if that name is the food you added (a close name such as "Sukari dates" for dates is right) |
-| `entries_saved` | How many times it appears in the saved meal: 1 is right |
-| `notes` | Anything unusual, especially for a failure |
-
-Then:
+- `evaluation/addition_trials/template.csv`: the empty log for the real trials, one row per addition.
+- `evaluation/addition_trials/SIMULATED_EXAMPLE.csv`: invented rows that show the format and how a failure is
+  written. **Not measured. Never present it as a result.**
+- `evaluation/addition_trials/score_trials.py`: turns a log into the results table, the rate, the failed trials and a
+  95% confidence interval:
 
 ```bash
-python3 evaluation/addition_trials/report.py evaluation/addition_trials/my_trials.csv
+python3 evaluation/addition_trials/score_trials.py evaluation/addition_trials/template.csv --out trial_report.md
 ```
 
-## Presenting it
+Any file whose name or first line says SIMULATED is labelled as simulated on every output.
 
-Show the table the script prints, the rate line, and the breakdown "first food" against "added with food already on
-the plate", because the second is what the specification is about. Explain every failure in one line. Then repeat two
-or three additions live: rice, wait for Food 1, add chicken, wait for Food 2, Done, Save, open the meal in the Diary.
-
-Words that fit: *"One event is adding one supported food of at least 20 grams. A trial passes only when it produces
-exactly one saved entry with the correct food and its added weight. We ran 20 additions over 7 meals, including
-additions with food already on the plate, and N passed, so the rate is N × 5 %."*
-
-Only say this with a sheet from real trials. The simulated example shows the format and nothing else.
+Twenty trials are a small sample: 19 of 20 measured means the true rate is very likely somewhere between about 76% and
+99%. Say so when presenting; it shows the measurement is understood, not weakened.

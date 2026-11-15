@@ -12,6 +12,7 @@ When a document disagrees with the code, the code is right.
 | [HARDWARE.md](HARDWARE.md) | Wiring, Raspberry Pi and calibration |
 | [DESIGN.md](DESIGN.md) | The design system: colors, type, components and rules |
 | [APP_SCREENS.md](APP_SCREENS.md) | Every screen and control as they are now |
+| [ADDITION_TRIALS.md](ADDITION_TRIALS.md) | How to measure the 90% food-addition requirement on the real scale, record it and show it; the log, a simulated example and the scoring script are in `evaluation/addition_trials/` |
 | [REPORT_3_INPUT.md](REPORT_3_INPUT.md) | Full technical record for Report 3: all work from 12 October to 5 November 2026, excluding the new design |
 | [research/diabetes-carb-guidance.md](research/diabetes-carb-guidance.md) | What diabetes bodies say about carbs per meal and snack, carb portions, net carbs, Ramadan meals and disclaimers, with sources |
 | [research/reports/Calorie app feature gaps.md](<research/reports/Calorie app feature gaps.md>) | What leading calorie, AI photo, smart-scale, diabetes and Saudi apps offer, what users value, and a ranked list of features Miqdar lacks; notes behind it in research/research_notes/ |
@@ -37,4 +38,4 @@ servers or plans.
 | FIGMA_TO_FLUTTER.md, MOBILE_DESIGN_QA.md, MOBILE_REST_CONNECTION.md | The first app design |
 | handover/ | Original hardware handover PDFs |
 
-The 400-sample report in `evaluation/` is placeholder data. Do not quote its numbers as results.
+The 400-sample report in `evaluation/` is placeholder data, and `evaluation/addition_trials/SIMULATED_EXAMPLE.csv` is invented to show a format. Do not quote either as results.
