@@ -1428,7 +1428,8 @@ class MiqdarController extends ChangeNotifier {
     apiService.gemini.warmUp(); // a new capture: Gemini is next
     // Marked seen only after the photo arrives, so a failed download retries on the next poll.
     final event = await apiService.getLatestScaleCapture();
-    _pauseAutoAdd(untilCleared: true); // that food is captured; the next meal starts on a cleared plate
+    // Capture on this phone may have taken the same photo while it downloaded: analyse it once only.
+    if (event['event_id'] == _lastSeenCaptureEventId) return false;
     if (event['status'] == 'photo') {
       unawaited(_ingestCaptureEvent(event)); // Gemini takes seconds; keep the weight live meanwhile
     } else {
@@ -1439,6 +1440,7 @@ class MiqdarController extends ChangeNotifier {
 
   Future<RecognitionResult?> _ingestCaptureEvent(Map<String, dynamic> event) async {
     _lastSeenCaptureEventId = event['event_id'] as String?;
+    _pauseAutoAdd(untilCleared: true); // that food is captured; the next meal starts on a cleared plate
     // Survives a restart, so reopening the app does not offer a saved capture again.
     _remember('last_capture_event', _lastSeenCaptureEventId ?? '');
     final status = event['status'] as String?;
