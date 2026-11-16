@@ -56,6 +56,7 @@ phone. The Pi needs no Gemini key. `--analyze-on-scale` or `--server` is the old
 - **Gemini:** free plan. Flash models allow about 20 requests a day per model. On 2026-11-02 the main model was
   overloaded and the last fallback was out of quota.
 - **Next work (after the code review, all fixed):** every ticket from GitHub issue #1 (#2 to #13) is built. Still open because they need hardware: #4 and #5 (real scale), #10 and #13 (real iPhone).
+- **Architecture review (2026-11-17):** eight candidates listed in the change log; none chosen or built yet. It also found two suspected faults, read from code and not confirmed by running: a plate's "estimate" label may be lost after a restart, and the Ramadan carb number disagrees between screen and warning.
 - **Agent skills setup:** done. See Agent skills below.
 - **Automatic food detection on Add Meal (2026-11-15):** each food of 20 g or more is weighed and photographed after 5 s at rest; Done names the whole meal. Tested only on a simulated scale with a fake Gemini.
 - **App icon (2026-11-15):** the logo on black, on iOS and Android, named Miqdar; installed on his iPhone the same day.
@@ -230,6 +231,13 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 ## Change log
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
+
+### 2026-11-17: Architecture review (no code changed)
+- Decided: Abdullah ran `/improve-codebase-architecture`. The review was read-only; the report was an HTML page in a temporary folder, not kept in the repository. He has not yet chosen a candidate.
+- Found, eight candidates in order: (1) one scale module that returns typed values in place of the raw maps from `ApiService`, with one shared fake scale for tests (six hand-written fakes exist today); (2) capture, plate and automatic detection in `MiqdarController` as one state machine (four of the logged capture bugs lived there; about 200 public members on the controller); (3) one meal draft module in place of `RecognitionResult`, where a plate is stored three ways; (4) one pure daily-limits module (the answer is spread over seven files); (5) food identification behind one interface with a fake; (6) one typed settings module (about 20 raw keys in 3 files); (7) Ramadan periods, the diary day and meal types moved off the controller; (8) a session object inside `app.py`. Recommended first: 1, then 2. Already deep, leave alone: `GeminiNutritionService`, `FastHttp`, the barcode reader, health sync and reminder seams, the report and summary functions, database migrations.
+- Found on the way, read from code and NOT run: (a) the `meals` table stores no values label, and `_mealFromRow` in `local_database.dart` rebuilds it from the first food's id prefix. After a restart, a plate whose first food is from the food list and whose later food is a Gemini estimate would read as typical values, not an estimate, and a hand-entered food would lose "entered by you". `mixed_plate_test.dart` checks only the meal in memory. This would break the rule that Gemini values are labelled as estimates. (b) In Ramadan mode with a suggested carb plan, `controller.carbTargetFor` hides the per-meal carb number on screen while `alertContextFor` still feeds `diabetes.carbTargetFor` to the red warning.
+- Tested: nothing run. Counts came from grep; a sample was checked by hand.
+- Next: Abdullah picks a candidate; then confirm (a) with a test that saves a plate and reads it back from a real database file, and fix it with a column and a migration.
 
 ### 2026-11-15: The real cause of the 30 s: connecting to Google from the iPhone; and one capture asked Gemini twice
 - Decided: after the first speed fix Abdullah still saw about 30 s on his iPhone and asked for an immediate fix.
