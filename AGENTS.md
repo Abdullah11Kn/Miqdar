@@ -232,6 +232,12 @@ when Gemini is down; USB-C is dropped in favor of Wi-Fi.
 
 Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 
+### 2026-11-19: Poster context for an AI poster tool (no code changed)
+- Decided: Abdullah asked for a small Markdown file of context about his ICS (software) work only, for an AI tool that will write and design the poster; he will add photos of the scale and of the phone's result screen. The file gives facts, not poster text.
+- Changed: added `docs/POSTER_CONTEXT.md` and listed it in `docs/README.md`. It states only measured results (real-scale connection, the 34 g biscuit, about 3 s photo to result on the iPhone) and tells the tool not to invent an accuracy figure or use the placeholder benchmarks.
+- Tested: nothing to run; facts taken from these notes and the code (model list in `gemini_service.dart`, about 280 unit tests).
+- Next: if accuracy trials are run before the poster is printed, add the real result to that file.
+
 ### 2026-11-17: Architecture review (no code changed)
 - Decided: Abdullah ran `/improve-codebase-architecture`. The review was read-only; the report was an HTML page in a temporary folder, not kept in the repository. He has not yet chosen a candidate.
 - Found, eight candidates in order: (1) one scale module that returns typed values in place of the raw maps from `ApiService`, with one shared fake scale for tests (six hand-written fakes exist today); (2) capture, plate and automatic detection in `MiqdarController` as one state machine (four of the logged capture bugs lived there; about 200 public members on the controller); (3) one meal draft module in place of `RecognitionResult`, where a plate is stored three ways; (4) one pure daily-limits module (the answer is spread over seven files); (5) food identification behind one interface with a fake; (6) one typed settings module (about 20 raw keys in 3 files); (7) Ramadan periods, the diary day and meal types moved off the controller; (8) a session object inside `app.py`. Recommended first: 1, then 2. Already deep, leave alone: `GeminiNutritionService`, `FastHttp`, the barcode reader, health sync and reminder seams, the report and summary functions, database migrations.

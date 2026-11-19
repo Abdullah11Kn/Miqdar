@@ -14,6 +14,7 @@ When a document disagrees with the code, the code is right.
 | [APP_SCREENS.md](APP_SCREENS.md) | Every screen and control as they are now |
 | [ADDITION_TRIALS.md](ADDITION_TRIALS.md) | How to measure the 90% food-addition requirement on the real scale, record it and show it; the log, a simulated example and the scoring script are in `evaluation/addition_trials/` |
 | [REPORT_3_INPUT.md](REPORT_3_INPUT.md) | Full technical record for Report 3: all work from 12 October to 5 November 2026, excluding the new design |
+| [POSTER_CONTEXT.md](POSTER_CONTEXT.md) | Short context about the software (ICS) work for an AI tool that makes the poster, with what may and may not be claimed |
 | [research/diabetes-carb-guidance.md](research/diabetes-carb-guidance.md) | What diabetes bodies say about carbs per meal and snack, carb portions, net carbs, Ramadan meals and disclaimers, with sources |
 | [research/reports/Calorie app feature gaps.md](<research/reports/Calorie app feature gaps.md>) | What leading calorie, AI photo, smart-scale, diabetes and Saudi apps offer, what users value, and a ranked list of features Miqdar lacks; notes behind it in research/research_notes/ |
 | [agents/](agents/) | Where issues live, the label names and the domain document rules, for the skills that use them |
