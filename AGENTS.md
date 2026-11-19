@@ -237,6 +237,7 @@ Newest first. Older history: `git log` and `docs/CHANGELOG_1.1.md`.
 - Changed: added `docs/POSTER_CONTEXT.md` and listed it in `docs/README.md`. It states only measured results (real-scale connection, the 34 g biscuit, about 3 s photo to result on the iPhone) and tells the tool not to invent an accuracy figure or use the placeholder benchmarks.
 - Tested: nothing to run; facts taken from these notes and the code (model list in `gemini_service.dart`, about 280 unit tests).
 - Next: if accuracy trials are run before the poster is printed, add the real result to that file.
+- Later the same day: Abdullah found it dry and full of "do not" rules, deleted parts, and asked for it to show off the 16 weeks of work, the specifications met and the main features, without listing every one. Rewritten as a showcase: problem, approach, architecture, engineering highlights, a specifications table, the work in numbers (about 24,000 lines of Dart, 2,400 of Python on the scale, 44 issues, 125+ commits, counted with `wc` and `gh`). The rules section is gone. The accuracy specifications are described by how the design addresses them, with no percentage, because none has been measured.
 
 ### 2026-11-17: Architecture review (no code changed)
 - Decided: Abdullah ran `/improve-codebase-architecture`. The review was read-only; the report was an HTML page in a temporary folder, not kept in the repository. He has not yet chosen a candidate.
